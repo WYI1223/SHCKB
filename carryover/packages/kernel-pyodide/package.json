@@ -1,0 +1,25 @@
+{
+  "name": "@skb/kernel-pyodide",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "typecheck": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@skb/kernel-adapter": "workspace:*",
+    "pyodide": "^0.27.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.0",
+    "vitest": "^4.1.5"
+  }
+}

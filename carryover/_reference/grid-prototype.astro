@@ -1,0 +1,36 @@
+---
+/**
+ * THROWAWAY ROUTE — UI prototype for the grid redesign.
+ *
+ * Per docs/design/grid-redesign-2026-05-11.md. 3 radically different
+ * visual mental models for the 12-col grid baseplate, switchable via
+ * ?variant=A|B|C URL search param + floating bottom bar.
+ *
+ * After variant choice is made: lift winning variant into the real
+ * editor + delete this route + delete components/_grid-prototype/.
+ */
+import { GridPrototype } from '../components/_grid-prototype/GridPrototype';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SKB Grid Prototype</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, sans-serif;
+        background: oklch(98% 0.005 80);
+      }
+    </style>
+  </head>
+  <body>
+    <GridPrototype client:only="react" />
+  </body>
+</html>

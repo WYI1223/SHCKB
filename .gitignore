@@ -1,0 +1,40 @@
+# Per-user agent / IDE / tool artifacts (not shared across contributors)
+.claude/
+.agents/
+.codex
+.codex-runs/
+
+# Node / pnpm / monorepo (will populate when M1 scaffolds)
+node_modules/
+.pnpm-store/
+.turbo/
+.next/
+.astro/
+dist/
+build/
+*.tsbuildinfo
+
+# Test / coverage / cache
+coverage/
+.cache/
+test-results/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Scratch
+.tmp_*
+tmp/
