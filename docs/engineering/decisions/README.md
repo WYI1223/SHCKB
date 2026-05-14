@@ -33,26 +33,26 @@
 ## References
 ```
 
-## ADR Index (Phase B 待写 16 个；编号从源 DI doc §12 next steps 推出)
+## ADR Index
 
 | ADR | 主题 | Status | Source frozen DI § |
 |---|---|---|---|
-| ADR-0001 | 产品定义 + 部署矩阵 | TODO | architecture-rebuild §0.5 + §0.6 |
-| ADR-0002 | Substrate: DB-backed + plugin serializer | TODO | architecture-rebuild §3 + §6 L1 |
-| ADR-0003 | Grid-engine contract（12-col + AABB + gravity Option A）| TODO | grid-redesign + architecture-rebuild §2 |
-| ADR-0004 | Block plugin extension model | TODO | architecture-rebuild §4 |
-| ADR-0005 | AI agent semantic API（agentOps = block-scoped tool use）| TODO | architecture-rebuild §5 + §11.3 |
-| ADR-0006 | Backend stack（TS + Bun + Hono + Drizzle multi-dialect）| TODO | architecture-rebuild §11.7 + §11.8 |
-| ADR-0007 | Storage provider abstraction（local FS + S3-compatible）| TODO | architecture-rebuild §11.13 |
-| ADR-0008 | Search provider abstraction（SQLite FTS5 + Postgres tsvector + external）| TODO | architecture-rebuild §11.14 |
-| ADR-0009 | API style: GET + POST collapsed | TODO | architecture-rebuild §11.12 |
-| ADR-0010 | Performance + Lighthouse acceptance（90+ + backend SLO）| TODO | architecture-rebuild §11.10 |
-| ADR-0011 | Plugin sandboxing evolution（inline → worker → WASM）| TODO | architecture-rebuild §11.15 |
-| ADR-0012 | OpenAPI gen 链路（zod-first + REST + agent registry split）| TODO | architecture-rebuild §5.5 + 隐含 §11.12 |
-| ADR-0013 | Markdown tile editor（Lexical WYSIWYG + DB markdown source）| TODO | architecture-rebuild §11.1 |
-| ADR-0014 | Plugin contract details（agentOps signature / capability ctx / versioning）| TODO | architecture-rebuild §11.3 |
-| ADR-0015 | Agent wire protocol（MCP + SKILL.md 双层 + REST + SSE）| TODO | architecture-rebuild §11.4 |
-| ADR-0016 | CSS framework（Tailwind 4 + cva + shadcn ui + grid-themes）| TODO | architecture-rebuild §11.16 |
+| [ADR-0001](./ADR-0001-product-environment.md) | 产品定义 + 部署矩阵 | accepted | architecture-rebuild §0.5 + §0.6 |
+| [ADR-0002](./ADR-0002-substrate-db-backed.md) | Substrate: DB-backed + plugin serializer | accepted | architecture-rebuild §3 + §6 L1 |
+| [ADR-0003](./ADR-0003-grid-engine-contract.md) | Grid-engine contract（12-col + AABB + gravity Option A）| accepted | grid-redesign + architecture-rebuild §2 |
+| [ADR-0004](./ADR-0004-block-plugin-model.md) | Block plugin extension model | accepted | architecture-rebuild §4 |
+| [ADR-0005](./ADR-0005-agent-semantic-api.md) | AI agent semantic API（agentOps = block-scoped tool use）| accepted | architecture-rebuild §5 + §11.3 |
+| [ADR-0006](./ADR-0006-backend-stack.md) | Backend stack（TS + Bun + Hono + Drizzle multi-dialect）| accepted | architecture-rebuild §11.7 + §11.8 |
+| [ADR-0007](./ADR-0007-storage-abstraction.md) | Storage provider abstraction（local FS + S3-compatible）| accepted | architecture-rebuild §11.13 |
+| [ADR-0008](./ADR-0008-search-abstraction.md) | Search provider abstraction（SQLite FTS5 + Postgres tsvector + external）| accepted | architecture-rebuild §11.14 |
+| [ADR-0009](./ADR-0009-api-style.md) | API style: GET + POST collapsed | accepted | architecture-rebuild §11.12 |
+| [ADR-0010](./ADR-0010-performance-budget.md) | Performance + Lighthouse acceptance（90+ + backend SLO）| accepted | architecture-rebuild §11.10 |
+| [ADR-0011](./ADR-0011-sandboxing-evolution.md) | Plugin sandboxing evolution（inline → worker → WASM）| accepted | architecture-rebuild §11.15 |
+| [ADR-0012](./ADR-0012-openapi-gen.md) | OpenAPI gen 链路（zod-first + REST + agent registry split）| accepted | architecture-rebuild §5.5 + §11.12 |
+| [ADR-0013](./ADR-0013-markdown-tile-editor.md) | Markdown tile editor（Lexical WYSIWYG + DB markdown source）| accepted | architecture-rebuild §11.1 |
+| [ADR-0014](./ADR-0014-plugin-contract.md) | Plugin contract details（agentOps signature / capability ctx / versioning）| accepted | architecture-rebuild §11.3 |
+| [ADR-0015](./ADR-0015-agent-wire-protocol.md) | Agent wire protocol（MCP + SKILL.md 双层 + REST + SSE）| accepted | architecture-rebuild §11.4 |
+| [ADR-0016](./ADR-0016-css-framework.md) | CSS framework（Tailwind 4 + cva + shadcn ui + grid-themes）| accepted | architecture-rebuild §11.16 |
 
 ## 编号约定
 
