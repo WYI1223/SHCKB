@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | accepted |
+| Status | proposed |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
@@ -86,4 +86,4 @@ Bun + Node 都支持 worker thread + WASM；§11.8 LOCKED Bun + TS 选择不约�
 
 ## Changelog
 
-- 2026-05-13 initial draft + accepted (LOCKED 2026-05-13 cascading-confirm: Day-1 hook + strategic intent)
+- 2026-05-13 initial draft (decision LOCKED 2026-05-13 cascading-confirm: Day-1 hook + strategic intent)

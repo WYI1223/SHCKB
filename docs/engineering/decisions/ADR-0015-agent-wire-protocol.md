@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | accepted |
+| Status | proposed |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
@@ -127,4 +127,4 @@ Tier 5 — WebSocket
 
 ## Changelog
 
-- 2026-05-13 initial draft + accepted (LOCKED 2026-05-13 post researcher dispatch; supersede gatekeeper initial mis-evaluation of MCP vs Skills)
+- 2026-05-13 initial draft (decision LOCKED 2026-05-13 post researcher dispatch; supersede gatekeeper initial mis-evaluation of MCP vs Skills)

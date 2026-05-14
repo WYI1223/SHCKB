@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | accepted |
+| Status | proposed |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
@@ -133,4 +133,4 @@ User explicit: **不替代 markdown plugin，以新 plugin 形式提供**。
 
 ## Changelog
 
-- 2026-05-13 initial draft + accepted (LOCKED 2026-05-12 in source DI doc post misdiagnosis correction)
+- 2026-05-13 initial draft (decision LOCKED 2026-05-12 in source DI doc post misdiagnosis correction)

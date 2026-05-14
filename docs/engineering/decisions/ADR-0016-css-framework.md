@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | accepted |
+| Status | proposed |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
@@ -149,4 +149,4 @@ BlockPlugin contract（ADR-0004 / ADR-0014）不规定 styling 实现方式，�
 
 ## Changelog
 
-- 2026-05-13 initial draft + accepted (LOCKED 2026-05-13 in source DI doc post user Tailwind push back + cva surface)
+- 2026-05-13 initial draft (decision LOCKED 2026-05-13 in source DI doc post user Tailwind push back + cva surface)

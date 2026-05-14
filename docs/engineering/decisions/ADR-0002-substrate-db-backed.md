@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | accepted |
+| Status | proposed |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
@@ -11,7 +11,11 @@
 
 ## Context
 
-底层数据 substrate 决定了所有 read / write / agent / storage / git diff / backup 形态。旧 spec 选 MDX 文件 + git-as-DB；framing 复盘暴露这个选择是 "personal markdown wiki" 默认值的产物，不匹配 self-hostable webapp + multi-user + discussion + multi-scale 的真实需求（详 ADR-0001）。
+底层数据 substrate 决定了 read / write / agent / storage 形态。旧 spec 选 MDX 文件 + git-as-DB；framing 复盘暴露这个选择是 "personal markdown wiki" 默认值的产物，不匹配 self-hostable webapp + multi-user + discussion + multi-scale 的真实需求（详 ADR-0001）。
+
+**范围澄清**：本 ADR 只决定 **operational data 持久化层**（live data store）。这是一个 server-side 服务的数据层，跟以下两件事是**独立 concern**，不在本 ADR 范围：
+- **版本控制 (git)** —— 只管 codebase / config / docs；与数据层无关，不是 substrate 决策
+- **备份** —— 独立 operational concern；可配置 backup provider，详 ADR-0017；本 ADR 不规定备份机制
 
 候选 substrate：
 - (a) MDX 文件 + git-as-DB
@@ -52,29 +56,29 @@ Plugin contract 提供 `serializer.{toRow, fromRow}` —— 把 plugin 自定 Bl
 - 走 object storage（详 ADR-0007）
 - DB 只存 blob URL ref + metadata（mime / size / hash）
 
-### Git 关系
+### 数据持久化 = operator 自持的 live store
 
-- Source code / config / migrations / docs 走 git
-- Notes / blocks / discussions / sessions 全在 DB
-- Backup: DB dump → git or object storage（详 runbooks）
+- DB 文件 / 实例由 operator 自持（SQLite 文件在 operator 磁盘 / Postgres operator 自跑或租 managed / D1 on Cloudflare）
+- 持久化层的"如何不丢"由**备份**负责，是独立 concern → ADR-0017
+- 本 ADR 不规定备份机制；只规定 live data 在 DB
 
 ## Consequences
 
 **Positive**:
-- 支持 multi-user write（git-as-DB 不能）
+- 支持 multi-user write
 - 支持 transactional ACID 操作
 - Schema migration 工具化（Drizzle 等）
 - Read path SSR 直接从 DB 渲染 → 低延迟 + CDN cacheable
 - Plugin contract 解耦 plugin 内部表达和持久化形态
 
 **Negative / Trade-offs**:
-- "vim 改一个文件" 这种 git-native workflow 失去；改 plugin content 必须经 API
-- Backup 不是 git commit 自带，需要 explicit dump
-- Operator 需配置 DB connection（vs git pull / push 简单）
+- 改 plugin content 必须经 API（不能直接编辑底层文件）
+- Operator 需配置 DB connection（SQLite 文件路径 / Postgres connection string）
+- 备份是独立 operational concern，需要明确策略（详 ADR-0017），不是 substrate 自带
 
 **Risks**:
 - DB schema 变更需谨慎；plugin version migration 必须 robust（详 ADR-0014）
-- 单 SQLite 文件高写入下需要 WAL mode + 不同 backup 策略
+- 单 SQLite 文件高写入下需要 WAL mode；备份策略详 ADR-0017
 
 ## Alternatives considered
 
@@ -86,8 +90,9 @@ Plugin contract 提供 `serializer.{toRow, fromRow}` —— 把 plugin 自定 Bl
 ## References
 
 - Source DI doc: `engineering/design/_frozen/architecture-rebuild-2026-05-11.md` §3 + §6 L1 + §11.2 (closed)
-- Related ADRs: ADR-0001 (product), ADR-0004 (plugin model), ADR-0006 (backend stack incl. DB), ADR-0007 (storage), ADR-0014 (plugin contract details)
+- Related ADRs: ADR-0001 (product), ADR-0004 (plugin model), ADR-0006 (backend stack incl. DB), ADR-0007 (storage), ADR-0014 (plugin contract details), ADR-0017 (backup strategy)
 
 ## Changelog
 
-- 2026-05-13 initial draft + accepted (LOCKED 2026-05-11 in source DI doc)
+- 2026-05-13 initial draft (decision LOCKED 2026-05-11 in source DI doc)
+- 2026-05-14 owner review fix: removed "Git 关系" subsection — git 只管 codebase 非 substrate concern；backup 分离到独立 ADR-0017；Consequences 去 git-baseline 对比；scope 澄清写入 Context

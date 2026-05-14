@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | accepted |
+| Status | proposed |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
@@ -90,4 +90,4 @@ Plugin `agentOp.handler` 通过 `ctx.storage` capability 拿 provider 实例（�
 
 ## Changelog
 
-- 2026-05-13 initial draft + accepted (LOCKED 2026-05-12 in source DI doc)
+- 2026-05-13 initial draft (decision LOCKED 2026-05-12 in source DI doc)

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | accepted |
+| Status | proposed |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
@@ -108,4 +108,4 @@ validateState(state) → ValidationResult
 
 ## Changelog
 
-- 2026-05-13 initial draft + accepted (carryover package already validated; mental model LOCKED 2026-05-11)
+- 2026-05-13 initial draft (carryover package already validated; mental model LOCKED 2026-05-11)

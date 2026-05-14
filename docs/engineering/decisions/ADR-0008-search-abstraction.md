@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | accepted |
+| Status | proposed |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
@@ -115,4 +115,4 @@ Default: 跟 DB 选择匹配（`DATABASE_URL=sqlite:...` → `SEARCH_PROVIDER=sq
 
 ## Changelog
 
-- 2026-05-13 initial draft + accepted (LOCKED 2026-05-12 in source DI doc)
+- 2026-05-13 initial draft (decision LOCKED 2026-05-12 in source DI doc)
