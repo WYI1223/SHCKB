@@ -90,7 +90,7 @@ class BlockRegistry {
 - **闭合 BlockKind union (旧 ADR-0009)**: TS strictness 但失去扩展性；rejected per user explicit "extension mode" requirement
 - **ADR-0008 D2 block-foundation interface freeze (旧)**: 防 contract 漂移但同时阻塞扩展；rejected per same reason
 - **每 plugin 独立 SDK / 协议**: 没用 single contract；plugin author 学习成本翻倍；rejected per simplicity
-- **类 Notion native block 闭源固定 set**: 不符合 open self-hostable 形态；rejected per ADR-0001
+- **类 Notion native block 闭源固定 set**: 不符合 open self-hostable 形态；rejected per `product/prd/project.md`
 - **类 VSCode extension API**: 太大太重；rejected per scope
 
 ## References

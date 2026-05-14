@@ -11,7 +11,7 @@
 
 ## Context
 
-底层数据 substrate 决定了 read / write / agent / storage 形态。旧 spec 选 MDX 文件 + git-as-DB；framing 复盘暴露这个选择是 "personal markdown wiki" 默认值的产物，不匹配 self-hostable webapp + multi-user + discussion + multi-scale 的真实需求（详 ADR-0001）。
+底层数据 substrate 决定了 read / write / agent / storage 形态。旧 spec 选 MDX 文件 + git-as-DB；framing 复盘暴露这个选择是 "personal markdown wiki" 默认值的产物，不匹配 self-hostable webapp + multi-user + discussion + multi-scale 的真实需求（详 `product/prd/project.md`）。
 
 ### 范围澄清
 
@@ -100,7 +100,7 @@ Plugin 声明 `contentStorageHint: 'sidecar-table'`（ADR-0004）时，框架为
 
 ## Alternatives considered
 
-- **MDX 文件 + git-as-DB**: 不支持 multi-user write + auth；不能存 sessions；rejected per ADR-0001 product environment
+- **MDX 文件 + git-as-DB**: 不支持 multi-user write + auth；不能存 sessions；rejected per `product/prd/project.md` (self-hostable platform 形态)
 - **TOML + per-block files**: file-system metaphor 和 "constrained canvas" 心智不一致；agent access pattern 变弱；rejected per source DI doc §11.2
 - **Single-file TOML**: 简化 file count 但仍是 file-not-DB；multi-user write race condition；rejected per §11.2
 - **NoSQL (MongoDB / Couchbase)**: relational schema fits notes/blocks/users naturally；NoSQL flexibility 没用；rejected per simplicity preference
@@ -108,7 +108,7 @@ Plugin 声明 `contentStorageHint: 'sidecar-table'`（ADR-0004）时，框架为
 ## References
 
 - Source DI doc: `engineering/design/_frozen/architecture-rebuild-2026-05-11.md` §3 + §6 L1 + §11.2 (closed)
-- Related ADRs: ADR-0001 (product), ADR-0004 (plugin model), ADR-0006 (backend stack incl. DB), ADR-0007 (storage), ADR-0014 (plugin contract details), ADR-0017 (backup strategy)
+- Related ADRs: ADR-0001 (canonical deployment artifact), ADR-0004 (plugin model), ADR-0006 (backend stack incl. DB), ADR-0007 (storage), ADR-0014 (plugin contract details), ADR-0017 (backup strategy)
 
 ## Changelog
 

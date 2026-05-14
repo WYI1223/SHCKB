@@ -89,7 +89,7 @@ WS     /api/agent/ws                              streaming bidirectional（Phas
 
 ## Alternatives considered
 
-- **Full REST (GET / POST / PATCH / PUT / DELETE)**: ADR-0001 旧 spec 默认；rejected per industry drift + middleware simplification
+- **Full REST (GET / POST / PATCH / PUT / DELETE)**: 旧 repo spec 默认；rejected per industry drift + middleware simplification
 - **GraphQL**: 强类型 + 一 endpoint 多 query；但与 §11.4 MCP tool use shape mismatch；rejected per protocol alignment
 - **JSON-RPC over single endpoint**: 类 MCP 但人类 UI 不直观；rejected per multi-caller experience
 - **gRPC + Protobuf**: 强类型 + 双向 stream 但 browser 不 native；rejected per scope

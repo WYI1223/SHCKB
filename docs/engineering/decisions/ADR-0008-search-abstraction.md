@@ -103,7 +103,7 @@ Default: 跟 DB 选择匹配（`DATABASE_URL=sqlite:...` → `SEARCH_PROVIDER=sq
 
 ## Alternatives considered
 
-- **Pagefind (static index)**: build-time only；不支持 multi-user write 后 incremental update；rejected per ADR-0001 product environment
+- **Pagefind (static index)**: build-time only；不支持 multi-user write 后 incremental update；rejected per `product/prd/project.md` (multi-user write 形态)
 - **Algolia / Elasticsearch SaaS only**: external service mandatory；不适合 solo / NAS；rejected
 - **DB LIKE / ILIKE queries**: 性能差 + 无 ranking；rejected per scale
 - **Vector-only search (embedding)**: 适合 semantic search 但不替代 FTS；Phase 2+ 作 augment 加（rejected for Day-1 primary）
@@ -111,7 +111,7 @@ Default: 跟 DB 选择匹配（`DATABASE_URL=sqlite:...` → `SEARCH_PROVIDER=sq
 ## References
 
 - Source DI doc: `engineering/design/_frozen/architecture-rebuild-2026-05-11.md` §11.14
-- Related ADRs: ADR-0001 (deploy matrix), ADR-0006 (DB choice influences default), ADR-0014 (plugin extractPlainText)
+- Related ADRs: ADR-0001 (canonical deployment artifact), ADR-0006 (DB choice influences default), ADR-0014 (plugin extractPlainText)
 
 ## Changelog
 

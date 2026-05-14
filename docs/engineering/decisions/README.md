@@ -35,11 +35,15 @@
 
 ## ADR Index
 
-**Review status (2026-05-14)**: ADR-0001..0016 由 Phase B 批量起草，初始误标 `accepted`；现已全部改回 `proposed` 等 owner review-gate。Owner 逐个 / 逐批确认后改 `accepted`。ADR-0017 是 owner review ADR-0002 时新增。
+**Review status (2026-05-14)**: ADR-0001..0016 由 Phase B 批量起草，初始误标 `accepted`；现已全部改回 `proposed` 等 owner review-gate。Owner 逐个 / 逐批确认后改 `accepted`。
+
+Owner review findings 已处理：
+- ADR-0017 是 owner review ADR-0002 时新增（backup 从 substrate 剥离成独立 pluggable concern）
+- ADR-0001 owner review 指出原稿是 product vision 不是 decision → product 定义剥离到 `product/prd/project.md`；ADR-0001 reframe 为真正决策 "canonical deployment artifact = multi-arch Docker image"
 
 | ADR | 主题 | Status | Source frozen DI § |
 |---|---|---|---|
-| [ADR-0001](./ADR-0001-product-environment.md) | 产品定义 + 部署矩阵 | proposed | architecture-rebuild §0.5 + §0.6 |
+| [ADR-0001](./ADR-0001-deployment-canonical-artifact.md) | Deployment — multi-arch Docker image as canonical artifact | proposed | architecture-rebuild §0.6（product 定义已剥离到 `product/prd/project.md`）|
 | [ADR-0002](./ADR-0002-substrate-db-backed.md) | Substrate: DB-backed + plugin serializer | proposed | architecture-rebuild §3 + §6 L1 |
 | [ADR-0003](./ADR-0003-grid-engine-contract.md) | Grid-engine contract（12-col + AABB + gravity Option A）| proposed | grid-redesign + architecture-rebuild §2 |
 | [ADR-0004](./ADR-0004-block-plugin-model.md) | Block plugin extension model | proposed | architecture-rebuild §4 |

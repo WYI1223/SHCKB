@@ -13,12 +13,12 @@
 
 选 backend language + runtime + framework + DB + ORM + deploy target。约束：
 - Plugin extension（ADR-0004）shouldn't be limited by backend language
-- Cross-arch / multi-OS / multi-PaaS（ADR-0001 deployment matrix）
+- Cross-arch / multi-OS / multi-PaaS（ADR-0001 canonical deployment artifact）
 - 10GB+ 数据 scale 而 backend memory 不储存 corpus（流过）
 - 性能不能明显差于同类方案
 - Solo dev + AI 加持
 
-旧 spec ADR-0001 选 Python FastAPI（理由 "与 Jupyter 同语言"）；framing 复盘暴露 Pyodide 在 client-side，server 不需 Python，且 plugin extension 模型强烈要求 server 同 TS 才能让 plugin 单包含 client + server code。
+旧 repo spec（old stack-selection ADR）选 Python FastAPI（理由 "与 Jupyter 同语言"）；framing 复盘暴露 Pyodide 在 client-side，server 不需 Python，且 plugin extension 模型强烈要求 server 同 TS 才能让 plugin 单包含 client + server code。
 
 ## Decision
 
@@ -49,7 +49,7 @@ DATABASE_URL=                  # sqlite | postgres | d1
 
 ### Deploy target matrix
 
-详 ADR-0001 §0.6。5 mode 全 first-class：
+详 ADR-0001 + `product/prd/project.md` operator 谱。5 mode 全 first-class：
 - Docker compose（NAS / 自建 / VPS）
 - Single binary（NAS / 主机 / 低端 VPS）—— Bun-compiled
 - Cloud PaaS（Fly / Render / Railway）—— managed Postgres
@@ -86,7 +86,7 @@ DATABASE_URL=                  # sqlite | postgres | d1
 - **Rust (axum)**: 同 Go；steeper learning；rejected
 - **Node-only (no Bun)**: 失去 single-binary 部署 + 较重 baseline；Bun 已稳定可生产；rejected per better tradeoff
 - **Next.js / Remix as framework**: 绑 React-server-component 范式；与 Hono runtime-agnostic 设计 mismatch；rejected
-- **Postgres-only DB**: 失去 SQLite solo / NAS friendliness；rejected per ADR-0001 deploy matrix
+- **Postgres-only DB**: 失去 SQLite solo / NAS friendliness；rejected per `product/prd/project.md` (NAS / solo operator 谱)
 - **SQLite-only DB**: 失去 multi-write Postgres scenario；rejected
 - **NoSQL**: relational shape fits notes/blocks/users naturally；rejected per simplicity
 - **Prisma over Drizzle**: codegen heavier + multi-dialect 不如 Drizzle；rejected
@@ -94,7 +94,7 @@ DATABASE_URL=                  # sqlite | postgres | d1
 ## References
 
 - Source DI doc: `engineering/design/_frozen/architecture-rebuild-2026-05-11.md` §11.7 + §11.8
-- Related ADRs: ADR-0001 (deploy matrix), ADR-0002 (DB-backed substrate), ADR-0004 (plugin model), ADR-0010 (performance SLO)
+- Related ADRs: ADR-0001 (canonical deployment artifact), ADR-0002 (DB-backed substrate), ADR-0004 (plugin model), ADR-0010 (performance SLO)
 
 ## Changelog
 

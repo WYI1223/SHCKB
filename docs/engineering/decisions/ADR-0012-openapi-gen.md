@@ -103,7 +103,7 @@ export const agentOpRegistry = {
 - **Each agentOp 作 OpenAPI endpoint (方案 a)**: spec 膨胀 50+ endpoints；plugin add 时改 spec；rejected per simplicity
 - **GraphQL replacing OpenAPI**: 强 schema + introspection 但与 §11.4 MCP tool use 形态 mismatch；rejected per ADR-0015 alignment
 - **手写 OpenAPI YAML**: drift risk + 工作量；rejected per zod-first 自动 gen 更稳
-- **No OpenAPI (internal-only types)**: 失去外部 agent / third-party CLI / desktop 接入；rejected per ADR-0001 self-hostable 多 client 形态
+- **No OpenAPI (internal-only types)**: 失去外部 agent / third-party CLI / desktop 接入；rejected per `product/prd/project.md` (self-hostable 多 client 形态)
 
 ## References
 

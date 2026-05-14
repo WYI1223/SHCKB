@@ -14,7 +14,7 @@
 ADR-0002 LOCK 了 DB-backed substrate；owner review 时指出"数据持久化和 git 是两回事，server-side 服务一般是可选自持 + 备份"。Backup 从 ADR-0002 中剥离成独立 concern。
 
 Backup 是否值得独立 ADR（vs 纯 runbook）？决策：**值得**。理由：
-- Self-hostable 跨 5 deploy mode × 3 operator scale（详 ADR-0001），各 mode backup 机制差异大
+- Self-hostable 跨 5 deploy mode × 3 operator scale（详 ADR-0001 + `product/prd/project.md`），各 mode backup 机制差异大
 - 跟 storage（ADR-0007）/ search（ADR-0008）一样，backup 应该是 **first-class pluggable abstraction + 文档化策略**，不是放任 operator 自己摸索
 - 数据丢失是不可逆灾难；架构层必须给 operator 明确路径
 
@@ -127,13 +127,13 @@ BACKUP_S3_ENDPOINT= / BUCKET= / ACCESS_KEY= / SECRET_KEY=
 
 - **纯 runbook（无 abstraction）**: operator 自己跑 pg_dump / SQLite copy；rejected per "backup 应 first-class，不放任摸索"（owner review）
 - **Dump 到 git**: git 不为大 binary / 频繁大 dump 设计；rejected per ADR-0002 review（git 是 code-only concern）
-- **只依赖 cloud provider snapshot**: solo / NAS / 自建无 cloud snapshot；rejected per ADR-0001 deploy matrix
+- **只依赖 cloud provider snapshot**: solo / NAS / 自建无 cloud snapshot；rejected per ADR-0001 (canonical deployment artifact)
 - **DB + blob 强绑一起 backup**: 每次 backup 拖几 GB；rejected per DB / blob 分离更灵活（`includeBlobs` opt-in）
 - **第三方 backup SaaS (Backblaze 等专用服务)**: S3BackupProvider 已 cover S3-compatible 目标（含 Backblaze B2）；不需要专用 adapter
 
 ## References
 
-- Related ADRs: ADR-0001 (deploy matrix), ADR-0002 (DB substrate — backup 从此剥离), ADR-0006 (DB engine choice), ADR-0007 (storage provider — blob durability)
+- Related ADRs: ADR-0001 (canonical deployment artifact), ADR-0002 (DB substrate — backup 从此剥离), ADR-0006 (DB engine choice), ADR-0007 (storage provider — blob durability)
 - Runbook (M2+): `engineering/runbooks/backup-restore.md`
 - External: Litestream / pg_dump / SQLite Online Backup API
 
