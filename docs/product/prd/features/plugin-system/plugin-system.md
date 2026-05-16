@@ -9,27 +9,30 @@
 
 ## Overview
 
-**Plugin system** = 通用 extension framework。Third-party developer 通过 plugin 给产品加新能力 —— 不只是 new block kind，还包括 new theme，未来可能更多。
+**Plugin system** = 通用 extension framework。Third-party developer 通过 plugin 给产品加新能力 —— block kind / 未来可能更多。
 
-每个 plugin 是一个独立 TS module；声明自己是什么类型的 extension（block / theme / 等）；framework 在启动时 register；运行时通过 capability ctx 访问需要的 resource。
+每个 plugin 是一个独立 TS module；声明自己是什么类型的 extension（block / 等）；framework 在启动时 register；运行时通过 capability ctx 访问需要的 resource。
 
-本 PRD 锁的是 **extension framework 整体的 framing + 跨 extension type 的 cross-cutting invariants**。具体 extension type 细节归各 sub-PRD（[new-block.md] / [new-theme.md] / 等）。
+本 PRD 锁的是 **extension framework 整体的 framing + 跨 extension type 的 cross-cutting invariants**。具体 extension type 细节归各 sub-PRD（[new-block.md] / 等）。
 
 **关键 audience split**:
 
 - **Note author / reader 视角**（产品 user）—— 看 features/notepage/* PRDs
 - **Extension author 视角**（developer-user）—— 看本 PRD + sub-PRDs
 
+**Reframe note (2026-05-16)**：theme 也是 extension 的一种，但 theme subsystem 因为 scope 大（含 4-layer cascade / L0 hard invariants / presentation layer 责任），抽到独立 horizontal subsystem folder [theme-system/](../theme-system/theme-system.md)。**Plugin-system 跟 theme-system 是平级 horizontal subsystem 关系**（不是 parent-child）。Plugin-system 提供通用 extension framework 机制（lifecycle / capability / sandbox / versioning）；theme-system 是 theme-specific product 视角（cascade + presentation + 3 built-in + a11y baseline）。Theme 作为 plugin extension type 的 lifecycle / register / capability 走 plugin-system contract；theme 自身的 product behavior + cascade 走 theme-system PRD。
+
 ## Sub-features
 
-Day-1 cover 两类 extension：
+Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 cross-folder ref。
 
 | Sub-PRD | Extension type | 简述 |
 |---|---|---|
 | [new-block.md] | Block kind plugin | Author 加新的 block kind（如 markdown / image / nn-viz / 自定 widget）|
-| [new-theme.md] | Theme plugin | Author 加新的视觉 + affordance theme（fork / compose existing built-ins）|
 
-未来可能的 extension type（owner-driven 加 sub-PRD，**不**预写）：keyboard binding plugin / gesture plugin / export adapter / import source / AI provider / etc.
+**Cross-folder（同级 horizontal subsystem）**：[theme-system.md](../theme-system/theme-system.md) — theme extension type 自身的 product PRD；走 plugin-system 通用 lifecycle / capability，但 cascade + presentation 责任在 theme-system folder。
+
+未来可能的 extension type（owner-driven 加 sub-PRD 或独立 folder，**不**预写）：keyboard binding plugin / gesture plugin / palette form factor plugin / export adapter / import source / AI provider / etc.
 
 ## Plugin vs operator-pluggable（关键 scope 边界）
 
@@ -68,7 +71,7 @@ Day-1 cover 两类 extension：
 - As an **extension author**, I want to **从一个 well-defined plugin contract 起步**，so that **不必猜框架内部**
 - As an **extension author**, I want to **声明我的 plugin 需要哪些 capability**（如 storage write / search query / engine read），so that **sandbox 知道允许什么**
 - As an **extension author**, I want to **写 semver + migration**，so that **plugin 升版 不破旧数据**
-- As an **extension author**, I want to **fork 或 compose 已有 built-in plugin 作为起点**，so that **不必每次从零写**（详 [new-theme.md] / [new-block.md]）
+- As an **extension author**, I want to **fork 或 compose 已有 built-in plugin 作为起点**，so that **不必每次从零写**（详 [new-block.md] / [theme-system-author-view.md]）
 - As a **plugin user**（note author who installs a plugin），I want to **安装后 plugin 立刻可用 + 卸载后 data 不丢**，so that **试 plugin 不带 risk**
 
 ## Non-goals
@@ -91,7 +94,7 @@ Day-1 cover 两类 extension：
 ### M3 acceptance
 
 - Sandbox baseline（[ADR-0011] Phase 1 inline → Phase 2 worker boundary 起步）
-- Plugin author 文档完整（[new-block.md] + [new-theme.md] author guide）
+- Plugin author 文档完整（[new-block.md] author guide + theme author guide 见 [theme-system-author-view.md]）
 
 ### M4 acceptance
 
@@ -120,10 +123,11 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 - **Parent PRD**: [project.md](../../project.md)
 - **Sibling PRDs**:
   - [new-block.md](./new-block.md)
-  - [new-theme.md](./new-theme.md)
+- **Cross-folder（同级 horizontal subsystem）**:
+  - [theme-system.md](../theme-system/theme-system.md) — theme extension type product PRD（cascade + presentation）
+  - [theme-system-author-view.md](../theme-system/theme-system-author-view.md) — theme author 视角（与 [new-block.md] 对偶）
 - **Other feature PRDs**:
   - [notepage.md](../notepage/notepage.md) —— plugin / theme 在 notepage 上的 user-observable behavior
-  - [notepage-themes.md](../notepage/notepage-themes.md) —— theme 作为 product feature 的 user view
   - [authentication.md](../authentication/authentication.md) —— plugin 权限管理（如有）
 - **External services**: 无 Day-1 外部依赖
 
@@ -138,7 +142,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 本 PRD 触发的 ADR 层 framing 问题（reframe round 2 候选）：
 
 - **[ADR-0004] "Block plugin extension model" 名字过窄**：当前 ADR 限定 block；本 PRD 把 plugin-system 扩到 generic extension framework（含 block + theme + future）。**Action**: audit round 2 时考虑 reframe 为 "Extension model"（generic）；不本轮做
-- **[ADR-0014] "Plugin contract details" 全 BlockPlugin 字段**：当前 contract 是 BlockPlugin 17+ fields；如果 plugin-system 支持多 extension type，contract 应分层（generic Plugin base + per-type specialization：BlockPlugin / ThemePlugin / etc.）。**Action**: audit round 2 时考虑分层；Day-1 BlockPlugin 已存在，ThemePlugin 待 [new-theme.md] PRD 推动定义
+- **[ADR-0014] "Plugin contract details" 全 BlockPlugin 字段**：当前 contract 是 BlockPlugin 17+ fields；如果 plugin-system 支持多 extension type，contract 应分层（generic Plugin base + per-type specialization：BlockPlugin / ThemePlugin / etc.）。**Action**: audit round 2 时考虑分层；Day-1 BlockPlugin 已存在，ThemePlugin 待 [theme-system-author-view.md] PRD 推动定义（含 cascade override metadata）
 - **[ADR-0011] sandboxing**: 当前讲 plugin sandboxing；自然扩到所有 extension type（theme 也走 sandbox）；wording 可能不需变，但 audit 时 verify
 
 详 [AUDIT-2026-05.md] PRD-surfaced debts log。
@@ -158,3 +162,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 ## Changelog
 
 - 2026-05-16 initial draft；Phase E Day-1 PRD #2；reframe plugin-system 为通用 extension framework（不只 block kind）；hierarchical 结构 with sub-PRDs new-block / new-theme；区分 plugin vs operator-pluggable；surface ADR-0004/0014/0011 reframe debts
+- 2026-05-16 **pass 2 — theme-system 抽离独立 folder**：new-theme.md `git mv` 到 `theme-system/theme-system-author-view.md`；plugin-system 收窄为 "通用 extension framework + block sub-PRD"；显式声明 plugin-system 跟 theme-system 是平级 horizontal subsystem 关系（不是 parent-child）；cross-folder ref 到 theme-system；future extension types 不预写 sub-PRD（owner-driven）

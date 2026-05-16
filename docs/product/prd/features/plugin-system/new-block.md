@@ -89,7 +89,7 @@ Block extension = **author 写一个新 block kind**，让它出现在 notepage 
 
 ## Non-goals
 
-- ❌ **Theme extension** —— 归 [new-theme.md]
+- ❌ **Theme extension** —— 归 [theme-system-author-view.md]（cross-folder horizontal subsystem）
 - ❌ **Operator-pluggable adapter**（storage / search / backup）—— per [plugin-system.md] scope；不是 plugin
 - ❌ **Block 内部 prose-flow 编辑细节**（如 markdown 怎么 wysiwyg）—— 归 [ADR-0013] / 各 plugin EditView 内部
 - ❌ **第三方 block plugin Day-1 ship** —— Day-1 9 built-in；第三方 Phase 2+
@@ -137,7 +137,9 @@ Block extension = **author 写一个新 block kind**，让它出现在 notepage 
 PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 
 - **Parent PRD**: [plugin-system.md](./plugin-system.md)
-- **Sibling PRDs**: [new-theme.md](./new-theme.md)
+- **Sibling PRDs**: 无（plugin-system Day-1 仅 block sub-PRD；theme 见 cross-folder）
+- **Cross-folder（同级 horizontal subsystem）**:
+  - [theme-system-author-view.md](../theme-system/theme-system-author-view.md) —— theme author 视角（与本 PRD block author 视角对偶）
 - **Other feature PRDs**:
   - [notepage-editing.md](../notepage/notepage-editing.md) —— block 在 edit mode 的 user view
   - [notepage-view.md](../notepage/notepage-view.md) —— block 在 view mode 的 user view
@@ -176,3 +178,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 ## Changelog
 
 - 2026-05-16 initial draft；Phase E Day-1 PRD #2 sub-PRD；block extension 作为 plugin-system 的 specialization；与 [new-theme.md] 平级；user-observable block 行为归 notepage/* PRDs
+- 2026-05-16 **pass 2 — theme-system 抽离独立 folder**：原 sibling [new-theme.md] 已 git mv 到 [theme-system/theme-system-author-view.md]（cross-folder horizontal subsystem）；本 PRD 现在是 plugin-system 内唯一 Day-1 sub-PRD；refs to new-theme 重写为 theme-system-author-view

@@ -121,7 +121,8 @@ Notepage 跨 viewport（desktop / tablet / mobile）的**布局投影行为** �
 PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 
 - **Parent PRD**: [notepage.md](./notepage.md)
-- **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-editing.md](./notepage-editing.md) / [notepage-themes.md](./notepage-themes.md)（都消费 responsive 投影）
+- **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-editing.md](./notepage-editing.md)（都消费 responsive 投影）
+- **Cross-folder PRDs**: [theme-system.md](../theme-system/theme-system.md) — theme 跨 viewport 一致（cross-cutting invariant）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions

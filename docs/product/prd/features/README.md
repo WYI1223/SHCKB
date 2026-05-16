@@ -26,8 +26,9 @@ features/
 
 | Feature | Folder | Status |
 |---|---|---|
-| Notepage（user-facing notepage 整体） | [notepage/](./notepage/) | draft（top + 4 sub-PRDs） |
-| Plugin system（generic extension framework） | [plugin-system/](./plugin-system/) | draft（top + new-block + new-theme sub-PRDs） |
+| Notepage（user-facing notepage 整体） | [notepage/](./notepage/) | draft（top + 3 sub-PRDs） |
+| Theme system（presentation layer + 4-layer cascade） | [theme-system/](./theme-system/) | draft（top + user-view + author-view） |
+| Plugin system（generic extension framework） | [plugin-system/](./plugin-system/) | draft（top + new-block sub-PRD） |
 | Authentication + multi-user | [authentication/](./authentication/) | TODO |
 | Self-host deployment（5 modes） | [self-host-deploy/](./self-host-deploy/) | TODO |
 
@@ -48,18 +49,33 @@ features/
 | [notepage/notepage.md](./notepage/notepage.md) | top-level framing + cross-cutting invariants + cross-feature seams |
 | [notepage/notepage-view.md](./notepage/notepage-view.md) | Reader 阅读流（view mode + SSR + private auth） |
 | [notepage/notepage-editing.md](./notepage/notepage-editing.md) | Author 编辑流（insert/move/resize/delete + affordance + keyboard） |
-| [notepage/notepage-themes.md](./notepage/notepage-themes.md) | Theme system 的 user-observable behavior（3 内置 theme + persistence + switcher） |
 | [notepage/notepage-responsive.md](./notepage/notepage-responsive.md) | Viewport projection（mobile 1-col / tablet 6-col / desktop 12-col） |
 
-### Plugin-system（extension author 视角）
+### Theme system（presentation layer 子系统；horizontal subsystem）
+
+| Sub-PRD | Scope |
+|---|---|
+| [theme-system/theme-system.md](./theme-system/theme-system.md) | top-level framing：4-layer cascade（L0/L1/L2/L3）+ L0 hard invariants + cross-cutting invariants + per-attribute override |
+| [theme-system/theme-system-user-view.md](./theme-system/theme-system-user-view.md) | Note author / reader 视角（3 built-in theme + switching + persistence + frontmatter override） |
+| [theme-system/theme-system-author-view.md](./theme-system/theme-system-author-view.md) | Theme 开发者视角（fork / compose / from-scratch path + cascade override + L0 enforcement） |
+
+### Plugin-system（extension author 视角；generic extension framework）
 
 | Sub-PRD | Scope |
 |---|---|
 | [plugin-system/plugin-system.md](./plugin-system/plugin-system.md) | top-level framing：generic extension framework + cross-cutting invariants + plugin vs operator-pluggable 区分 |
 | [plugin-system/new-block.md](./plugin-system/new-block.md) | Block kind extension（author 怎么写 new block plugin） |
-| [plugin-system/new-theme.md](./plugin-system/new-theme.md) | Theme extension（author 怎么写 new theme + fork / compose path） |
 
-**Cross-PRD audience split**: notepage/ = note author / reader 视角；plugin-system/ = extension author（developer-user）视角。Theme / block 在两 folder 都出现，分别是 user-observable vs author-observable view。
+**Cross-PRD audience split**:
+- `notepage/` = note author / reader 视角（产品 user）
+- `theme-system/` = horizontal subsystem，含 user-view 和 author-view 双 PRD
+- `plugin-system/` = extension author（developer-user）视角
+- Theme / block 在多 folder 都出现，分别是 user-observable / author-observable / framework-level view。
+
+**Horizontal subsystem relationship**:
+- `theme-system/` 跟 `plugin-system/` 是**平级 horizontal subsystem**（不是 parent-child）
+- Theme 走 plugin-system 通用 extension lifecycle / capability / sandbox 机制
+- Theme 自身的 product 责任（cascade / presentation / 3 built-in）归 theme-system folder
 
 ## Feature PRD template
 
@@ -76,3 +92,4 @@ features/
 - 2026-05-16 initial（Phase E setup）
 - 2026-05-16 reframe: canvas-editing.md → notepage/ folder（vocab `canvas` → `notepage` PRD product vocabulary；hierarchical structure with top + 4 sub-PRDs）；其他 feature 同步 folder 结构
 - 2026-05-16 plugin-system reframe: 从 "block extension only" 扩为 generic extension framework；plugin-system/ folder 加 top + new-block + new-theme sub-PRDs；audience split 显式化（notepage/ = user 视角；plugin-system/ = author 视角）
+- 2026-05-16 **theme-system reframe (horizontal subsystem)**：theme 抽出独立 folder `theme-system/`（原 `notepage/notepage-themes.md` + `plugin-system/new-theme.md` `git mv` 合并）；承载 4-layer cascade model（L0 hard invariants / L1 framework default / L2 theme default / L3 plugin new theme）+ per-attribute override + fork-friendly；audience split 升级（theme-system 跟 plugin-system 平级 horizontal subsystem；非 parent-child）；notepage / plugin-system 6 PRD 同步 cross-folder refs

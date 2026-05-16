@@ -13,7 +13,7 @@ Reader 在 notepage 上的**阅读体验** —— 看到 author 编辑好的内�
 
 本 PRD 锁的是 **view mode 下的 user-observable 行为**：block 渲染、SSR、anonymous access、private note 鉴权、阅读 keyboard navigation、reader-specific edge cases。
 
-不锁：edit affordance（→ [notepage-editing.md]）、theme system（→ [notepage-themes.md]）、responsive 投影（→ [notepage-responsive.md]）。
+不锁：edit affordance（→ [notepage-editing.md]）、theme system / cascade（→ [theme-system.md] / [theme-system-user-view.md]）、responsive 投影（→ [notepage-responsive.md]）。
 
 ## User stories（reader-focused）
 
@@ -87,7 +87,7 @@ Reader 在 notepage 上的**阅读体验** —— 看到 author 编辑好的内�
 ## Non-goals
 
 - ❌ **Edit affordance** —— 归 [notepage-editing.md]
-- ❌ **Theme system** —— 归 [notepage-themes.md]
+- ❌ **Theme system / SSR theme CSS bundling** —— 归 [theme-system.md] / [theme-system-user-view.md]
 - ❌ **Responsive projection 细节** —— 归 [notepage-responsive.md]
 - ❌ **Reader 修改 author 原内容** —— Day-1 不做；annotation Phase 2+
 - ❌ **Reader 评论 / discussion** —— 归 [discussion.md]（Phase 2+）
@@ -130,8 +130,8 @@ Reader 在 notepage 上的**阅读体验** —— 看到 author 编辑好的内�
 PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 
 - **Parent PRD**: [notepage.md](./notepage.md)
-- **Sibling PRDs**: [notepage-editing.md](./notepage-editing.md) / [notepage-themes.md](./notepage-themes.md) / [notepage-responsive.md](./notepage-responsive.md)
-- **Other feature PRDs**: [authentication.md](../authentication/authentication.md)（private notepage session 验证）
+- **Sibling PRDs**: [notepage-editing.md](./notepage-editing.md) / [notepage-responsive.md](./notepage-responsive.md)
+- **Other feature PRDs**: [theme-system.md](../theme-system/theme-system.md)（presentation layer + SSR theme bundling）/ [authentication.md](../authentication/authentication.md)（private notepage session 验证）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions
