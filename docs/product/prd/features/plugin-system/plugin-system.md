@@ -32,7 +32,7 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 
 **Cross-folder（同级 horizontal subsystem）**：[theme-system.md](../theme-system/theme-system.md) — theme extension type 自身的 product PRD；走 plugin-system 通用 lifecycle / capability，但 cascade + presentation 责任在 theme-system folder。
 
-未来可能的 extension type（owner-driven 加 sub-PRD 或独立 folder，**不**预写）：keyboard binding plugin / gesture plugin / palette form factor plugin / export adapter / import source / AI provider / etc.
+未来可能的 extension type（owner-driven 加 sub-PRD 或独立 folder，**不**预写）：keyboard binding plugin / gesture plugin / palette form factor plugin / export adapter / import source / AI provider / **AuthProvider**（per [authentication.md] —— OAuth / WebAuthn / OIDC 各自 AuthProvider plugin；Day-1 UsernamePassword built-in）/ etc.
 
 ## Plugin vs operator-pluggable（关键 scope 边界）
 
@@ -131,7 +131,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
   - [theme-system-author-view.md](../theme-system/theme-system-author-view.md) — theme author 视角（与 [new-block.md] 对偶）
 - **Other feature PRDs**:
   - [notepage.md](../notepage/notepage.md) —— plugin / theme 在 notepage 上的 user-observable behavior
-  - [authentication/](../authentication/README.md) —— plugin 权限管理（如有；正式 PRD TODO，当前 placeholder）
+  - [authentication.md](../authentication/authentication.md) —— system-level PEP + AuthProvider 跟 plugin-system extension type 平级（per authentication PRD framing）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions

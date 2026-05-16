@@ -131,7 +131,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 
 - **Parent PRD**: [notepage.md](./notepage.md)
 - **Sibling PRDs**: [notepage-editing.md](./notepage-editing.md) / [notepage-responsive.md](./notepage-responsive.md)
-- **Other feature PRDs**: [theme-system.md](../theme-system/theme-system.md)（presentation layer + SSR theme bundling）/ [authentication/](../authentication/README.md)（private notepage session 验证；正式 PRD TODO）
+- **Other feature PRDs**: [theme-system.md](../theme-system/theme-system.md)（presentation layer + SSR theme bundling）/ [authentication.md](../authentication/authentication.md)（private notepage session 验证；system-level PEP）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions

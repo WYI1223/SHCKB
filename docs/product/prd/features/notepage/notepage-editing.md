@@ -148,7 +148,7 @@ PRD 层 upstream 依赖（ADR / CONTRACT / prototype 是 downstream，归 Refere
 
 - **Parent PRD**: [notepage.md](./notepage.md)
 - **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-responsive.md](./notepage-responsive.md)
-- **Other feature PRDs**: [theme-system.md](../theme-system/theme-system.md)（presentation layer + cascade + affordance form factor freedom）/ [plugin-system.md](../plugin-system/plugin-system.md)（提供 block kinds + EditView contract）/ [authentication/](../authentication/README.md)（提供 edit 权限；正式 PRD TODO）
+- **Other feature PRDs**: [theme-system.md](../theme-system/theme-system.md)（presentation layer + cascade + affordance form factor freedom）/ [plugin-system.md](../plugin-system/plugin-system.md)（提供 block kinds + EditView contract）/ [authentication.md](../authentication/authentication.md)（提供 edit 权限 + system-level PEP）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions

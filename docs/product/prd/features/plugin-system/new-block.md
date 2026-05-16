@@ -146,7 +146,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 - **Other feature PRDs**:
   - [notepage-editing.md](../notepage/notepage-editing.md) —— block 在 edit mode 的 user view
   - [notepage-view.md](../notepage/notepage-view.md) —— block 在 view mode 的 user view
-  - [authentication/](../authentication/README.md) —— plugin 权限（如有；正式 PRD TODO，当前 placeholder）
+  - [authentication.md](../authentication/authentication.md) —— ctx.user 桥接 + plugin author 视角 AuthProvider extension type 对比
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions

@@ -29,7 +29,7 @@ features/
 | Notepage（user-facing notepage 整体） | [notepage/](./notepage/) | draft（top + 3 sub-PRDs） |
 | Theme system（presentation layer + 4-layer cascade） | [theme-system/](./theme-system/) | draft（top + user-view + author-view） |
 | Plugin system（generic extension framework） | [plugin-system/](./plugin-system/) | draft（top + new-block sub-PRD） |
-| Authentication + multi-user | [authentication/](./authentication/) | TODO |
+| Authentication（system-level PEP + AuthProvider plugin）| [authentication/](./authentication/) | draft（flat single PRD） |
 | Self-host deployment（5 modes） | [self-host-deploy/](./self-host-deploy/) | TODO |
 
 ### Phase 2+ (owner-driven)
@@ -66,6 +66,12 @@ features/
 | [plugin-system/plugin-system.md](./plugin-system/plugin-system.md) | top-level framing：generic extension framework + cross-cutting invariants + plugin vs operator-pluggable 区分 |
 | [plugin-system/new-block.md](./plugin-system/new-block.md) | Block kind extension（author 怎么写 new block plugin） |
 
+### Authentication（system-level PEP + AuthProvider plugin extension）
+
+| Sub-PRD | Scope |
+|---|---|
+| [authentication/authentication.md](./authentication/authentication.md) | flat single PRD：system-level PEP framing + 8 cross-cutting invariants + AuthProvider as plugin extension type + Build/Buy=Buy（Better-Auth baseline）+ Day-1 3-role + cross-feature seams |
+
 **Cross-PRD audience split**:
 - `notepage/` = note author / reader 视角（产品 user）
 - `theme-system/` = horizontal subsystem，含 user-view 和 author-view 双 PRD
@@ -93,3 +99,4 @@ features/
 - 2026-05-16 reframe: canvas-editing.md → notepage/ folder（vocab `canvas` → `notepage` PRD product vocabulary；hierarchical structure with top + 4 sub-PRDs）；其他 feature 同步 folder 结构
 - 2026-05-16 plugin-system reframe: 从 "block extension only" 扩为 generic extension framework；plugin-system/ folder 加 top + new-block + new-theme sub-PRDs；audience split 显式化（notepage/ = user 视角；plugin-system/ = author 视角）
 - 2026-05-16 **theme-system reframe (horizontal subsystem)**：theme 抽出独立 folder `theme-system/`（原 `notepage/notepage-themes.md` + `plugin-system/new-theme.md` `git mv` 合并）；承载 4-layer cascade model（L0 hard invariants / L1 framework default / L2 theme default / L3 plugin new theme）+ per-attribute override + fork-friendly；audience split 升级（theme-system 跟 plugin-system 平级 horizontal subsystem；非 parent-child）；notepage / plugin-system 6 PRD 同步 cross-folder refs
+- 2026-05-16 **Day-1 PRD #3 authentication 起草**：reframe auth 为 **system-level PEP**（vs horizontal feature）；8 cross-cutting invariants；Build vs Buy = Buy（Better-Auth baseline，M2 ship 前 verify）；3-layer abstraction（AuthProvider plugin / TokenStrategy operator-config / TokenCarrier library-internal）；AuthProvider 跟 BlockPlugin / ThemePlugin 平级 plugin extension type；Day-1 M2 = UsernamePassword + admin via install bootstrap + 3-role + anonymous public read；OAuth / WebAuthn / 2FA / PAT Phase 2+ as AuthProvider plugin
