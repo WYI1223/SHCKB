@@ -30,16 +30,30 @@ Maps 1:1 to ADR-0002 `blocks` table（`col_span` / `row_span` snake_case 由 ORM
 
 ### `BlockKind`
 
+**Target contract**：
+
 ```ts
-// Day-1 carryover：closed union（migration safety）
+type BlockKind = string;   // open identifier；engine 视为 passthrough tag
+```
+
+Engine 不要求 exhaustive built-in kinds；不做 `kind → X` lookup（per ADR-0003 induction 3）。
+
+**Carryover transitional state**：
+
+`carryover/packages/grid-engine/src/types.ts` 现状定义为 closed union：
+
+```ts
 type BlockKind =
   | 'markdown' | 'image' | 'code' | 'callout'
   | 'math' | 'pdf' | 'jupyter' | 'nn-viz' | 'agent-flow';
 ```
 
-**演化承诺**：ADR-0004 plugin extension model 锁定 `kind: string`（open identifier）；本 contract 在以下任一时机切换到 `type BlockKind = string`：
+**这是 carryover 实现细节，不是 contract target**。Consumer 不应依赖 closed union 形态；任何依赖 closed union 的代码（exhaustive switch / kind 枚举遍历 / 等）视为 contract 违反。
+
+**Lift 时机**：closed union → `string` 切换在以下任一时机执行：
 - 第一个外部 plugin author 加新 kind 时（mechanism-driven）
-- Phase F carryover 提升至 `packages/grid-engine/` 时（whichever earlier）
+- Phase F carryover 提升至 `packages/grid-engine/` 时
+- 或更早，如 implementation 需要
 
 切换不构成 ADR-level supersede（engine kind-opaque 是 induction，不依赖 union 形态）。
 
@@ -131,7 +145,7 @@ type OpOptions = { gravity?: boolean };  // default true (Option A; ADR-0003 ind
 
 | op | signature | 描述 |
 |---|---|---|
-| `inferDropIntent` | `(state, cursorCol, cursorRow, blockKind) → DropIntent` | cursor pose → intent；含 hole-fill clamp |
+| `inferDropIntent` | `(state, cursorCol, cursorRow, proposedSize) → DropIntent` | cursor pose + caller-provided proposed size → intent；含 hole-fill clamp；engine **不**做 `kind → defaultSize` lookup（per ADR-0003 induction 3） |
 | `maxEmptyRectContaining` | `(state, col, row, capW, capH) → Region \| null` | hole-fill 查最大空 rect（with cap） |
 | `maxEmptyRectAt` | `(state, col, row) → Region \| null` | 无 cap 版 |
 | `canRise` | `(state, blockId) → boolean` | gravity check：该 block 是否还能升一行 |
@@ -162,12 +176,24 @@ type OpOptions = { gravity?: boolean };  // default true (Option A; ADR-0003 ind
 
 ### Exported constants
 
+**Target contract**：
+
 ```ts
 const TOTAL_COLS = 12;
-const DEFAULT_SIZES: Record<BlockKind, { colSpan: number; rowSpan: number }>;
 ```
 
-`DEFAULT_SIZES` 在 Day-1 carryover 内提供（markdown 12×1 / image 6×4 / code 12×4 / 等；详 frozen DI grid-redesign §6）。**演化**：随 ADR-0004 plugin extension 落地，default size 应由 `BlockPlugin.defaultSize`（ADR-0014）提供；engine 端的 `DEFAULT_SIZES` 转为 **fallback for built-in kinds only**，或完全移除（caller 必传 default）。
+仅 `TOTAL_COLS`。`DEFAULT_SIZES` **不在 contract target**——per ADR-0003 induction 3 engine kind-opaque，default sizes 是 plugin / caller-side concern，归 `BlockPlugin.defaultSize`（ADR-0014）。
+
+**Carryover transitional state**：
+
+`carryover/packages/grid-engine/src/defaults.ts` 现有 `DEFAULT_SIZES: Record<BlockKind, {colSpan, rowSpan}>` 表（markdown 12×1 / image 6×4 / code 12×4 / 等；frozen DI grid-redesign §6）。**这是 carryover 实现细节，被 `inferDropIntent` 的 transitional signature 消费**。
+
+**Lift 时机**：与 `inferDropIntent` 签名变更同步执行——
+- caller（editor / API endpoint）改成自己做 `kind → BlockPlugin.defaultSize` lookup
+- `inferDropIntent` 签名改为 `(state, cursor, proposedSize)`
+- `DEFAULT_SIZES` 表从 engine package 移除 OR 降级为 dev/test helper（不再 export）
+
+切换 trigger：first plugin author 加新 kind / Phase F lift / 或 ADR-0004 落地的 implementation 阶段，先到先 trigger。
 
 ---
 
@@ -205,9 +231,25 @@ NOT (a.col < b.col + b.colSpan AND
 
 ∀ blocks `a, b ∈ state.blocks` where `a ≠ b`: `a.id ≠ b.id`。
 
-### Invariant 6: Pure-function determinism
+### Invariant 6: Pure-function determinism + reentrance
 
-Same `(state, op, args)` → same `(new state, result)`。Engine 不持内部 state，不读 random / time / env。
+Engine 显式承诺（per ADR-0003 induction 2 推论）——不是 leaf 位置的自动副作用，是必须主动保持的行为承诺：
+
+- Same `(state, op, args)` → same `(new state, result)` —— 确定性
+- **不**调 `Math.random()` / `Date.now()` / `crypto.randomUUID()` —— 需要的随机 / 时间 / id 由 caller 在 args 里传入
+- **不**读 `globalThis` / `process.env` / `window` / 任何 ambient context
+- **不**做 IO —— 无 fetch / fs / network / IndexedDB / 等
+- **无模块级 mutable state** —— 无 `let x = ...` 在 top-level；无内部 cache / memoization across calls
+- **Reentrant** —— 多 caller 并发 / 交错调用，每个 call site 看到的行为与其他 call site 无关
+
+### Invariant 7: Monorepo dependency leaf (structural)
+
+Engine 在 monorepo package import 关系图上不指向其他 `@skb/*` package：
+
+- ✅ 允许 import：TypeScript 标准库 / 类型工具 / 纯 utility lib（如 `zod`）
+- ❌ 不允许 import：任何 `@skb/*` package / React / DOM / Drizzle / Lexical / Hono / fetch / IndexedDB / framework / runtime API
+
+Invariant 6 是行为承诺，invariant 7 是结构约束。Invariant 7 为 invariant 6 提供必要支撑但不充分——leaf 不阻止源码写 `Math.random()`；purity 必须独立保持。
 
 ---
 
@@ -219,20 +261,27 @@ Same `(state, op, args)` → same `(new state, result)`。Engine 不持内部 st
 
 ### Hole-fill placement
 
+**Target signature**：caller 把 proposed size 算好传给 engine。Engine 不查 kind→default。
+
 ```
-onDrop(cursorCol, cursorRow, blockKind):
-  defaultW, defaultH = DEFAULTS[blockKind]   // 或 plugin-provided default (per ADR-0014)
-  holeMaxW, holeMaxH = maxEmptyRectContaining(occupancy, cursorCol, cursorRow)
-  newW = min(defaultW, holeMaxW)
-  newH = min(defaultH, holeMaxH)
+// caller side (editor / API endpoint):
+proposed = lookupDefaultForKind(blockKind)   // caller does this via BlockPlugin.defaultSize (ADR-0014)
+
+// engine side:
+inferDropIntent(state, cursorCol, cursorRow, proposed):
+  holeMaxW, holeMaxH = maxEmptyRectContaining(state, cursorCol, cursorRow)
+  newW = min(proposed.colSpan, holeMaxW)
+  newH = min(proposed.rowSpan, holeMaxH)
   newCol, newRow = align to top-left of containing hole
   return { intent: 'place', col: newCol, row: newRow, colSpan: newW, rowSpan: newH }
 ```
 
-- 洞 ≥ default → 用 default size
-- 洞 < default → 缩到 hole size（不 reject）
-- 洞 = default → exact fit
+- 洞 ≥ proposed → 用 proposed size
+- 洞 < proposed → 缩到 hole size（不 reject）
+- 洞 = proposed → exact fit
 - 无可放 hole → `{ intent: 'reject', reason: '...' }`
+
+**Carryover transitional state**：当前 `inferDropIntent(state, cursorCol, cursorRow, blockKind)` 内部 `DEFAULT_SIZES[blockKind]` lookup —— 与 target 不符，按 BlockKind / DEFAULT_SIZES 同时机 lift。
 
 ### Gravity (Option A)
 
@@ -305,6 +354,21 @@ height = block.rowSpan * SLOT_SIZE
 4. If error: return 4xx; rollback transaction
 ```
 
+**Insert endpoint 额外职责（per ADR-0003 induction 3 kind-opaque）**：
+
+```
+On POST /api/notes/:slug/blocks/insert:
+1. body 含 { kind, cursorCol, cursorRow }
+2. caller (endpoint code) lookup BlockPlugin.defaultSize[kind] → proposed
+   (per ADR-0014 plugin registry)
+3. call engine.inferDropIntent(state, cursorCol, cursorRow, proposed) → intent
+4. if intent.intent === 'reject': return 4xx
+5. call engine.insertBlock(state, { id: generateId(), kind, ...intent }) → OpResult
+6. persist or rollback
+```
+
+`kind → defaultSize` lookup 在 caller side，**不**在 engine。
+
 ### Plugin code
 
 Via `ctx.engine`（ADR-0014 plugin contract）：**read-only facade**。Plugin 不能直接调 mutation ops；写走 agent dispatch → API endpoint → engine。Facade 暴露的具体方法（`getBlock` / `getNeighbors` / `query` 等）由 ADR-0014 / `block-foundation` package 定义；engine 自身**不**分 read / write export（per ADR-0003 induction 6）。
@@ -348,3 +412,10 @@ Internal package；semver 但 contract surface 演化规则：
 ## Changelog
 
 - 2026-05-16 initial draft（从 carryover `src/types.ts` + `src/ops.ts` + frozen DI grid-redesign §3-4 + §6 提炼；同 ADR-0003 pass 2 reframe commit 落地；package source 仍在 carryover，Phase F 提升）
+- 2026-05-16 pass 2.1 friend review fixes（同 ADR-0003 pass 2.1 commit）:
+  - **BlockKind target = `string`** —— carryover closed union 降级为 transitional 实现细节；明确 consumer 不应依赖 exhaustive union
+  - **`inferDropIntent` target signature = `(state, cursor, proposedSize)`** —— engine 不再吃 kind；caller 自己 lookup `kind → BlockPlugin.defaultSize`（ADR-0014）后传 proposed size；carryover 现签名标 transitional
+  - **`DEFAULT_SIZES` 不在 contract target** —— 移出 exported constants；carryover 实装作为 transitional helper 保留至 lift 时机
+  - **Hole-fill algorithm 伪代码 sync** —— caller-side lookup + engine-side clamp 二阶段分明
+  - **Invariant 6 拆 + 加 invariant 7** —— invariant 6 是 pure / determinism / reentrance 行为承诺（显式 list 禁用项：random / Date / globalThis / IO / module-level state）；invariant 7 是 monorepo dep leaf 结构约束；二者关系（结构支撑行为但不充分）写明
+  - **API endpoint 段加 insert flow** —— 显式 demo caller side 怎么做 `kind → defaultSize` lookup，把 engine kind-opaque 边界落到 wire-level usage
