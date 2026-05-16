@@ -10,7 +10,7 @@
 |---|---|---|---|
 | `@skb/grid-engine` | [packages/grid-engine/CONTRACT.md](../../../packages/grid-engine/CONTRACT.md) | 2D AABB 布局算法（12 col × N row LEGO baseplate） | editor shell / API endpoint / plugin facade / agent dispatch |
 
-（其他 package 契约随 ADR-0004 / ADR-0014 落地补；Phase F carryover 提升时一并补：`block-foundation` / `plugin-markdown` / 等）
+（其他 package 契约随 [ADR-0004] / [ADR-0014] 落地补；Phase F carryover 提升时一并补：`block-foundation` / `plugin-markdown` / 等）
 
 ## 与 ADR 的关系
 
@@ -22,7 +22,7 @@
 - ADR 引用 CONTRACT 时用相对路径 `../../../packages/<pkg>/CONTRACT.md`
 - CONTRACT 引用 ADR 时用 `../../docs/engineering/decisions/ADR-XXXX-...md`
 
-详 ADR 写作 method：adr-discipline.md 的 foundational-ADR + contract-doc 分工节。
+详 ADR 写作 method：[adr-discipline.md] 的 foundational-ADR + contract-doc 分工节。
 
 ## 写作规则（per package CONTRACT.md）
 

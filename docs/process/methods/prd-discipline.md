@@ -15,17 +15,17 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 | 例子 | "user 拖 block 到空 hole，block 缩到 hole size" | "engine kind-opaque + Option A gravity" | `inferDropIntent(state, cursor, proposedSize) → DropIntent` |
 | Audience | product reader / owner / future PRD author | engineering reader | code consumer |
 | 修改规则 | Living（按 owner 思路演化） | Append-only at `accepted` | Versioned with package |
-| 引用方向 | PRD 引用 ADR（"per ADR-XXXX, ..."），不重定义 | ADR 引用 PRD 作 product source | CONTRACT 引用 ADR 作 architecture source |
+| 引用方向 | PRD 引用 ADR（"per [ADR-XXXX] ..."），不重定义 | ADR 引用 PRD 作 product source | CONTRACT 引用 ADR 作 architecture source |
 
 ## Length
 
 - **Feature PRD**: target 80-200 lines；超 300 → 太长 → 拆 multiple PRDs
-- **Project-level PRD** (project.md): up to ~300 lines（覆盖 vision + operator 谱 + non-goals + success criteria）
+- **Project-level PRD** ([project.md]): up to ~300 lines（覆盖 vision + operator 谱 + non-goals + success criteria）
 - 不嵌大段 TS interface / 函数签名 / DB schema / wire protocol 形态 —— 这些归 ADR / CONTRACT
 
 ## Cross-reference 风格
 
-遵 doc-conventions.md：in-text 用 plain identifier（"per ADR-0003" / "see canvas-editing.md"），markdown link 集中在 Dependencies / References / Surfaced ADR debts 段。
+遵 [doc-conventions.md]：in-text 用 `[bracketed identifier]` citation marker（"per [ADR-0003]" / "see [canvas-editing.md]"），markdown link 集中在 Dependencies / References / Surfaced ADR debts 段。
 
 ## Structure
 
@@ -94,25 +94,25 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 
 | 不该写在 PRD | 该归哪 |
 |---|---|
-| "use DnDKit for drag-and-drop" | ADR-0013 / library 选型决策 |
-| "store theme in localStorage" | ADR-0016 / theme system ADR |
-| "inferDropIntent 接收 proposedSize" | ADR-0003 / CONTRACT |
-| "POST /api/blocks/insert body: {kind, col, row}" | ADR-0009 |
-| "blocks 表加 deleted_at 列" | ADR-0002 |
+| "use DnDKit for drag-and-drop" | [ADR-0013] / library 选型决策 |
+| "store theme in localStorage" | [ADR-0016] / theme system ADR |
+| "inferDropIntent 接收 proposedSize" | [ADR-0003] / CONTRACT |
+| "POST /api/blocks/insert body: {kind, col, row}" | [ADR-0009] |
+| "blocks 表加 deleted_at 列" | [ADR-0002] |
 
 ### ✅ Pattern: PRD 写 user-observable behavior
 
 | 该写在 PRD | 对应 HOW 归 |
 |---|---|
-| "拖 block 到空 hole 时显示 snap preview，松手后 block 落到 snap 位置" | ADR-0003 induction 4 + ADR-0013 实现 |
+| "拖 block 到空 hole 时显示 snap preview，松手后 block 落到 snap 位置" | [ADR-0003] induction 4 + [ADR-0013] 实现 |
 | "user 可以选 3 个内置 theme 之一，刷新页面记住选择" | 未来 render-system ADR |
-| "拖 block 跨过另一 block 时，目标位置可能被 reject（如重叠）" | ADR-0003 induction 3 + 4 |
-| "API 失败时 UI 显示具体原因（如 'overlap with X block'）" | ADR-0009 error contract |
-| "block 删除后立刻消失，30 天内可 restore" | ADR-0002 `deleted_at` + ADR-0017 GC |
+| "拖 block 跨过另一 block 时，目标位置可能被 reject（如重叠）" | [ADR-0003] induction 3 + 4 |
+| "API 失败时 UI 显示具体原因（如 'overlap with X block'）" | [ADR-0009] error contract |
+| "block 删除后立刻消失，30 天内可 restore" | [ADR-0002] `deleted_at` + [ADR-0017] GC |
 
 ## ADR debt surfacing
 
-写 PRD 时**期望**会暴露 ADR 漏洞 / 一致性问题。每个 PRD 应有 `## Surfaced ADR debts` 段，把发现的问题喂回 AUDIT-2026-05.md（footer 含 link）：
+写 PRD 时**期望**会暴露 ADR 漏洞 / 一致性问题。每个 PRD 应有 `## Surfaced ADR debts` 段，把发现的问题喂回 [AUDIT-2026-05.md]（footer 含 link）：
 
 - ADR 没覆盖某 user behavior → AUDIT 标 GAP
 - ADR 与 PRD 描述的 behavior 矛盾 → AUDIT 标 REWORK
@@ -154,7 +154,7 @@ PRD 不直接修 ADR；PRD surface debt，owner / engineer 后续走 ADR rework 
 | 颗粒度 | 单一 feature scope | Cross-cut integration view |
 | 内容 | user stories / requirements | 心智模型 / 架构图 / 演化路径 |
 | 修改 | Owner-driven evolution | 跟随 ADR / PRD 演化 |
-| 例子 | canvas-editing.md | mental-model.md / architecture-overview.md |
+| 例子 | [canvas-editing.md] | [mental-model.md] / [architecture-overview.md] |
 
 Feature PRD 涉及多个 ADR；living doc 给跨 PRD 的 unifying view。
 
@@ -170,4 +170,5 @@ Feature PRD 涉及多个 ADR；living doc 给跨 PRD 的 unifying view。
 ## Changelog
 
 - 2026-05-16 initial draft（Phase B follow-up Stage 2 起；为 Phase E PRD-informed rework 做准备）
-- 2026-05-16 cross-reference 风格 sync doc-conventions.md（in-text plain + footer link）
+- 2026-05-16 cross-reference 风格 sync [doc-conventions.md]（pass 1: in-text plain + footer link）
+- 2026-05-16 pass 2: in-text 改为 `[bracketed identifier]` citation marker（form C）

@@ -4,7 +4,7 @@ Headless 2D AABB layout engine —— `@skb` monorepo 的依赖图叶子包。Pu
 
 ## 当前状态
 
-- ✅ Contract 已定（本目录 CONTRACT.md + ADR-0003）
+- ✅ Contract 已定（本目录 [CONTRACT.md] + [ADR-0003]）
 - ⏳ Source 仍在 carryover（`carryover/packages/grid-engine/src/`；45/45 scenarios + 50k stress validated；Option A locked）
 - ⏳ Phase F（carryover 清理）时 source 提升至 `./src/`，加 `package.json` / `tsconfig.json` / `vitest.config.ts`
 

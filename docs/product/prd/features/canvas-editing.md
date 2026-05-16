@@ -12,7 +12,7 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 本 PRD 锁的是 **canvas 作为放置表面的 user-observable 行为**——insert / move / resize / delete intent、视觉反馈、theme 切换、selection、edit vs view mode、mobile 投影、键盘 / a11y。
 
-**不**锁：什么 block kinds 存在（→ plugin-system.md）、单 block 内部如何编辑（→ ADR-0013 / 各 plugin EditView）、agent 怎么操作 canvas（→ ai-integration.md）。
+**不**锁：什么 block kinds 存在（→ [plugin-system.md]）、单 block 内部如何编辑（→ [ADR-0013] / 各 plugin EditView）、agent 怎么操作 canvas（→ [ai-integration.md]）。
 
 ## User stories
 
@@ -31,7 +31,7 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 ### Must (Day-1, M2)
 
-- **12-col × N-row canvas** —— note 的内容区域是固定 12 列、行无上界的网格底板（per ADR-0003）
+- **12-col × N-row canvas** —— note 的内容区域是固定 12 列、行无上界的网格底板（per [ADR-0003]）
 - **Insert intent**:
   - 拖 block 到 canvas 空区域 → 显示 snap preview（block 会落在哪）→ 松手 commit
   - 拖到空 hole 时 block 大小被 clamp 到 `min(default, hole_max)`；如 hole 太小到 `< 1×1` → reject 并显示原因
@@ -45,17 +45,17 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 - **Delete intent**:
   - 选中 block + Delete 键 / context menu 删除 → block 立刻消失 → 下方 block gravity 上移
 - **Gravity behavior**:
-  - 每个 mutating action 后 canvas 永远 "gravity-stable" —— 没有浮空 block（per ADR-0003 induction 4 / Option A）
+  - 每个 mutating action 后 canvas 永远 "gravity-stable" —— 没有浮空 block（per [ADR-0003] induction 4 / Option A）
   - 用户视角："block 在重力下沉到能下沉到的最高位置"
 - **Theme switching**:
-  - 3 个内置 theme（`graph-paper` / `lego-studs` / `bento-canvas`）可切（per frozen DI grid-redesign §9）
+  - 3 个内置 theme（`graph-paper` / `lego-studs` / `bento-canvas`）可切（per frozen DI [grid-redesign-2026-05-11.md] §9）
   - 切换不动 data；只换 render
   - 用户偏好默认 per-user 记住；single note 可 frontmatter override（per frozen DI §9.1）
 - **Edit mode vs view mode**:
   - Edit mode（author 自己在 own note）：完整 drag handles / resize handles / palette / 选择反馈
   - View mode（reader 看 public note OR author 浏览模式）：无编辑控件；block 仍按 GridState 渲染
 - **Mobile responsive projection**:
-  - Canvas logical coord 永远 12-col（per ADR-0003 induction 3 + Trade-offs）
+  - Canvas logical coord 永远 12-col（per [ADR-0003] induction 3 + Trade-offs）
   - Mobile viewport (< 640px) 视觉投影为 1-col 流式（block 按 row 顺序竖排）；**不**改 GridState
   - Tablet viewport (640-1024px) 视觉投影为 6-col
 - **Keyboard navigation (a11y baseline)**:
@@ -83,9 +83,9 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 ## Non-functional requirements
 
 - **Performance**:
-  - Drag feedback < 16ms（60fps；per ADR-0010 SLO）
-  - Insert / move / resize op 端到端（含 server roundtrip）< 200ms p95（per ADR-0010）
-  - Lighthouse mobile score ≥ 90 on view mode（CI gate；per ADR-0010）
+  - Drag feedback < 16ms（60fps；per [ADR-0010] SLO）
+  - Insert / move / resize op 端到端（含 server roundtrip）< 200ms p95（per [ADR-0010]）
+  - Lighthouse mobile score ≥ 90 on view mode（CI gate；per [ADR-0010]）
 - **Accessibility**:
   - 全键盘可操作（无 mouse 也可完成 insert / move / resize / delete）
   - Block focus 有 ARIA label（"Block 3 of 8, markdown, 12×2"）
@@ -96,12 +96,12 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 ## Non-goals
 
-- ❌ **Real-time collaborative editing (CRDT)** —— per project.md non-goals；Day-1 单人编辑，冲突走 last-write-wins
-- ❌ **Free continuous coordinates** —— per ADR-0003；canvas 是 discrete grid，不是 Figma
-- ❌ **Block 内部 prose-flow 编辑细节** —— 归 ADR-0013（markdown editor）/ 各 plugin EditView
-- ❌ **Plugin marketplace / theme marketplace** —— per project.md；Day-1 closed registry
-- ❌ **Block kind enumeration** —— 归 plugin-system.md PRD
-- ❌ **Note 跨链接 / wikilink** —— 单 note 内部 canvas behavior；跨 note 归 search-discovery.md PRD
+- ❌ **Real-time collaborative editing (CRDT)** —— per [project.md] non-goals；Day-1 单人编辑，冲突走 last-write-wins
+- ❌ **Free continuous coordinates** —— per [ADR-0003]；canvas 是 discrete grid，不是 Figma
+- ❌ **Block 内部 prose-flow 编辑细节** —— 归 [ADR-0013]（markdown editor）/ 各 plugin EditView
+- ❌ **Plugin marketplace / theme marketplace** —— per [project.md]；Day-1 closed registry
+- ❌ **Block kind enumeration** —— 归 [plugin-system.md] PRD
+- ❌ **Note 跨链接 / wikilink** —— 单 note 内部 canvas behavior；跨 note 归 [search-discovery.md] PRD
 
 ## Acceptance criteria
 
@@ -115,7 +115,7 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 ### M3 acceptance
 
-- 至少 5 个 block kind 在 canvas 上 work（具体 kinds 详 plugin-system.md）
+- 至少 5 个 block kind 在 canvas 上 work（具体 kinds 详 [plugin-system.md]）
 - 键盘全 a11y baseline 完成
 - Drop preview / snap visualization polish
 
@@ -135,7 +135,7 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 | Resize 把邻居挤出 grid | Reject，邻居不动 |
 | 拖 in flight 时 server 失败 | UI rollback 到拖前状态 + toast 错误原因 |
 | Mobile 1-col 投影下 user 想 resize | Resize disabled on mobile；switch to landscape / desktop 提示 |
-| Frontmatter theme override 跟 user pref 冲突 | Frontmatter 优先；UI 显示 "note 指定 theme: X"（per frozen DI §9.1） |
+| Frontmatter theme override 跟 user pref 冲突 | Frontmatter 优先；UI 显示 "note 指定 theme: X"（per frozen DI [grid-redesign-2026-05-11.md] §9.1） |
 | 拖时网络断 | 本地 optimistic update + 重连后 server reconcile；冲突走 last-write-wins |
 | 同 note 多 tab 打开同时编辑 | Last-write-wins；UI 不显式提示冲突（Day-1 简化） |
 
@@ -165,13 +165,13 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 ## Surfaced ADR debts
 
-写本 PRD 触碰到的 ADR 漏洞 / 一致性问题，喂回 AUDIT-2026-05.md（footer 含 link）：
+写本 PRD 触碰到的 ADR 漏洞 / 一致性问题，喂回 [AUDIT-2026-05.md]（footer 含 link）：
 
-- **ADR-0016 GAP**: theme system carrier 仍未承接（frozen DI §9.1 锁了 GridTheme interface / registry / hybrid persistence / floating chip 位置；ADR-0016 是 CSS framework 决策，没承接 theme system）。本 PRD must 列了 theme switching，必须有 ADR 承载 theme system 实装路径。**Action**: 在 plugin-system / canvas-editing PRD 拉通后，决定 theme system 走哪条路径（ADR-0016 扩展 / 新 ADR / 等 first runtime theme switch impl）
-- **ADR-0013 ↔ ADR-0003 边界 verify**: 本 PRD 多次描述 "EditView 进入 / 退出 / 内部" —— 这条 boundary（canvas 层不管 block 内部）已 sync 到 ADR-0003 induction 3，但 ADR-0013 自身可能还有 PM-doc-SoT 残留措辞（AUDIT 已标 PENDING）。**Action**: audit ADR-0013 时 verify "block 内部编辑器 SoT 跟 canvas SoT 二分清晰"
-- **Undo / redo scope GAP**: 现有 ADR 集（0003 / 0013 / 0014）都没明确 undo / redo 形态。Should-tier 列了但 scope 未拍。**Action**: 视 Open question 1 拍板，可能开 new ADR（如复杂）或归 ADR-0013（如归编辑器 SoT）
-- **Multi-tab 冲突策略 GAP**: 本 PRD Edge case 写了 "last-write-wins，UI 不显式提示" —— 但 ADR-0002 / ADR-0009 没显式说 conflict detection。**Action**: audit ADR-0002 / 0009 时验证 last-write-wins 是否真在架构假设里
-- **Mobile resize disabled 决策**: Edge case 写了 "mobile 1-col 投影下 resize disabled"，但这条决策没在 ADR-0003（Trade-offs 段没提）。**Action**: 决定是 PRD-only 决策（user-observable，归 PRD），还是要 ADR-0003 加 Trade-off 一行。倾向 PRD-only
+- **[ADR-0016] GAP**: theme system carrier 仍未承接（frozen DI §9.1 锁了 GridTheme interface / registry / hybrid persistence / floating chip 位置；[ADR-0016] 是 CSS framework 决策，没承接 theme system）。本 PRD must 列了 theme switching，必须有 ADR 承载 theme system 实装路径。**Action**: 在 [plugin-system.md] / [canvas-editing.md] PRD 拉通后，决定 theme system 走哪条路径（[ADR-0016] 扩展 / 新 ADR / 等 first runtime theme switch impl）
+- **[ADR-0013] ↔ [ADR-0003] 边界 verify**: 本 PRD 多次描述 "EditView 进入 / 退出 / 内部" —— 这条 boundary（canvas 层不管 block 内部）已 sync 到 [ADR-0003] induction 3，但 [ADR-0013] 自身可能还有 PM-doc-SoT 残留措辞（AUDIT 已标 PENDING）。**Action**: audit [ADR-0013] 时 verify "block 内部编辑器 SoT 跟 canvas SoT 二分清晰"
+- **Undo / redo scope GAP**: 现有 ADR 集（[ADR-0003] / [ADR-0013] / [ADR-0014]）都没明确 undo / redo 形态。Should-tier 列了但 scope 未拍。**Action**: 视 Open question 1 拍板，可能开 new ADR（如复杂）或归 [ADR-0013]（如归编辑器 SoT）
+- **Multi-tab 冲突策略 GAP**: 本 PRD Edge case 写了 "last-write-wins，UI 不显式提示" —— 但 [ADR-0002] / [ADR-0009] 没显式说 conflict detection。**Action**: audit [ADR-0002] / [ADR-0009] 时验证 last-write-wins 是否真在架构假设里
+- **Mobile resize disabled 决策**: Edge case 写了 "mobile 1-col 投影下 resize disabled"，但这条决策没在 [ADR-0003]（Trade-offs 段没提）。**Action**: 决定是 PRD-only 决策（user-observable，归 PRD），还是要 [ADR-0003] 加 Trade-off 一行。倾向 PRD-only
 
 ## References
 
@@ -183,4 +183,5 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 ## Changelog
 
 - 2026-05-16 initial draft（Phase E Day-1 PRD 第一篇；为 ADR rework round 2 提供 trigger lens）
-- 2026-05-16 cross-reference 风格 sync doc-conventions.md（in-text plain identifier，footer link 集中）
+- 2026-05-16 cross-reference 风格 sync [doc-conventions.md]（pass 1: in-text plain identifier + footer link）
+- 2026-05-16 pass 2: in-text 改为 `[bracketed identifier]` citation marker（form C）

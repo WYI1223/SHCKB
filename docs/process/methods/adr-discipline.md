@@ -3,7 +3,7 @@
 **Status**: living
 **Last updated**: 2026-05-16
 
-ADR (Architecture Decision Record) 的写作规则 / append-only 机制 / supersede 流程 / template。Source: architecture-rebuild-2026-05-11.md §10 + §12（footer 含 link）。
+ADR (Architecture Decision Record) 的写作规则 / append-only 机制 / supersede 流程 / template。Source: [architecture-rebuild-2026-05-11.md] §10 + §12（footer 含 link）。
 
 ## 核心规则
 
@@ -127,7 +127,7 @@ draft → proposed → accepted → superseded
 
 ### Cross-reference 风格
 
-遵 doc-conventions.md：in-text 用 plain identifier（"per ADR-0003"），markdown link 集中在 References 段。
+遵 [doc-conventions.md]：in-text 用 `[bracketed identifier]` citation marker（"per [ADR-0003]"），markdown link 集中在 References 段。
 
 ## ADR vs Frozen DI doc
 
@@ -165,7 +165,7 @@ Living doc（mental-model / architecture-overview / 等）跟 ADR 协作：
 
 ## Foundational ADR 写作 pattern（induction-chain style）
 
-部分 ADR 不是"二选一"型决策（"我们选 X 因为 Y"），而是 **product → architecture induction**：给定产品形态，推出哪些不可避让的架构事实。这类 ADR 通常出现在项目早期（大致 ADR-0001 ~ ADR-0004 量级），承担"框架奠基"角色。
+部分 ADR 不是"二选一"型决策（"我们选 X 因为 Y"），而是 **product → architecture induction**：给定产品形态，推出哪些不可避让的架构事实。这类 ADR 通常出现在项目早期（大致 [ADR-0001] ~ [ADR-0004] 量级），承担"框架奠基"角色。
 
 ### 何时用 induction-chain pattern
 
@@ -221,7 +221,7 @@ Living doc（mental-model / architecture-overview / 等）跟 ADR 协作：
 - ADR 内嵌算法伪代码（"loop until convergence ..."）
 - ADR 长度超 200 line 且 60%+ 是 code block
 
-这些症状表明 ADR 误把 CONTRACT 内容当 ADR 内容写。处理方式：**reframe 为 induction-chain ADR + 同步新增对应 CONTRACT.md**。参见 ADR-0003 pass 2 reframe (2026-05-16) 实际样例。
+这些症状表明 ADR 误把 CONTRACT 内容当 ADR 内容写。处理方式：**reframe 为 induction-chain ADR + 同步新增对应 CONTRACT.md**。参见 [ADR-0003] pass 2 reframe (2026-05-16) 实际样例。
 
 ### 与其他 ADR 类型的关系
 
@@ -229,12 +229,12 @@ Living doc（mental-model / architecture-overview / 等）跟 ADR 协作：
 
 | ADR 类型 | 例子 | Pattern |
 |---|---|---|
-| Foundational induction | ADR-0001 / ADR-0002 / ADR-0003 / ADR-0004 | induction-chain |
-| Stack 选型 | ADR-0006（Bun + Hono）/ ADR-0016（Tailwind） | "选 X 因为 Y"二选一 |
-| Pluggable abstraction | ADR-0007 / ADR-0008 / ADR-0017 | interface + adapter 表（contract 颗粒度，但因为对外扩展点正当） |
-| Cross-cutting quality | ADR-0010（perf budget）/ ADR-0011（sandbox） | invariant + 量化指标 |
-| Protocol / format | ADR-0009（API style）/ ADR-0015（agent wire） | 形态决策 + 实例 |
-| Detail / contract level | ADR-0014（plugin contract field-by-field） | 字段级 spec —— 因为 plugin 是**外部扩展点**，contract surface 本身即架构决策 |
+| Foundational induction | [ADR-0001] / [ADR-0002] / [ADR-0003] / [ADR-0004] | induction-chain |
+| Stack 选型 | [ADR-0006]（Bun + Hono）/ [ADR-0016]（Tailwind） | "选 X 因为 Y"二选一 |
+| Pluggable abstraction | [ADR-0007] / [ADR-0008] / [ADR-0017] | interface + adapter 表（contract 颗粒度，但因为对外扩展点正当） |
+| Cross-cutting quality | [ADR-0010]（perf budget）/ [ADR-0011]（sandbox） | invariant + 量化指标 |
+| Protocol / format | [ADR-0009]（API style）/ [ADR-0015]（agent wire） | 形态决策 + 实例 |
+| Detail / contract level | [ADR-0014]（plugin contract field-by-field） | 字段级 spec —— 因为 plugin 是**外部扩展点**，contract surface 本身即架构决策 |
 
 判定方法：**audience 是谁** —— 如果 contract surface 锁定的是**外部 author / operator** 看的契约（plugin author / API client / wire protocol consumer），下沉到字段级 ADR 是正当的；如果是**内部包**的契约，下沉到字段级走 CONTRACT.md。
 
@@ -251,5 +251,6 @@ Living doc（mental-model / architecture-overview / 等）跟 ADR 协作：
 ## Changelog
 
 - 2026-05-13 initial draft (Phase A framework)
-- 2026-05-16 ADR vs CONTRACT + Foundational ADR induction-chain pattern + audience-based 颗粒度规则 (triggered by ADR-0003 pass 2 reframe)
-- 2026-05-16 cross-reference 风格 follow doc-conventions.md (in-text plain + footer link)
+- 2026-05-16 ADR vs CONTRACT + Foundational ADR induction-chain pattern + audience-based 颗粒度规则 (triggered by [ADR-0003] pass 2 reframe)
+- 2026-05-16 cross-reference 风格 follow [doc-conventions.md] (pass 1: in-text plain + footer link)
+- 2026-05-16 pass 2: in-text 改为 `[bracketed identifier]` citation marker（form C）

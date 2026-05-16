@@ -14,19 +14,19 @@
 
 ## 产品定义
 
-- **Canvas 不是文档**：内容是 2D tile placement（约束 canvas），不是 prose-flow（详 mental-model.md）
+- **Canvas 不是文档**：内容是 2D tile placement（约束 canvas），不是 prose-flow（详 [mental-model.md]）
 - **Self-hostable platform**：operator 自部署，不是 SaaS 集中托管
-- **Plugin-extensible**：block 种类通过 plugin 扩展；加功能块 = 写 plugin（详 ADR-0004）
-- **AI-native**：agent 通过 semantic API（MCP + Skills）操作 canvas，不读 raw 文件（详 ADR-0005 / ADR-0015）
-- **Multi-deploy**：一个 OCI container image canonical artifact 覆盖 NAS / VPS / Cloud PaaS；single-binary + Workers 作 secondary tier（详 ADR-0001）
+- **Plugin-extensible**：block 种类通过 plugin 扩展；加功能块 = 写 plugin（详 [ADR-0004]）
+- **AI-native**：agent 通过 semantic API（MCP + Skills）操作 canvas，不读 raw 文件（详 [ADR-0005] / [ADR-0015]）
+- **Multi-deploy**：一个 OCI container image canonical artifact 覆盖 NAS / VPS / Cloud PaaS；single-binary + Workers 作 secondary tier（详 [ADR-0001]）
 
 ## 核心原则
 
 1. **Constrained canvas，非 Notion-shape doc-flow** —— 约束（snap / gravity / no-overlap）做 affordance 不做 cage
 2. **Plugin extension first-class** —— 内置 plugin 和第三方 plugin 走同一 contract
-3. **数据 SoT 在 server DB** —— 不是 git-as-DB，不是 file-as-DB（详 ADR-0002）
+3. **数据 SoT 在 server DB** —— 不是 git-as-DB，不是 file-as-DB（详 [ADR-0002]）
 4. **Agent 是二等用户不是 retrofit** —— semantic API 是架构 first-class 层
-5. **Performance 是 acceptance criterion** —— Lighthouse 90+ 是 CI gate（详 ADR-0010）
+5. **Performance 是 acceptance criterion** —— Lighthouse 90+ 是 CI gate（详 [ADR-0010]）
 6. **Self-host onboarding 要简单** —— 一键部署，operator 个人可维护
 
 ## Target operators（3 档）
@@ -58,9 +58,9 @@
 
 ## Success criteria
 
-- **M1-M4 演化路径** 每个 milestone 的 acceptance（详 bootstrap-evolution.md）
+- **M1-M4 演化路径** 每个 milestone 的 acceptance（详 [bootstrap-evolution.md]）
 - **M2 = minimum shippable** —— 可用的"个人笔记 + 公开发布" webapp
-- **Lighthouse mobile score ≥ 90** on public read mode（CI gate；详 ADR-0010）
+- **Lighthouse mobile score ≥ 90** on public read mode（CI gate；详 [ADR-0010]）
 - **Self-host onboarding < 10 分钟**（Docker 模式：`docker compose up -d` 到能用）
 - **M4 = 第 2 个 operator 能按文档自部署**到他的 NAS / VPS
 
@@ -68,23 +68,23 @@
 
 | Milestone | 目标 | 详 |
 |---|---|---|
-| **M1** | Foundation skeleton —— monorepo + carryover packages drop-in | bootstrap-evolution.md |
-| **M2** | First end-to-end slice —— login → 创建 note → markdown block → save → 公开访问（minimum shippable） | bootstrap-evolution.md |
-| **M3** | Plugin breadth + AI —— 5 light plugins + in-app AI + MCP server | bootstrap-evolution.md |
-| **M4** | Heavy plugins + production polish —— jupyter/nn-viz/agent-flow/discussion + 5 deploy mode 验证 | bootstrap-evolution.md |
+| **M1** | Foundation skeleton —— monorepo + carryover packages drop-in | [bootstrap-evolution.md] |
+| **M2** | First end-to-end slice —— login → 创建 note → markdown block → save → 公开访问（minimum shippable） | [bootstrap-evolution.md] |
+| **M3** | Plugin breadth + AI —— 5 light plugins + in-app AI + MCP server | [bootstrap-evolution.md] |
+| **M4** | Heavy plugins + production polish —— jupyter/nn-viz/agent-flow/discussion + 5 deploy mode 验证 | [bootstrap-evolution.md] |
 | **Phase 2+** | Plugin marketplace / wikilink + backlinks / MCP Apps / 协作（CRDT）/ 等 | TBD |
 
 ## Feature PRDs
 
 详 features/ 目录：
 
-- canvas-editing.md（draft；Day-1 PRD #1）
-- plugin-system.md（TODO；Day-1 PRD #2）
-- authentication.md（TODO；Day-1 PRD #3）
-- self-host-deploy.md（TODO；Day-1 PRD #4）
-- ai-integration.md（TODO；Phase 2+ owner-driven）
-- discussion.md（TODO；Phase 2+ owner-driven）
-- search-discovery.md（TODO；Phase 2+ owner-driven）
+- [canvas-editing.md]（draft；Day-1 PRD #1）
+- [plugin-system.md]（TODO；Day-1 PRD #2）
+- [authentication.md]（TODO；Day-1 PRD #3）
+- [self-host-deploy.md]（TODO；Day-1 PRD #4）
+- [ai-integration.md]（TODO；Phase 2+ owner-driven）
+- [discussion.md]（TODO；Phase 2+ owner-driven）
+- [search-discovery.md]（TODO；Phase 2+ owner-driven）
 
 ## References
 
@@ -102,4 +102,5 @@
 ## Changelog
 
 - 2026-05-14 initial extraction — 产品定义 / operator 谱 / non-goals / success criteria 从 ADR-0001 草稿（Phase B 误把 product vision 写成 ADR）提取到此 project PRD；ADR-0001 同步 reframe 为 "canonical deployment artifact" 决策
-- 2026-05-16 cross-reference 风格 sync doc-conventions.md；Feature PRDs 段加 Day-1 vs Phase 2+ 分级标注
+- 2026-05-16 cross-reference 风格 sync [doc-conventions.md]（pass 1: in-text plain identifier）；Feature PRDs 段加 Day-1 vs Phase 2+ 分级标注
+- 2026-05-16 pass 2: in-text 改为 `[bracketed identifier]` citation marker（form C）
