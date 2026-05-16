@@ -1,0 +1,130 @@
+# Feature PRD: Notepage (top-level)
+
+| Field | Value |
+|---|---|
+| Status | draft |
+| Last updated | 2026-05-16 |
+| Owner | W_YI |
+
+## Overview
+
+**Notepage** 是本产品的核心 user-facing concept —— 一个 note 在 web 上的呈现单位。Notepage 不是 document-flow 页面，是 **constrained canvas**：内容以 tile（block）形式摆在 12 列 × N 行的网格底板上。
+
+Notepage 同时承载 **author 编辑**和 **reader 阅读**两条 user journey；同一份 GridState 数据在两种 mode 下渲染不同 affordance（edit mode 有 drag handles / palette / selection；view mode 干净阅读）。Theme system 跨 mode 一致；responsive projection 跨 viewport 一致。
+
+本 PRD 锁的是 **notepage 作为整体的 framing + 跨 sub-feature 的协同 invariant**。具体 mode / theme / responsive 细节归各 sub-PRD。
+
+## Sub-features
+
+| Sub-PRD | Scope | 关键 deps |
+|---|---|---|
+| [notepage-view.md] | Reader 阅读流：view mode UI、SSR 渲染、anonymous access、阅读 keyboard | [ADR-0009] / [ADR-0013] |
+| [notepage-editing.md] | Author 编辑流：insert/move/resize/delete intent、visual affordance、edit keyboard | [ADR-0003] / [ADR-0013] / [ADR-0014] |
+| [notepage-themes.md] | Theme system：3 built-in themes、registry、persistence、switcher UI | [ADR-0016] + future render-system ADR |
+| [notepage-responsive.md] | Viewport projection：mobile 1-col / tablet 6-col / desktop 12-col | [ADR-0003] / [ADR-0010] |
+
+## Cross-cutting user stories
+
+跨 sub-feature 的 user journey；单 sub-PRD 内 user story 各自写专属于该 mode 的：
+
+- As a **new note author**, I want to **sign up → 创建第一个 notepage → 加 markdown block → 公开**，so that **完整体验产品价值的最短路径**
+- As a **reader**, I want to **打开 author 公开的 URL → 看到内容布局清晰 → 跨 desktop / mobile 都能用**，so that **author 的内容触达我**
+- As a **author switching between modes**, I want to **从 edit 切到 view 预览 → 切回 edit 继续改**，so that **不需 save / publish 就能即时预览**
+- As a **author using different theme**, I want to **切 theme 后立刻看到效果 → 切到 view 验证 reader 视角**，so that **theme 选择基于实际效果而非 isolated 预览**
+
+## Cross-cutting invariants
+
+Notepage 整体作为 coherent 产品的不变量。**任何 sub-feature 都不能破这些**：
+
+| Invariant | 含义 | 源 |
+|---|---|---|
+| **GridState 单一 SoT** | 同一份 GridState 跨 view + edit mode；切 mode 不动 state；切 theme 不动 state；切 viewport 不动 state | [ADR-0003] induction 1 |
+| **12-col 逻辑不变** | GridState 永远 logical 12-col；responsive 仅是 render projection；edit / view / mobile / tablet / desktop 看到的是同一 state | [ADR-0003] induction 3 + Trade-offs |
+| **Mode 切换即时无 save** | Author 在 edit 改了 → 切 view 预览 → 切回 edit；中间不需 save / publish；切 mode 不 reset 选中 / 滚动位置 | （cross-cutting 新约束） |
+| **Theme 跨 mode 一致** | Author 选 theme A → reader 访问 → reader 看到的就是 theme A（除非 reader 自己 override；frontmatter 优先于 user pref）| frozen DI [grid-redesign-2026-05-11.md] §9.1 |
+| **Plugin churn 不破核心 UX** | 新增 / 修改 / 删除 block kind 不破 notepage 编辑 / 阅读 / theme / responsive 任何 sub-feature | [ADR-0003] induction 3 kind-opaque |
+| **同 URL 跨 mode 跨 viewport** | `/notes/:slug` 一个 URL，根据 auth + viewport 投影不同 affordance；不为 mobile 单独路径 | （cross-cutting 新约束） |
+
+## Cross-feature seams（与其他 feature 协同）
+
+Notepage 不是孤立，要跟其他 feature 协同：
+
+| Adjacent feature | Notepage 跟它的接触面 |
+|---|---|
+| [plugin-system.md] | Block kinds 在 notepage 上渲染 / 编辑；plugin 提供 `EditView` / `RenderView` / `defaultSize`；plugin churn 不破 notepage |
+| [authentication.md] | Edit 权限通过 session 验证；anonymous user 看 public note；private note 需 session |
+| [self-host-deploy.md] | Notepage 在所有 deploy mode 都 work（Docker / single-binary / Workers）；URL 形态稳定 |
+| [discussion.md]（Phase 2+） | Discussion block 内嵌在 notepage 中；reader 可成为 discussion participant |
+| [ai-integration.md]（Phase 2+） | Agent 通过 semantic API 操作 notepage（per [ADR-0005]）；agent ops 同 human ops 走同 endpoint |
+| [search-discovery.md]（Phase 2+） | Notepage 内容被索引；跨 notepage 链接 / wikilink 归此 PRD |
+
+## Non-goals（notepage 整体 layer）
+
+- ❌ **Real-time collaborative editing (CRDT)** —— per [project.md]；Day-1 单人编辑
+- ❌ **跨 notepage 链接 / wikilink** —— 归 [search-discovery.md]，不在 notepage scope
+- ❌ **Desktop / mobile native app** —— per [project.md]；只 web
+- ❌ **Multi-user 同时编辑同 notepage** —— last-write-wins，不显式 conflict 提示
+- ❌ **Notepage 内嵌 notepage**（block 嵌 block 嵌 notepage 等）—— [ADR-0003] induction 3 不支持
+
+## Acceptance criteria（notepage 整体）
+
+### M2 — minimum shippable notepage
+
+- 完整 user journey：author signup → 创建空 notepage → 加 markdown block → 编辑 → 发布 → reader 访问 URL → 看到内容
+- 4 个 sub-feature 各 M2 acceptance 都过（detail 详 sub-PRDs）
+- Lighthouse mobile 90+ on public view
+- Self-host onboarding < 10 min
+
+### M3 — plugin breadth + a11y
+
+- 5 个 block kind 在 notepage 上 work（per [plugin-system.md] M3）
+- Edit + view 全键盘 a11y baseline
+- Theme 切换 polish；switcher UI 完整
+
+### M4 — production polish
+
+- 9 个内置 block kind 全 work
+- 5 deploy mode 全 verify（含 Workers）
+- Undo/redo（如启用）shipped
+
+## Dependencies
+
+- **ADRs**:
+  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — grid layer architecture induction
+  - [ADR-0013](../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — block 内编辑器 SoT
+  - [ADR-0014](../../../engineering/decisions/ADR-0014-plugin-contract.md) — plugin contract（EditView / RenderView / defaultSize）
+  - [ADR-0016](../../../engineering/decisions/ADR-0016-css-framework.md) — CSS framework + theme carrier（待补）
+- **Sub-PRDs**: [notepage-view.md] / [notepage-editing.md] / [notepage-themes.md] / [notepage-responsive.md]
+- **Other PRDs**: [plugin-system.md] / [authentication.md]
+
+## Open questions（cross-cutting）
+
+跨 sub-feature 的待决问题（sub-feature 内部 question 归各 sub-PRD）：
+
+1. **Mode 切换 UI 位置**：edit ↔ view 切换 toggle 放 toolbar / floating button / keyboard shortcut only？影响 author 体验流畅度
+2. **Author 在 view 预览时如何快速切回 edit**：单按键？还是 toolbar 按钮？
+3. **Reader 是否能临时进入 "reader edit" mode**：如 zoom / annotation（私有），不修改 author 原 notepage？Phase 2+ 但需 framing 决策
+4. **Notepage 标题位置**：在 GridState 内（一个 block）还是 GridState 外（page metadata）？影响 SEO / SSR / 编辑 UX
+
+## Surfaced ADR debts（cross-cutting）
+
+- **Mode 切换 UX 决策位置**: cross-cutting invariant "edit/view 切换即时无 save"目前没有 ADR 承接 —— 算 PRD-only 决策（user-observable，PRD level）？还是要 ADR 承诺持久化语义？倾向 PRD-only
+- **同 URL 跨 mode**: cross-cutting invariant "`/notes/:slug` 一个 URL" 没在 [ADR-0009] 显式；[ADR-0009] 列了 endpoint 表但没说 "edit / view 共用 GET path 区分 auth"。**Action**: audit [ADR-0009] 时 verify
+
+详 [AUDIT-2026-05.md] PRD-surfaced debts log。
+
+## References
+
+- Project PRD: [project.md](../../project.md)
+- Sub-PRDs:
+  - [notepage-view.md](./notepage-view.md)
+  - [notepage-editing.md](./notepage-editing.md)
+  - [notepage-themes.md](./notepage-themes.md)
+  - [notepage-responsive.md](./notepage-responsive.md)
+- Frozen DI: [grid-redesign-2026-05-11.md](../../../engineering/design/_frozen/grid-redesign-2026-05-11.md)
+- Audit register: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
+- Doc cross-reference convention: [doc-conventions.md](../../../process/methods/doc-conventions.md)
+
+## Changelog
+
+- 2026-05-16 initial draft；从 features/canvas-editing.md（Phase E pass 1）拆分而来 —— reframe vocab `canvas` → `notepage`（PRD product vocabulary）；hierarchical 结构 with 4 sub-PRDs；top-level 承担 framing + cross-cutting invariants + cross-feature seams 三类内容

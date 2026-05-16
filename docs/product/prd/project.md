@@ -76,15 +76,20 @@
 
 ## Feature PRDs
 
-详 features/ 目录：
+详 features/ 目录（每 feature 一 folder，详 features/[README.md]）：
 
-- [canvas-editing.md]（draft；Day-1 PRD #1）
-- [plugin-system.md]（TODO；Day-1 PRD #2）
-- [authentication.md]（TODO；Day-1 PRD #3）
-- [self-host-deploy.md]（TODO；Day-1 PRD #4）
-- [ai-integration.md]（TODO；Phase 2+ owner-driven）
-- [discussion.md]（TODO；Phase 2+ owner-driven）
-- [search-discovery.md]（TODO；Phase 2+ owner-driven）
+### Day-1 critical
+
+- [notepage/]（draft；包含 top-level + 4 sub-PRDs：notepage / -view / -editing / -themes / -responsive）
+- [plugin-system/]（TODO）
+- [authentication/]（TODO）
+- [self-host-deploy/]（TODO）
+
+### Phase 2+ (owner-driven)
+
+- [ai-integration/]（TODO）
+- [discussion/]（TODO）
+- [search-discovery/]（TODO）
 
 ## References
 
