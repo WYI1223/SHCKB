@@ -15,7 +15,65 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 | 例子 | "user 拖 block 到空 hole，block 缩到 hole size" | "engine kind-opaque + Option A gravity" | `inferDropIntent(state, cursor, proposedSize) → DropIntent` |
 | Audience | product reader / owner / future PRD author | engineering reader | code consumer |
 | 修改规则 | Living（按 owner 思路演化） | Append-only at `accepted` | Versioned with package |
-| 引用方向 | PRD 引用 ADR（"per [ADR-XXXX] ..."），不重定义 | ADR 引用 PRD 作 product source | CONTRACT 引用 ADR 作 architecture source |
+| Layer | **Product truth (master)** | **Downstream of PRD**（technical realization） | **Downstream of ADR**（implementation surface） |
+
+## Layer relationship — PRD 是 master，ADR 不是
+
+**关键 framing**：PRD 是产品真相的源头；ADR / CONTRACT 是为了实现 PRD 而做的下游技术决策。**PRD 不"依赖" ADR；ADR 依赖（必须 align）PRD**。
+
+### 依赖方向
+
+```
+[Product PRD (master)]
+        ↓ defines WHAT
+[Architectural ADR (technical realization)]
+        ↓ implements
+[Package CONTRACT.md (surface)]
+        ↓ realized as
+[Source code]
+```
+
+- PRD 改 → ADR 可能要 rework
+- ADR 改 不应影响 PRD（PRD 是 product truth，不被技术细节牵动）
+- 任何 PRD ↔ ADR 不一致 → **ADR rework**（除非 PRD 自身需要 reframe，那是单独决策）
+
+### 在 PRD 文档结构里如何体现
+
+| 位置 | 该放什么 |
+|---|---|
+| **Dependencies 段** | **只列 upstream 依赖**：other PRDs（parent / siblings / 其他 feature PRDs）、external services、external standards。**不**列 ADR / CONTRACT（它们是 downstream，PRD 不依赖它们） |
+| **References 段** | **Aligning ADRs**（必须 align 本 PRD 的 ADRs；如冲突 → ADR rework）+ Frozen DI + prototype + audit + doc-conventions 等 |
+| Surfaced ADR debts | 写 PRD 时发现的 PRD ↔ ADR 不一致；喂回 AUDIT trigger ADR rework |
+
+### Anti-pattern
+
+```markdown
+❌ ## Dependencies
+   - ADRs: ADR-0003 / ADR-0014 / ...   ← 错：PRD 不依赖 ADR
+   - 其他 PRDs: ...
+```
+
+### Pattern
+
+```markdown
+✅ ## Dependencies
+   - **Parent PRD**: [notepage.md]
+   - **Sibling PRDs**: [notepage-view.md] / ...
+   - **Other feature PRDs**: [plugin-system.md] / ...
+   - **External services**: 无 / Cloudflare R2 / etc.
+
+✅ ## References
+   PRD 是 product truth。以下 ADRs 是 downstream 技术决策, 必须 align 本 PRD。
+   任何 ADR ↔ PRD 不一致 → ADR rework（详 AUDIT 流程）。
+
+   - **Aligning ADRs**:
+     - [ADR-0003](...) — grid layer algorithm contract
+     - ...
+   - **Frozen DI**: [grid-redesign-2026-05-11.md](...)
+   - **Prototype**: carryover/_reference/prototype/
+   - **Audit**: [AUDIT-2026-05.md](...)
+   - **Doc convention**: [doc-conventions.md](...)
+```
 
 ## Length
 
@@ -37,7 +95,9 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 | Status | draft / in-progress / shipped / deprecated |
 | Last updated | YYYY-MM-DD |
 | Owner | <name> |
-| Related ADRs | ADR-XXXX, ADR-YYYY |
+| Parent PRD | [<parent>.md]（如有）|
+
+（不在 metadata 列 ADRs —— ADR 是 downstream 实现决策，归 References 段，不是 PRD frontmatter 必填项）
 
 ## Overview
 （1-2 段：该 feature 是什么；what user can do with it）
@@ -72,9 +132,11 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 （非典型场景 + 期望行为）
 
 ## Dependencies
-- ADRs: ADR-XXXX, ADR-YYYY
-- Other feature PRDs (must ship before this)
-- External services
+（**只列 upstream** —— PRD 不依赖 ADR；详见 Layer relationship 段）
+- Parent PRD: [<parent>.md]
+- Sibling PRDs: [<sibling>.md] / ...
+- Other feature PRDs: [<other>.md] / ...
+- External services: ...
 
 ## Open questions
 （未决 / 待 owner 确认；写 PRD 过程中暴露的 gap）
@@ -215,3 +277,8 @@ Feature PRD 涉及多个 ADR；living doc 给跨 PRD 的 unifying view。
   - 新增"判定方法"："去掉视觉 / 形态描述后这句话还成立吗"
   - 新增 algorithm contract = exception 段（如 prototype-validated 算法 invariant 应在 PRD）
   - 新增 "Out of PRD scope" section 推荐（复杂 PRD 显式列不规定的 UI 决策）
+- 2026-05-16 Layer relationship 段新增（owner critical framing fix）：
+  - PRD 是 master，ADR 是 downstream；PRD **不**依赖 ADR；ADR 依赖（必须 align）PRD
+  - Dependencies 段只列 upstream PRD deps；ADRs 归 References 段（"Aligning ADRs"）
+  - Template 同步更新；metadata 不列 ADRs
+  - Anti-pattern + pattern 示例

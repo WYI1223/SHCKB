@@ -118,12 +118,11 @@ Notepage 跨 viewport（desktop / tablet / mobile）的**布局投影行为** �
 
 ## Dependencies
 
-- **ADRs**:
-  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — logical 12-col + Trade-offs（"logical coord vs render projection" 精确化）
-  - [ADR-0010](../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse mobile 90+
-  - [ADR-0016](../../../engineering/decisions/ADR-0016-css-framework.md) — Tailwind responsive utilities
-- **Parent**: [notepage.md](./notepage.md)
-- **Sibling**: [notepage-view.md](./notepage-view.md) / [notepage-editing.md](./notepage-editing.md)（都消费 responsive 投影）
+PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
+
+- **Parent PRD**: [notepage.md](./notepage.md)
+- **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-editing.md](./notepage-editing.md) / [notepage-themes.md](./notepage-themes.md)（都消费 responsive 投影）
+- **External services**: 无 Day-1 外部依赖
 
 ## Open questions
 
@@ -141,10 +140,16 @@ Notepage 跨 viewport（desktop / tablet / mobile）的**布局投影行为** �
 
 ## References
 
-- Parent: [notepage.md](./notepage.md)
-- Audit: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
-- Doc convention: [doc-conventions.md](../../../process/methods/doc-conventions.md)
+PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
+
+- **Aligning ADRs**:
+  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — logical 12-col + Trade-offs（"logical coord vs render projection" 精确化）
+  - [ADR-0010](../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse mobile 90+
+  - [ADR-0016](../../../engineering/decisions/ADR-0016-css-framework.md) — Tailwind responsive utilities
+- **Audit**: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
+- **Doc convention**: [doc-conventions.md](../../../process/methods/doc-conventions.md)
 
 ## Changelog
 
 - 2026-05-16 initial draft；从 features/canvas-editing.md mobile responsive 段拆出 + 扩展（3 breakpoint / touch baseline / 跨 viewport 一致 / mobile 编辑限制）
+- 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段

@@ -5,6 +5,7 @@
 | Status | draft |
 | Last updated | 2026-05-16 |
 | Owner | W_YI |
+| Parent PRD | [project.md] |
 
 ## Overview
 
@@ -89,13 +90,11 @@ Notepage 不是孤立，要跟其他 feature 协同：
 
 ## Dependencies
 
-- **ADRs**:
-  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — grid layer architecture induction
-  - [ADR-0013](../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — block 内编辑器 SoT
-  - [ADR-0014](../../../engineering/decisions/ADR-0014-plugin-contract.md) — plugin contract（EditView / RenderView / defaultSize）
-  - [ADR-0016](../../../engineering/decisions/ADR-0016-css-framework.md) — CSS framework + theme carrier（待补）
+PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
+
 - **Sub-PRDs**: [notepage-view.md] / [notepage-editing.md] / [notepage-themes.md] / [notepage-responsive.md]
-- **Other PRDs**: [plugin-system.md] / [authentication.md]
+- **Other feature PRDs**: [plugin-system.md]（提供 block kinds）/ [authentication.md]（提供 edit 权限）
+- **External services**: 无 Day-1 外部依赖
 
 ## Open questions（cross-cutting）
 
@@ -115,16 +114,24 @@ Notepage 不是孤立，要跟其他 feature 协同：
 
 ## References
 
-- Project PRD: [project.md](../../project.md)
-- Sub-PRDs:
+PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
+
+- **Aligning ADRs**（technical realization of this PRD's WHAT）：
+  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — grid layer architecture induction
+  - [ADR-0013](../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — block 内编辑器 SoT
+  - [ADR-0014](../../../engineering/decisions/ADR-0014-plugin-contract.md) — plugin contract
+  - [ADR-0016](../../../engineering/decisions/ADR-0016-css-framework.md) — CSS framework + theme carrier（GAP，本 PRD 触发 rework）
+- **Project PRD**: [project.md](../../project.md)
+- **Sub-PRDs**:
   - [notepage-view.md](./notepage-view.md)
   - [notepage-editing.md](./notepage-editing.md)
   - [notepage-themes.md](./notepage-themes.md)
   - [notepage-responsive.md](./notepage-responsive.md)
-- Frozen DI: [grid-redesign-2026-05-11.md](../../../engineering/design/_frozen/grid-redesign-2026-05-11.md)
-- Audit register: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
-- Doc cross-reference convention: [doc-conventions.md](../../../process/methods/doc-conventions.md)
+- **Frozen DI**: [grid-redesign-2026-05-11.md](../../../engineering/design/_frozen/grid-redesign-2026-05-11.md)
+- **Audit register**: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
+- **Doc cross-reference convention**: [doc-conventions.md](../../../process/methods/doc-conventions.md)
 
 ## Changelog
 
 - 2026-05-16 initial draft；从 features/canvas-editing.md（Phase E pass 1）拆分而来 —— reframe vocab `canvas` → `notepage`（PRD product vocabulary）；hierarchical 结构 with 4 sub-PRDs；top-level 承担 framing + cross-cutting invariants + cross-feature seams 三类内容
+- 2026-05-16 pass 2 layer relationship fix（owner critical framing）：PRD 是 master，ADR 是 downstream；Dependencies 段只列 upstream PRDs；ADRs 移到 References "Aligning ADRs" 段；Parent PRD 加 metadata 字段

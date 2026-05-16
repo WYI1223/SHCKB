@@ -142,20 +142,12 @@ PRD 层 user-observable 期望；HOW 是 dev/theme 决定：
 
 ## Dependencies
 
-- **ADRs**:
-  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — gravity / drop intent / AABB invariants（核心算法承诺）
-  - [ADR-0013](../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — EditView 内编辑
-  - [ADR-0014](../../../engineering/decisions/ADR-0014-plugin-contract.md) — defaultSize / EditView / RenderView contract
-  - [ADR-0009](../../../engineering/decisions/ADR-0009-api-style.md) — mutation endpoints
-  - [ADR-0010](../../../engineering/decisions/ADR-0010-performance-budget.md) — drag fps / op latency
-- **Prototype reference**:
-  - `carryover/_reference/prototype/useGridInteraction.ts` — drag/resize state machine (validated)
-  - `carryover/_reference/prototype/shared-overlays.tsx` — DropGhost / ResizePreview / ResizeHandles (validated visual feedback semantics)
-  - `carryover/_reference/prototype/MiniPalette.tsx` — palette drag-insert flow (validated；form factor not normative)
-- **Contract**: [grid-engine CONTRACT.md](../../../../packages/grid-engine/CONTRACT.md)
+PRD 层 upstream 依赖（ADR / CONTRACT / prototype 是 downstream，归 References 段）：
+
 - **Parent PRD**: [notepage.md](./notepage.md)
 - **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-themes.md](./notepage-themes.md) / [notepage-responsive.md](./notepage-responsive.md)
-- **Other PRDs**: [plugin-system.md](../plugin-system/plugin-system.md) / [authentication.md](../authentication/authentication.md)
+- **Other feature PRDs**: [plugin-system.md](../plugin-system/plugin-system.md)（提供 block kinds + EditView contract）/ [authentication.md](../authentication/authentication.md)（提供 edit 权限）
+- **External services**: 无 Day-1 外部依赖
 
 ## Open questions
 
@@ -172,12 +164,22 @@ PRD 层 user-observable 期望；HOW 是 dev/theme 决定：
 
 ## References
 
-- Parent: [notepage.md](./notepage.md)
-- Contract: [grid-engine CONTRACT.md](../../../../packages/grid-engine/CONTRACT.md)
-- Source frozen DI: [grid-redesign-2026-05-11.md](../../../engineering/design/_frozen/grid-redesign-2026-05-11.md) §3 + §4
-- Prototype source: `carryover/_reference/prototype/`
-- Audit: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
-- Doc convention: [doc-conventions.md](../../../process/methods/doc-conventions.md)
+PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
+
+- **Aligning ADRs**（technical realization of this PRD's WHAT）:
+  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — gravity / drop intent / AABB invariants（核心算法承诺）
+  - [ADR-0013](../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — EditView 内编辑
+  - [ADR-0014](../../../engineering/decisions/ADR-0014-plugin-contract.md) — defaultSize / EditView / RenderView contract
+  - [ADR-0009](../../../engineering/decisions/ADR-0009-api-style.md) — mutation endpoints
+  - [ADR-0010](../../../engineering/decisions/ADR-0010-performance-budget.md) — drag fps / op latency
+- **Contract**: [grid-engine CONTRACT.md](../../../../packages/grid-engine/CONTRACT.md)
+- **Frozen DI**: [grid-redesign-2026-05-11.md](../../../engineering/design/_frozen/grid-redesign-2026-05-11.md) §3 + §4
+- **Prototype reference**（validated algorithm core; UI choices not normative）:
+  - `carryover/_reference/prototype/useGridInteraction.ts` — drag/resize state machine
+  - `carryover/_reference/prototype/shared-overlays.tsx` — DropGhost / ResizePreview / ResizeHandles 视觉 semantics
+  - `carryover/_reference/prototype/MiniPalette.tsx` — palette drag-insert flow（form factor not normative）
+- **Audit**: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
+- **Doc convention**: [doc-conventions.md](../../../process/methods/doc-conventions.md)
 
 ## Changelog
 
@@ -189,3 +191,4 @@ PRD 层 user-observable 期望；HOW 是 dev/theme 决定：
   - User stories / Functional req Must / Edge cases 改 user-observable WHAT 表述，去 UI 实现细节
   - Keyboard a11y baseline 保留但不规定 specific bindings；标记 prototype 未 validated → AUDIT 新增 debt
   - Theme extensibility 显式：第三方 theme 可选不同 palette form factor / handle visual / 等
+- 2026-05-16 pass 3 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs / Contract / Prototype 移到 References "Aligning ADRs" 段（PRD 是 master，ADR 是 downstream）
