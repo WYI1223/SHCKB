@@ -56,7 +56,7 @@ features/
 | Sub-PRD | Scope |
 |---|---|
 | [theme-system/theme-system.md](./theme-system/theme-system.md) | top-level framing：4-layer cascade（L0/L1/L2/L3）+ L0 hard invariants + cross-cutting invariants + per-attribute override |
-| [theme-system/theme-system-user-view.md](./theme-system/theme-system-user-view.md) | Note author / reader 视角（3 built-in theme + switching + persistence + frontmatter override） |
+| [theme-system/theme-system-user-view.md](./theme-system/theme-system-user-view.md) | Note author / reader 视角（3 built-in theme + switching + persistence + notepage metadata override） |
 | [theme-system/theme-system-author-view.md](./theme-system/theme-system-author-view.md) | Theme 开发者视角（fork / compose / from-scratch path + cascade override + L0 enforcement） |
 
 ### Plugin-system（extension author 视角；generic extension framework）
@@ -79,12 +79,12 @@ features/
 
 ## Feature PRD template
 
-详 [prd-discipline.md](../../process/methods/prd-discipline.md) 的 Structure section。
+详 [prd-discipline.md](../../../process/methods/prd-discipline.md) 的 Structure section。
 
 ## References
 
-- PRD writing method: [prd-discipline.md](../../process/methods/prd-discipline.md)
-- Doc cross-reference convention: [doc-conventions.md](../../process/methods/doc-conventions.md)
+- PRD writing method: [prd-discipline.md](../../../process/methods/prd-discipline.md)
+- Doc cross-reference convention: [doc-conventions.md](../../../process/methods/doc-conventions.md)
 - Project PRD: [project.md](../project.md)
 
 ## Changelog

@@ -87,17 +87,20 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 
 ### M2 acceptance（minimum shippable extension framework）
 
-- Framework 能 register 9 built-in block plugin + 3 built-in theme plugin
-- Plugin contract 形态稳定（[ADR-0014]）；author 能读 contract 写一个简单 plugin（即便 Day-1 closed 也可 demo 写第 10 个 block / 第 4 个 theme）
+- **Framework registry 能 register 多 block plugin**（Day-1 ship 至少 markdown 一个完整 plugin；其他 8 built-in stub 可以 register 但完整实装在 M3/M4，reviewer Finding 1 修订对齐 [project.md] M2 = "markdown block E2E"）
+- **Theme plugin** Day-1 M2 ship 3 built-in（详 [theme-system.md]；theme M2 范围保留，reviewer Finding 1 nuance）
+- Plugin contract 形态稳定（[ADR-0014]）；author 能读 contract 写一个简单 plugin（即便 Day-1 closed 也可 internal demo 写第 10 个 block / fork theme；**L3 third-party contract Day-1 reserved 不 lock**）
 - Plugin lifecycle work：register / version / migration baseline
 
 ### M3 acceptance
 
 - Sandbox baseline（[ADR-0011] Phase 1 inline → Phase 2 worker boundary 起步）
+- **5 light block kinds 完整 work**（详 [new-block.md] M3；align project.md M3 plugin breadth）
 - Plugin author 文档完整（[new-block.md] author guide + theme author guide 见 [theme-system-author-view.md]）
 
 ### M4 acceptance
 
+- **9 built-in block kinds 全 work**（重型 plugin: jupyter / nn-viz / agent-flow / discussion；align project.md M4）
 - 5 deploy mode 下 plugin 都 work（含 Workers runtime constraint）
 - Plugin 卸载 / data cleanup workflow
 

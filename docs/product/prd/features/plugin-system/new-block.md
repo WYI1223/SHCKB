@@ -100,19 +100,19 @@ Block extension = **author 写一个新 block kind**，让它出现在 notepage 
 
 ### M2 acceptance
 
-- 9 built-in block plugin 全 register + 可用
-- 至少 markdown plugin 完整走通：author 视角 contract 清晰 + Day-1 user 视角 insert / edit / render / save / reload work（端到端 demo path）
-- BlockPlugin contract 形态稳定（与 [ADR-0014] align）
+- **Markdown plugin 完整 E2E work**：author 视角 contract 清晰 + Day-1 user 视角 insert / edit / render / save / reload work（端到端 demo path；align [project.md] M2 = "login → markdown block → public view"）
+- Registry 能 register 多 plugin；其他 8 built-in block 可以 stub register 但完整实装在 M3/M4（reviewer Finding 1 修订）
+- BlockPlugin contract 形态稳定（与 [ADR-0014] align）；**L3 third-party contract Day-1 reserved 不 M2 lock**
 
 ### M3 acceptance
 
-- 至少 5 个 block kind 在 notepage 上 work（同 [notepage-editing.md] M3 acceptance）
+- **5 light block kinds 完整 work**（markdown / image / code / callout / math 等；具体清单与 [plugin-system.md] M3 align）
 - agentOps 跨 5 kinds work（AI 能 manipulate）
 - Plugin author 文档完整
 
 ### M4 acceptance
 
-- 9 个 built-in block kinds 全 work + 跨 5 deploy mode 验证
+- **9 built-in block kinds 全 work**（M3 5 light + M4 4 heavy：jupyter / nn-viz / agent-flow / pdf 等）+ 跨 5 deploy mode 验证
 - Plugin lazy migration baseline shipped
 
 ### Phase 2+

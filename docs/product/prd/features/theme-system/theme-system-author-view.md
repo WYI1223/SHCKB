@@ -26,8 +26,8 @@
 - As a **theme author**, I want to **compose（extend + override）一个 built-in theme**（如 import lego-studs + 只 override 想改的 attribute），so that **细微调整不必整 fork**
 - As a **theme author**, I want to **per-attribute override**（cascade L3 只 override 我想改的，其他 fallback 到 L2/L1），so that **不需要重写整个 theme 才能改一个 attribute**
 - As a **theme author**, I want to **明确知道哪些 attribute 不能 override**（L0 hard invariants），so that **写代码时立刻知道边界，不在 runtime 才 fail**
-- As a **theme author**, I want to **declare 我的 theme 需要的 capability**（如自定 keyboard handler 需要 keyboard input cap），so that **sandbox 知道允许什么**
-- As a **theme author**, I want to **声明 theme semver + migration**，so that **theme 升版不破 user pref / frontmatter override 兼容**
+- As a **theme author**, I want to **declare 我的 theme 需要的 capability**（如 storage read for theme asset），so that **sandbox 知道允许什么**（注：keyboard binding / gesture handler 不归 theme；想加自定 interaction 见 future keymap / gesture extension type）
+- As a **theme author**, I want to **声明 theme semver + migration**，so that **theme 升版不破 user pref / notepage metadata override 兼容**
 - As a **theme author writing a radical theme**, I want to **不被强加 "official base class" 包袱**，so that **fork 后我的 theme 跟 source theme 独立演化**
 
 ## Functional requirements
@@ -58,17 +58,18 @@ export const myTheme: ThemePlugin = {
 
 **L0 enforce**：如果 author override 触碰 L0 invariant（如改 GridState shape / 改 12-col / 改 a11y baseline），framework 在 register 时**reject** + report；不静默 fallback。
 
-### Must (Day-1, M2) — Author can override（cascade L2/L3 freedom）
+### Must (Day-1, M2) — Author can override（cascade L2/L3 freedom；presentation only）
 
-Theme author 通过 cascade override 能 full control 以下 attribute（fallback chain：L3 → L2 → L1）：
+Theme author 通过 cascade override 能 full control 以下 **presentation attribute**（fallback chain：L3 → L2 → L1）。**Interaction semantics 不在此范围**（详下面 "cannot override" 段；reviewer Finding 2 修订）：
 
 | Surface 类别 | 包含 attribute | Layer |
 |---|---|---|
 | **静态视觉** | Slot pixel size / baseplate / block 边框 / shadow / CSS vars / 头部 / spacing | L2/L3 |
 | **状态视觉** | Selection / hover / focus / drag in-flight / drop preview / resize preview / invalid / loading | L2/L3 |
-| **Control 视觉 + 位置** | Resize handle 视觉 / handle visibility policy / handle 位置 / drag handle / inline toolbar / block menu | L2/L3 |
-| **Form factor** | Palette form factor / palette 触发方式 / palette 出现位置 / block menu 触发 / theme switcher form / mode switch form | L2/L3 |
-| **Interaction logic** | Keyboard binding map / pointer behavior / touch gesture / multi-select / drag-and-drop / insert flow / undo behavior | L2/L3（但需 declare capability；详 sandbox 段） |
+| **Control 视觉** | Resize handle 视觉 / handle visibility policy / handle 位置（presentation 选择，不改 interaction） / drag handle 视觉 / inline toolbar visual / block menu visual | L2/L3 |
+| **Form factor**（位置 / 形态选择，**不**含触发逻辑） | Palette form factor (toolbar / floating / sidebar) / palette 出现位置 / theme switcher form factor / mode switch form factor | L2/L3 |
+
+**Key clarification**: 上面的 "form factor" 是 **位置 + 形态视觉**；具体**触发方式（keymap 绑定 / gesture 触发 / pointer threshold）归 framework**，theme 不动。
 
 详 attribute enumeration 见 [theme-system.md] top "L0 / L1 / L2 / L3 layer 职责" 段。
 
@@ -76,10 +77,14 @@ Theme author 通过 cascade override 能 full control 以下 attribute（fallbac
 
 详 [theme-system.md] top L0 hard invariants 段。Author 任何 path（fork / compose / from-scratch）触碰 L0 → framework reject + violation report：
 
-- Algorithm core invariants（GridState SoT / 12-col / gravity / AABB / hole-fill / move 保 size / block 内容由 plugin 渲染 / 数据持久化）
-- A11y minimum baseline（keyboard navigability / ARIA / focus order / WCAG AA contrast / touch target / screen reader announcement）
+- **L0a Algorithm core invariants** (register-time + runtime hard reject)：GridState SoT / 12-col / gravity / AABB / hole-fill / move 保 size / block 内容由 plugin 渲染 / 数据持久化
+- **L0a Interaction semantics** (新加；reviewer Finding 2)：keyboard binding map / pointer behavior threshold / touch gesture semantic / multi-select 逻辑 / drag-and-drop state machine / insert flow / undo / redo behavior 都**不**通过 theme cascade；想改这些需 future keymap / gesture / interaction extension type（plugin-system 后续 sub-PRD 候选）
+- **L0a Switcher fallback path** (新加；reviewer Finding 6)：framework 提供 accessible fallback switcher（settings page + keyboard shortcut）theme 不可隐藏 / override
+- **L0b A11y baseline** (harness-validated；reviewer Finding 4)：keyboard navigability / ARIA / focus order / WCAG AA contrast / touch target / screen reader announcement——M2 framework-owned chrome 锁死 + 3 built-in 通过单测；M3 harness validation；Phase 2+ 第三方 cert
 
-**Validation 时机**：framework 启动 register 时静态 check + runtime guard 双层（per [theme-system.md] top Surfaced ADR debts L0 enforcement layer 机制）。
+**Validation 时机**（分层；reviewer Finding 4）：
+- L0a → register-time（plugin contract 静态 check）+ runtime（mutation 拦截）双层；hard reject
+- L0b → framework-owned chrome compile time 锁死 + harness validation（M3+ ship axe-core / pa11y / screen reader smoke test）；不试图 100% register-time reject
 
 ### Must (Day-1, M2) — Authoring path（cascade 表达）
 
@@ -171,8 +176,8 @@ export const myRadicalTheme: ThemePlugin = {
 | Theme 声明 invalid key（含特殊字符 / 跟 built-in 冲突）| Register 失败 + 明确 error |
 | Theme renderBlock 抛 exception | Sandbox 隔离 + 显示 "theme render error" + cascade fallback 到上一 layer 此 attribute + 提示 user |
 | Theme cssVar 跟 framework reserved var 冲突 | Framework var 优先；theme 覆盖警告 dev mode（per cascade L0 enforce） |
-| Theme 升版 migration 失败 | 回滚到旧版本 + theme 标 error；user pref / frontmatter override 保留 |
-| 卸载 theme 但 user pref / frontmatter override = 此 theme | Cascade fallback：L3 missing → L2 default theme（`lego-studs`）；UI 显示 "this notepage requires theme X (uninstalled)" |
+| Theme 升版 migration 失败 | 回滚到旧版本 + theme 标 error；user pref / notepage metadata override 保留 |
+| 卸载 theme 但 user pref / notepage metadata override = 此 theme | Cascade fallback：L3 missing → L2 default theme（`lego-studs`）；UI 显示 "this notepage requires theme X (uninstalled)" |
 | Theme 声明 capability 超出 sandbox 允许（如要全局 fetch） | Register 失败 + 提示降低 capability |
 | 两个 L3 theme 注册同 key | Register 失败（first wins / error 视 framework 决定） |
 | Theme **试图 override L0** invariant（如改 GridState shape）| Framework register-time catch + reject + violation report |
