@@ -1,0 +1,159 @@
+# PRD Discipline
+
+**Status**: living
+**Last updated**: 2026-05-16
+
+PRDs (Product Requirements Documents) 的写作规则 / 与 ADR / CONTRACT 边界 / template。
+
+## What a PRD is for
+
+PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisions。**HOW** 归 ADR / CONTRACT.md / runbook。
+
+| | PRD | ADR | CONTRACT.md |
+|---|---|---|---|
+| 锁什么 | **WHAT** — user-observable behavior / product 形态 | **HOW (architectural)** — 架构选择 / 不变量 | **Surface** — types / ops / 算法 |
+| 例子 | "user 拖 block 到空 hole，block 缩到 hole size" | "engine kind-opaque + Option A gravity" | `inferDropIntent(state, cursor, proposedSize) → DropIntent` |
+| Audience | product reader / owner / future PRD author | engineering reader | code consumer |
+| 修改规则 | Living（按 owner 思路演化） | Append-only at `accepted` | Versioned with package |
+| 引用方向 | PRD 引用 ADR（"per ADR-XXXX, ..."），不重定义 | ADR 引用 PRD 作 product source | CONTRACT 引用 ADR 作 architecture source |
+
+## Length
+
+- **Feature PRD**: target 80-200 lines；超 300 → 太长 → 拆 multiple PRDs
+- **Project-level PRD** (`project.md`): up to ~300 lines（覆盖 vision + operator 谱 + non-goals + success criteria）
+- 不嵌大段 TS interface / 函数签名 / DB schema / wire protocol 形态 —— 这些归 ADR / CONTRACT
+
+## Structure
+
+```markdown
+# Feature PRD: <Name>
+
+| Field | Value |
+|---|---|
+| Status | draft / in-progress / shipped / deprecated |
+| Last updated | YYYY-MM-DD |
+| Owner | <name> |
+| Related ADRs | ADR-XXXX, ADR-YYYY |
+
+## Overview
+（1-2 段：该 feature 是什么；what user can do with it）
+
+## User stories
+- As <role>, I want to <action>, so that <benefit>
+（典型 user journey；5-15 条；不嵌技术细节）
+
+## Functional requirements
+
+### Must (Day-1)
+- ...
+
+### Should (Day-1 if scope allows)
+- ...
+
+### Nice-to-have (Phase 2+)
+- ...
+
+## Non-functional requirements
+- Performance budget（具体 ms / Lighthouse score / etc.）
+- Accessibility（keyboard / screen reader 等）
+- Security（如 feature 有 auth / privacy 维度）
+
+## Non-goals
+明确**不**做的事（防 scope creep）
+
+## Acceptance criteria
+（M-milestone 中此 feature 算 done 的可测试判定）
+
+## Edge cases
+（非典型场景 + 期望行为）
+
+## Dependencies
+- ADRs: ADR-XXXX, ADR-YYYY
+- Other feature PRDs (must ship before this)
+- External services
+
+## Open questions
+（未决 / 待 owner 确认；写 PRD 过程中暴露的 gap）
+
+## Surfaced ADR debts
+（写 PRD 时触碰到的 ADR 漏洞 / 一致性问题；喂回 `docs/engineering/decisions/AUDIT-2026-05.md`）
+
+## Changelog
+- YYYY-MM-DD initial draft
+```
+
+## WHAT vs HOW boundary
+
+写 PRD 时碰到的边界判断常见错误：
+
+### ❌ Anti-pattern: PRD 写实现选择
+
+| 不该写在 PRD | 该归哪 |
+|---|---|
+| "use DnDKit for drag-and-drop" | ADR-0013 / library 选型决策 |
+| "store theme in localStorage" | ADR-0016 / theme system ADR |
+| "inferDropIntent 接收 proposedSize" | ADR-0003 / CONTRACT |
+| "POST /api/blocks/insert body: {kind, col, row}" | ADR-0009 |
+| "blocks 表加 deleted_at 列" | ADR-0002 |
+
+### ✅ Pattern: PRD 写 user-observable behavior
+
+| 该写在 PRD | 对应 HOW 归 |
+|---|---|
+| "拖 block 到空 hole 时显示 snap preview，松手后 block 落到 snap 位置" | ADR-0003 induction 4 + ADR-0013 实现 |
+| "user 可以选 3 个内置 theme 之一，刷新页面记住选择" | 未来 render-system ADR |
+| "拖 block 跨过另一 block 时，目标位置可能被 reject（如重叠）" | ADR-0003 induction 3 + 4 |
+| "API 失败时 UI 显示具体原因（如 'overlap with X block'）" | ADR-0009 error contract |
+| "block 删除后立刻消失，30 天内可 restore" | ADR-0002 `deleted_at` + ADR-0017 GC |
+
+## ADR debt surfacing
+
+写 PRD 时**期望**会暴露 ADR 漏洞 / 一致性问题。每个 PRD 应有 `## Surfaced ADR debts` 段，把发现的问题喂回 `docs/engineering/decisions/AUDIT-2026-05.md`：
+
+- ADR 没覆盖某 user behavior → AUDIT 标 GAP
+- ADR 与 PRD 描述的 behavior 矛盾 → AUDIT 标 REWORK
+- ADR cross-ref 跟 PRD 引用对不上 → AUDIT 标 MINOR-FIX
+
+PRD 不直接修 ADR；PRD surface debt，owner / engineer 后续走 ADR rework round 2。
+
+## PRD 写作风格
+
+### 颗粒度
+
+- **User-observable**: 用户能看 / 摸 / 操作的，写进 PRD
+- **Internal mechanic**: 用户无感的算法 / 数据结构 / 库选型，不写 PRD
+- **Boundary case**: 性能 / a11y / security 是 user-observable（慢 / 不可用 / 数据泄露用户感知），写 PRD；具体如何达到归 ADR
+
+### User stories 写法
+
+- 用 "As X, I want Y, so that Z" 句式
+- X 是 role（不是技术名词；写 "Note author"，不写 "API caller"）
+- Y 是 action（user-observable）
+- Z 是 benefit / motivation（解释 why，避免 PRD 沦为 feature 清单）
+
+### Functional requirements 三档
+
+- **Must (Day-1)**: 没这个 feature 不可发布
+- **Should (Day-1 if scope allows)**: 应该有，但被砍掉也能 ship
+- **Nice-to-have (Phase 2+)**: 明确推后
+
+避免单 must 列表 —— 每个 feature 都"必须"，scope 会爆。
+
+### Non-goals 必写
+
+明确**不**做的事；防止 scope creep + 后续讨论时回头查"为什么没做 X"。
+
+## PRD vs Living doc
+
+| | Feature PRD | Living doc (mental-model / arch-overview) |
+|---|---|---|
+| 颗粒度 | 单一 feature scope | Cross-cut integration view |
+| 内容 | user stories / requirements | 心智模型 / 架构图 / 演化路径 |
+| 修改 | Owner-driven evolution | 跟随 ADR / PRD 演化 |
+| 例子 | `canvas-editing.md` | `mental-model.md` / `architecture-overview.md` |
+
+Feature PRD 涉及多个 ADR；living doc 给跨 PRD 的 unifying view。
+
+## Changelog
+
+- 2026-05-16 initial draft（Phase B follow-up Stage 2 起；为 Phase E PRD-informed rework 做准备）

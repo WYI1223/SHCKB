@@ -6,7 +6,7 @@
 
 | Feature | 文件 | Status |
 |---|---|---|
-| Canvas-based note editing | `canvas-editing.md` | TODO |
+| Canvas-based note editing | [`canvas-editing.md`](./canvas-editing.md) | draft (2026-05-16) |
 | Multi-plugin block system (extensibility) | `plugin-system.md` | TODO |
 | AI integration (in-app + external client) | `ai-integration.md` | TODO |
 | Discussion (per-block opt-in) | `discussion.md` | TODO |
