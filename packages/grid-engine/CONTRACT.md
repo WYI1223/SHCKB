@@ -1,0 +1,350 @@
+# `@skb/grid-engine` — Contract
+
+Headless 2D AABB layout engine. Pure functions over `GridState`. Source-of-truth document for **types, operations, invariants, and consumer guidance**.
+
+- **Architectural decisions**: [ADR-0003](../../docs/engineering/decisions/ADR-0003-grid-engine-contract.md)
+- **Source code**: `carryover/packages/grid-engine/src/`（Phase F 提升至 `packages/grid-engine/src/`）
+- **Indexed at**: [`docs/engineering/contracts/README.md`](../../docs/engineering/contracts/README.md)
+
+> 文档约定：本 CONTRACT.md 记录的是 engine 对外的**包契约**——types / ops / invariants 与 consumer 应当遵守的使用规则。架构层 induction（"为什么 engine 存在"/"为什么 pure"/"为什么 kind-opaque"等）见 ADR-0003。
+> 演化规则：contract 可随 carryover 提升 / 实装迭代演化；不每次走 ADR supersede（ADR-0003 induction 5）。Breaking change（types / op signature / invariant 承诺）走对应 PR review + 更新本文件；架构 induction 破坏才走 ADR supersede。
+
+---
+
+## Types
+
+### `Block`
+
+```ts
+type Block = {
+  id: string;        // stable, unique within a GridState; cuid2 / nanoid; 永不重用 (per ADR-0002 invariants)
+  kind: BlockKind;   // 详 BlockKind 节；engine 不解释语义 (ADR-0003 induction 3)
+  col: number;       // 0-indexed; 0 ≤ col < totalCols
+  row: number;       // 0-indexed; row ≥ 0；无上界
+  colSpan: number;   // integer ≥ 1; col + colSpan ≤ totalCols
+  rowSpan: number;   // integer ≥ 1；无上界
+};
+```
+
+Maps 1:1 to ADR-0002 `blocks` table（`col_span` / `row_span` snake_case 由 ORM 处理）。
+
+### `BlockKind`
+
+```ts
+// Day-1 carryover：closed union（migration safety）
+type BlockKind =
+  | 'markdown' | 'image' | 'code' | 'callout'
+  | 'math' | 'pdf' | 'jupyter' | 'nn-viz' | 'agent-flow';
+```
+
+**演化承诺**：ADR-0004 plugin extension model 锁定 `kind: string`（open identifier）；本 contract 在以下任一时机切换到 `type BlockKind = string`：
+- 第一个外部 plugin author 加新 kind 时（mechanism-driven）
+- Phase F carryover 提升至 `packages/grid-engine/` 时（whichever earlier）
+
+切换不构成 ADR-level supersede（engine kind-opaque 是 induction，不依赖 union 形态）。
+
+### `GridState`
+
+```ts
+type GridState = {
+  blocks: Block[];      // source of truth
+  totalCols: number;    // production: 12 (per ADR-0003 mental model); test-parameterizable
+};
+```
+
+### `Region`
+
+```ts
+type Region = { col: number; row: number; colSpan: number; rowSpan: number };
+```
+
+AABB rectangle without identity（用于 intent / query 返回值）。
+
+### `Occupancy`
+
+```ts
+type Occupancy = (string | null)[][];   // occupancy[col][row] = block.id | null
+```
+
+**Derived**, not SoT。来自 `buildOccupancy(state)`；每次 mutation 后重 derive，不就地 mutate。
+
+### `OpResult`
+
+```ts
+type OpResult =
+  | { ok: true; state: GridState }
+  | { ok: false; error: string };
+```
+
+Day-1 shape: `error: string`（human-readable，含 op 上下文如 `'out of bounds: id=foo, col=15'`）。
+
+**潜在演化**（待 first consumer 强需求 trigger）：加 `code: 'overlap'|'out_of_bounds'|'not_found'|'invalid_span'` discriminator 以便 caller 程序化分流。ADR-0014 `AgentOpResult` 已有 `code?` field；如演化二者风格对齐。
+
+### `DropIntent`
+
+```ts
+type DropIntent = {
+  intent: 'place' | 'reject';
+  col: number;
+  row: number;
+  colSpan: number;
+  rowSpan: number;     // 已 hole-fill clamp: min(default, holeMax)
+  reason?: string;     // populated when intent === 'reject'
+};
+```
+
+Day-1 carryover shape：单一 `place / reject` 二分。Frozen DI §3.1 提到的多 intent 类型（`insert-right` / `insert-left` / `swap` / `replace` / `insert-between`）属于 **render-layer affordance**，不在 engine layer；如未来需要，由 editor / UI layer 自己根据 cursor pose + `DropIntent.intent === 'place'` 加工。
+
+### `ValidationResult`
+
+```ts
+type ValidationResult = { ok: boolean; errors: string[] };
+```
+
+`validateState(state)` 返回；CI / property-based test guard 用。
+
+### `OpOptions`
+
+```ts
+type OpOptions = { gravity?: boolean };  // default true (Option A; ADR-0003 induction 4)
+```
+
+---
+
+## Operation set
+
+按 ADR-0003 induction 5 三类能力面分组：
+
+### State mutation
+
+| op | signature | gravity 默认 | failure 模式 |
+|---|---|---|---|
+| `insertBlock` | `(state, block, opts?) → OpResult` | true | out of bounds / duplicate id / overlap |
+| `moveBlock` | `(state, id, newCol, newRow, opts?) → OpResult` | true | id not found / out of bounds / overlap |
+| `resizeBlock` | `(state, id, newColSpan, newRowSpan, opts?) → OpResult` | true | id not found / invalid span / out of bounds / overlap |
+| `transformBlock` | `(state, id, changes, opts?) → OpResult` | true | atomic move + resize；任一 invariant break → reject |
+| `deleteBlock` | `(state, id, opts?) → GridState` | true | 无 failure mode（不存在的 id 静默 no-op） |
+
+**承诺**：mutation 不就地修改 input state；返回新 state；失败时不部分 apply。
+
+### Invariant query / intent inference
+
+| op | signature | 描述 |
+|---|---|---|
+| `inferDropIntent` | `(state, cursorCol, cursorRow, blockKind) → DropIntent` | cursor pose → intent；含 hole-fill clamp |
+| `maxEmptyRectContaining` | `(state, col, row, capW, capH) → Region \| null` | hole-fill 查最大空 rect（with cap） |
+| `maxEmptyRectAt` | `(state, col, row) → Region \| null` | 无 cap 版 |
+| `canRise` | `(state, blockId) → boolean` | gravity check：该 block 是否还能升一行 |
+| `findCollidingBlocks` | `(state, region) → Block[]` | 给定 region 返回所有 AABB overlap 的 blocks |
+| `isRegionEmpty` | `(state, region) → boolean` | 给定 region 是否空 |
+| `isRegionInBounds` | `(state, region) → boolean` | 给定 region 是否在 grid 边界内 |
+| `regionsOverlap` | `(a, b) → boolean` | 两 region AABB overlap 判断 |
+
+### Validation
+
+| op | signature | 描述 |
+|---|---|---|
+| `validateState` | `(state) → ValidationResult` | 显式检 invariant；property-based test / CI guard |
+
+### Gravity
+
+| op | signature | 描述 |
+|---|---|---|
+| `applyGravity` | `(state) → { state, iterations, movedTotal }` | per-block AABB upward 每次升 1 行迭代到收敛 |
+
+### Construction / derivation helpers
+
+| op | signature | 描述 |
+|---|---|---|
+| `createEmptyState` | `(totalCols?: number) → GridState` | factory；default `totalCols = TOTAL_COLS = 12` |
+| `buildOccupancy` | `(state) → Occupancy` | derive matrix from blocks |
+| `totalRows` | `(state) → number` | max(block.row + block.rowSpan) over blocks |
+
+### Exported constants
+
+```ts
+const TOTAL_COLS = 12;
+const DEFAULT_SIZES: Record<BlockKind, { colSpan: number; rowSpan: number }>;
+```
+
+`DEFAULT_SIZES` 在 Day-1 carryover 内提供（markdown 12×1 / image 6×4 / code 12×4 / 等；详 frozen DI grid-redesign §6）。**演化**：随 ADR-0004 plugin extension 落地，default size 应由 `BlockPlugin.defaultSize`（ADR-0014）提供；engine 端的 `DEFAULT_SIZES` 转为 **fallback for built-in kinds only**，或完全移除（caller 必传 default）。
+
+---
+
+## Invariants
+
+每 mutation op 之后保持（property-based test enforced；45/45 scenarios + 50k stress validated on carryover code）：
+
+### Invariant 1: No AABB overlap
+
+∀ blocks `a, b ∈ state.blocks` where `a.id ≠ b.id`:
+
+```
+NOT (a.col < b.col + b.colSpan AND
+     b.col < a.col + a.colSpan AND
+     a.row < b.row + b.rowSpan AND
+     b.row < a.row + a.rowSpan)
+```
+
+### Invariant 2: In bounds
+
+∀ block:
+- `0 ≤ block.col`
+- `block.col + block.colSpan ≤ state.totalCols`
+- `block.row ≥ 0`
+
+### Invariant 3: Discrete spans
+
+∀ block: `block.colSpan` 和 `block.rowSpan` 是 integers ≥ 1。
+
+### Invariant 4: Gravity-stable (Option A)
+
+每个 mutating op 之后，state 满足 `∀ block: NOT canRise(state, block.id)`（除非 caller 显式 `{ gravity: false }` opt-out）。
+
+### Invariant 5: Unique ids
+
+∀ blocks `a, b ∈ state.blocks` where `a ≠ b`: `a.id ≠ b.id`。
+
+### Invariant 6: Pure-function determinism
+
+Same `(state, op, args)` → same `(new state, result)`。Engine 不持内部 state，不读 random / time / env。
+
+---
+
+## Algorithm details
+
+### AABB overlap detection
+
+教科书形态（见 invariant 1）。`findCollidingBlocks(state, region)` 线性扫 blocks。
+
+### Hole-fill placement
+
+```
+onDrop(cursorCol, cursorRow, blockKind):
+  defaultW, defaultH = DEFAULTS[blockKind]   // 或 plugin-provided default (per ADR-0014)
+  holeMaxW, holeMaxH = maxEmptyRectContaining(occupancy, cursorCol, cursorRow)
+  newW = min(defaultW, holeMaxW)
+  newH = min(defaultH, holeMaxH)
+  newCol, newRow = align to top-left of containing hole
+  return { intent: 'place', col: newCol, row: newRow, colSpan: newW, rowSpan: newH }
+```
+
+- 洞 ≥ default → 用 default size
+- 洞 < default → 缩到 hole size（不 reject）
+- 洞 = default → exact fit
+- 无可放 hole → `{ intent: 'reject', reason: '...' }`
+
+### Gravity (Option A)
+
+```
+applyGravity(state):
+  loop:
+    moved = false
+    for block in state.blocks (sorted by row ascending):
+      if canRise(state, block.id):
+        moveUp1(block)
+        moved = true
+    if not moved: break
+  return { state: newState, iterations: count, movedTotal: count }
+
+canRise(state, blockId):
+  block = find(blockId)
+  if block.row === 0: return false
+  for c in block.col .. block.col + block.colSpan - 1:
+    if occupancy[c][block.row - 1] !== null: return false
+  return true
+```
+
+- Per-block AABB upward 上升
+- 每次升一行；迭代到收敛
+- Block size 不变，只改 `row`
+- 默认每个 mutating op 后跑（Option A；ADR-0003 induction 4）；`{ gravity: false }` 显式 opt-out
+
+**Trigger 表**（per Option A invariant）：
+
+| Op | Gravity 触发 | 理由 |
+|---|---|---|
+| `delete` | ✓ | 释放 cells，邻居可升 |
+| `resize` 缩小 | ✓ | 同上 |
+| `resize` 扩大 | ✓ | 保持 invariant；调用者可能想知道是否触发 reflow |
+| `move` | ✓ | 同上 |
+| `insert` | ✓ | **Option A 关键** —— 保证 state 永远 gravity-stable，no surprise leap |
+
+### Worst-case performance
+
+- `applyGravity`: O(B² × R) worst case（B = block count, R = total rows）；典型 O(B × log B)。Property-based test 包括 1000-op 序列 + 50k stress；large-N benchmark Phase 2+
+- `findCollidingBlocks` / `maxEmptyRectContaining`: O(B) and O(C × R) respectively
+
+---
+
+## Consumer guidance
+
+按 ADR-0003 induction 6（consumer 拓扑单向）分组：
+
+### Editor shell
+
+Editor 持有 `GridState`，调 mutation ops 后用返回的 new state 重 render。Block 在 DOM 中位置由 theme 决定：
+
+```ts
+left   = block.col * SLOT_SIZE
+top    = block.row * SLOT_SIZE
+width  = block.colSpan * SLOT_SIZE
+height = block.rowSpan * SLOT_SIZE
+```
+
+`SLOT_SIZE` 由 theme 决定；engine 不持 slot size（engine theme-agnostic per induction 3）。CSS Grid 用 `grid-template-columns: repeat(totalCols, 1fr)` + 显式 `grid-row-start/end` + `grid-column-start/end`，**不**用 `grid-auto-flow / dense`（per ADR-0003 induction 1 alternatives 否决）。
+
+### API endpoint
+
+每个 mutation endpoint（ADR-0009 POST `/api/notes/:slug/blocks/:id/{move,resize,delete,...}`）在 DB transaction 内：
+
+```
+1. Load GridState from DB (blocks table → engine Block[])
+2. Call engine op (e.g. moveBlock) → OpResult
+3. If ok: persist new state to DB (per ADR-0002 blocks table updates)
+4. If error: return 4xx; rollback transaction
+```
+
+### Plugin code
+
+Via `ctx.engine`（ADR-0014 plugin contract）：**read-only facade**。Plugin 不能直接调 mutation ops；写走 agent dispatch → API endpoint → engine。Facade 暴露的具体方法（`getBlock` / `getNeighbors` / `query` 等）由 ADR-0014 / `block-foundation` package 定义；engine 自身**不**分 read / write export（per ADR-0003 induction 6）。
+
+### Agent dispatch
+
+Via `agentOp.handler`（ADR-0005 + ADR-0014）：handler 拿 `ctx.engine` 读 + 返回 new state；framework 在 tx 内调 engine mutation ops + persist。Handler 不直接调 engine ops，handler 返回 next BlockState；engine ops 由 framework 在持久化 pipeline 内调。
+
+---
+
+## Versioning
+
+Internal package；semver 但 contract surface 演化规则：
+
+| 变更类型 | 版本 bump | 是否要 ADR supersede |
+|---|---|---|
+| Type shape 增字段（兼容 add） | minor | 否 |
+| 新 op | minor | 否 |
+| Op signature 修改 | major | 否（如不破 induction） |
+| Invariant 承诺修改（如 Option A → B） | major | **是**（破 induction 4，走 ADR-0003 supersede） |
+| `kind: string` → 关闭 union | major | **是**（破 induction 3，走 ADR-0003 + ADR-0004 supersede） |
+
+简言：**ADR-0003 锁的是 induction（架构承诺）；CONTRACT 锁的是 surface（types / op set）；surface 演化 ≠ induction 演化**。
+
+---
+
+## References
+
+- **Architectural decisions**: [ADR-0003](../../docs/engineering/decisions/ADR-0003-grid-engine-contract.md)
+- **DB row mapping**: [ADR-0002](../../docs/engineering/decisions/ADR-0002-substrate-db-backed.md) `blocks` table
+- **Plugin extension model**: [ADR-0004](../../docs/engineering/decisions/ADR-0004-block-plugin-model.md)
+- **Plugin contract `ctx.engine` + `defaultSize`**: [ADR-0014](../../docs/engineering/decisions/ADR-0014-plugin-contract.md)
+- **API style (mutation endpoints)**: [ADR-0009](../../docs/engineering/decisions/ADR-0009-api-style.md)
+- **Agent semantic API**: [ADR-0005](../../docs/engineering/decisions/ADR-0005-agent-semantic-api.md)
+- **Source DI doc**: [`grid-redesign-2026-05-11.md`](../../docs/engineering/design/_frozen/grid-redesign-2026-05-11.md)
+- **Carryover source**: `carryover/packages/grid-engine/src/`（Phase F 提升至本目录 `src/`）
+- **Contracts 索引**: [`docs/engineering/contracts/README.md`](../../docs/engineering/contracts/README.md)
+
+---
+
+## Changelog
+
+- 2026-05-16 initial draft（从 carryover `src/types.ts` + `src/ops.ts` + frozen DI grid-redesign §3-4 + §6 提炼；同 ADR-0003 pass 2 reframe commit 落地；package source 仍在 carryover，Phase F 提升）
