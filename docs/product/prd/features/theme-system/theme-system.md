@@ -261,7 +261,8 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 
 - **[ADR-0016] theme system carrier GAP（hard，已 surface in 原 notepage-themes）**: 本 PRD 进一步明确 carrier ADR 必须 cover：4-layer cascade model / L0 hard invariants enforcement / per-attribute override / fork-friendly module structure。**Action**: carrier ADR rework 时 cover 本 PRD requirements
 - **L0 enforcement layer 机制 (new)**: PRD mandate L0 必须 enforce + violation 必须 report；但**怎么 enforce** 没决策（compile-time TS check / runtime check / sandbox guard / 多层组合）。**Action**: 新 ADR 或扩 [ADR-0011] sandboxing 时 cover
-- **Override resolution ordering (new)**: 当 user 装第三方 keymap extension（future）+ theme L2 override keymap 时，谁优先？提议：独立 extension（L4 虚拟层）> L3 theme > L2 theme > L1 framework default > L0 enforce。但需 ADR 锁定。**Action**: plugin-system cross-cutting invariant 加 + 未来 ADR 承接
+- **Interaction extension internal ordering (new; reviewer SR1 修订)**: 当 user 同时装多个 future interaction extension（如 third-party keymap + gesture extension），谁优先？提议：installed extension stack 内部按 install order 或 explicit priority；**theme 不参与此优先级**（theme 已 narrow 到 presentation only，不 override interaction）。**Action**: 归 future plugin-system / interaction-extension sub-PRD 决策；本 PRD（theme-system）的 cascade 只讨论 presentation attribute ordering，不涉及 interaction priority
+- **Presentation cascade override ordering (内部)**: theme cascade 自身的 L0 → L1 → L2 → L3 顺序已在 4-layer cascade model 段定义；per-attribute override；fallback 自动。**Action**: 无需新 ADR；ADR-0016 carrier 时 verify 一致
 - **[ADR-0014] ThemePlugin specialization**: 本 PRD 落地后 ThemePlugin contract 需 cover cascade override metadata（哪些 attribute 这 theme override 了）。**Action**: ADR-0014 audit round 2 加 ThemePlugin specialization section
 - **[ADR-0003] theme-agnostic 承诺 cross-ref**: cross-cutting invariant "theme 跨 mode 一致 / 跨 viewport 一致" 跟 ADR-0003 induction 3（kind-opaque / theme-agnostic）需显式 cross-ref。**Action**: ADR-0003 audit 时 verify
 

@@ -56,7 +56,9 @@ export const myTheme: ThemePlugin = {
 };
 ```
 
-**L0 enforce**：如果 author override 触碰 L0 invariant（如改 GridState shape / 改 12-col / 改 a11y baseline），framework 在 register 时**reject** + report；不静默 fallback。
+**L0 enforce**（分两层；reviewer SR2 修订）：
+- **L0a hard reject**: author override 触碰 algorithm core / interaction semantics / switcher fallback / data persistence boundary（如改 GridState shape / 改 12-col / 试图 bind 自定 keymap / 隐藏 switcher）→ framework 在 register 时**hard reject** + report；不静默 fallback
+- **L0b harness validation**: author override 让 a11y baseline 走破（如 hover visual 但漏 focus visual / contrast < AA / ARIA label 漏写）→ **不**是 register-time 100% reject（React rendering 静态 reject 不可行），而是走 **harness validation + certification gate**（M3 harness ship 后 fail 的 theme blocks release / cert gate；详 L0b enforcement 路径）
 
 ### Must (Day-1, M2) — Author can override（cascade L2/L3 freedom；presentation only）
 
@@ -184,7 +186,7 @@ export const myRadicalTheme: ThemePlugin = {
 | Theme 声明 capability 超出 sandbox 允许（如要全局 fetch） | Register 失败 + 提示降低 capability |
 | 两个 L3 theme 注册同 key | Register 失败（first wins / error 视 framework 决定） |
 | Theme **试图 override L0** invariant（如改 GridState shape）| Framework register-time catch + reject + violation report |
-| Theme 只 override 部分 attribute 但漏掉 a11y-required attribute（如 hover visual 但没 focus visual）| Validation warn；fallback 上层；如 a11y baseline 走破 → reject |
+| Theme 只 override 部分 attribute 但漏掉 a11y-required attribute（如 hover visual 但没 focus visual）| Validation warn；fallback 上层；M3+ harness validation 失败 → cert / release gate block（不是 register-time hard reject；reviewer SR2 修订）|
 
 ## Dependencies
 
@@ -212,7 +214,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 Author-view 特有的（cross-cutting debts 详 [theme-system.md] top）：
 
 - **ThemePlugin contract 形态**: [ADR-0014] 当前 BlockPlugin only；本 PRD 落地需 ThemePlugin specialization——含 cascade override metadata（哪些 attribute override 了 / fallback chain 声明 / capability declaration / a11y compliance flag）。**Action**: ADR-0014 audit round 2 加 ThemePlugin section
-- **L0 enforcement 在 register-time vs runtime 双层机制**: 本 PRD 要求 register-time check + runtime guard 双层；前者保 fast feedback，后者保 robust（防 author override 触发 L0 attribute 在某些 case 才出错）。归 future ADR 决策（如何分配两层 + violation handling）
+- **L0 enforcement 分层机制**（reviewer SR2 sharpen）: L0a 走 register-time check + runtime guard 双层（hard reject，fast feedback）；L0b 走 framework-owned chrome compile-time 锁死 + M3+ harness validation + cert gate（不试图 100% register-time reject）。归 future ADR 决策（具体 harness 形态 / cert gate flow / violation handling）
 - **Theme scaffolding CLI 归属**: tooling 是 author DX 的 should；是 framework 仓库 ship 还是独立 npm package？归 future ADR + repo structure 决策
 
 详 [AUDIT-2026-05.md] PRD-surfaced debts log。
