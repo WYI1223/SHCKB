@@ -30,10 +30,13 @@ Block extension = **author 写一个新 block kind**，让它出现在 notepage 
 
 ## Functional requirements
 
-### Must (Day-1, M2) — Day-1 built-in scope
+### Must (Day-1, M2) — Day-1 milestone scope（align project roadmap）
 
-- **9 built-in block kinds** ship as block plugins（per frozen DI [grid-redesign-2026-05-11.md] §6）:
-  - markdown / image / code / callout / math / pdf / jupyter / nn-viz / agent-flow
+- **M2 ship scope**：markdown plugin **完整 E2E** + registry 能 register 多 plugin（其他 8 built-in 可以 stub register 但完整实装在 M3/M4）；align [project.md] M2 = "login → markdown block → public view"
+- **Roadmap target catalog**（9 built-in block kinds；分布在 M2/M3/M4 渐进 ship；per frozen DI [grid-redesign-2026-05-11.md] §6）：
+  - **M2 complete**: markdown
+  - **M3 5 light**: markdown + image / code / callout / math (具体清单与 [plugin-system.md] M3 align)
+  - **M4 9 full**: + pdf / jupyter / nn-viz / agent-flow (heavy plugins)
 - **Closed registry Day-1**：framework 启动时 explicit register（详 [ADR-0014]）；第三方 plugin 不能 runtime install
 - **每个 built-in block plugin 是完整 TS module**：author 可读、可 copy、可 fork
 
@@ -143,7 +146,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 - **Other feature PRDs**:
   - [notepage-editing.md](../notepage/notepage-editing.md) —— block 在 edit mode 的 user view
   - [notepage-view.md](../notepage/notepage-view.md) —— block 在 view mode 的 user view
-  - [authentication.md](../authentication/authentication.md) —— plugin 权限（如有）
+  - [authentication/](../authentication/README.md) —— plugin 权限（如有；正式 PRD TODO，当前 placeholder）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions

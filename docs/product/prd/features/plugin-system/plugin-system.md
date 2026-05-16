@@ -81,7 +81,7 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 - ❌ **Hot reload plugin** —— Day-1 plugin 改 → 重启 server；hot reload Phase 2+
 - ❌ **Plugin 间直接 call** —— 跨 plugin 走 framework capability ctx；不允许 `getPlugin('other').handler.x()`（per [ADR-0014]）
 - ❌ **Plugin 改 framework 内部**（API endpoint / DB schema / 等）—— 这些是 framework owner 决策，不开放给 plugin
-- ❌ **第三方 plugin Day-1 ship** —— Day-1 仅 9 built-in block + 3 built-in theme；第三方 Phase 2+ open
+- ❌ **第三方 plugin Day-1 ship** —— Day-1 closed registry；分层 ship 节奏 align project roadmap：M2 markdown block E2E + 3 built-in theme；M3 5 light blocks；M4 9 built-in blocks 全 work；第三方 plugin marketplace Phase 2+ open
 
 ## Acceptance criteria
 
@@ -131,7 +131,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
   - [theme-system-author-view.md](../theme-system/theme-system-author-view.md) — theme author 视角（与 [new-block.md] 对偶）
 - **Other feature PRDs**:
   - [notepage.md](../notepage/notepage.md) —— plugin / theme 在 notepage 上的 user-observable behavior
-  - [authentication.md](../authentication/authentication.md) —— plugin 权限管理（如有）
+  - [authentication/](../authentication/README.md) —— plugin 权限管理（如有；正式 PRD TODO，当前 placeholder）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions

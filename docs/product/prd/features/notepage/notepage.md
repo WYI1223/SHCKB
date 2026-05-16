@@ -75,7 +75,8 @@ Notepage 不是孤立，要跟其他 feature 协同：
 ### M2 — minimum shippable notepage
 
 - 完整 user journey：author signup → 创建空 notepage → 加 markdown block → 编辑 → 发布 → reader 访问 URL → 看到内容
-- 4 个 sub-feature 各 M2 acceptance 都过（detail 详 sub-PRDs）
+- 3 个 notepage sub-PRD 各 M2 acceptance 都过（[notepage-view.md] / [notepage-editing.md] / [notepage-responsive.md]）
+- Cross-feature dependency：[theme-system.md] M2 ship（3 built-in theme 可用 + 切换 + persistence；theme 是 horizontal subsystem，不属 notepage sub-PRD 但 user journey 依赖）
 - Lighthouse mobile 90+ on public view
 - Self-host onboarding < 10 min
 

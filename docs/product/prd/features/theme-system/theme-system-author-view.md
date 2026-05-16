@@ -147,16 +147,19 @@ export const myRadicalTheme: ThemePlugin = {
 ### M2 acceptance
 
 - 3 built-in theme 全 register + 可用（与 [theme-system-user-view.md] M2 align）
-- L0 enforcement baseline work：尝试 override algorithm invariant → register fail + clear error
-- Cascade per-attribute override work：author 写 only-override-cssVars theme + 验证其他 attribute fallback 到 L2/L1
+- **L0a enforcement work**：尝试 override algorithm invariant / interaction semantics / switcher fallback → register fail + clear error（register-time + runtime hard reject）
+- **L0b a11y baseline (M2 scope)**：framework-owned chrome（switcher / palette default / 通用 handle）锁死 + 3 built-in theme 通过 axe-core / pa11y 单测 + manual a11y review
+- Cascade per-attribute override work：author 写 only-override-cssVars theme + 验证其他 presentation attribute fallback 到 L2/L1
 - 至少一个 L2 theme（lego-studs）完整 demo author path：module 可读 + 可 copy
+- **L3 contract reserved**（不 M2 lock；M3 finalize；详 [theme-system.md] M2 acceptance）
 
 ### M3 acceptance
 
 - Theme fork path 验证：copy lego-studs → my-theme demo work
 - Theme compose path 验证：spread + override demo work
 - Theme author 文档完整（含 cascade override 教学）
-- A11y enforcement 100% work（任何 theme override 触 a11y baseline → reject）
+- **A11y harness 100% wired**（axe-core + screen reader smoke test + keyboard navigability smoke test）；**failing theme blocks certification / release gate**（reviewer Finding 4 修订；不试图 100% register-time reject，而是 harness-validation + gate）
+- L3 ThemePlugin contract finalize（含 cascade override metadata）
 
 ### M4 acceptance
 
