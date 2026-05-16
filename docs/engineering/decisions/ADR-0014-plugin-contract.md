@@ -153,6 +153,20 @@ type BlockSerializer<BlockState> = {
 - Optimistic concurrency (expectedVersion in args): plugin 可自定，framework 不内置
 - ReadOps (plugin-specific 分页 read): 标准 GET endpoint Day-1 足够；Phase 2+ 加 `readOps` 字段
 
+### Known gaps / future ADR markers
+
+本 ADR 锁定了 Day-1 BlockPlugin contract 的字段集，但有一处**已知 gap**：
+
+**Plugin sidecar schema / migration carrier — intentionally deferred**
+
+- 上方 `migrations` 字段 (`Array<{ fromVersion, toVersion, migrate: (row: DbRow) => DbRow }>`) 仅承担 **row-level content migration**（props_json / content_inline 内 shape 变化），**不**承担 sidecar **schema DDL migration**（如 `CREATE TABLE discussion_posts` / `ALTER TABLE` 等）
+- `contentStorageHint: 'sidecar-table'` 是 plugin 声明 hint，但 contract **没有字段**让 plugin 携带其 sidecar 表的 DDL / schema migrations
+- 这是有意 defer 的 gap —— Day-1 没有 lived implementation pressure，趁现在 lock carrier 易自造约束（详 ADR-0002 §sidecar tables）
+
+**Blocker invariant（mechanism-driven）**：第一个需要 sidecar tables 的 plugin —— 不限定 discussion / nn-viz / kernel-session 中哪个先到 —— 在写第一行 sidecar DDL 之前，**必须通过 follow-up ADR 或综合 architecture synthesis 锁定 carrier mechanism**。具体待 lock 的内容：DDL 文件位置约定、Drizzle multi-dialect 路径、framework migration scheduler 集成点、repository access boundary 形态。
+
+详见 ADR-0002 §"Plugin sidecar tables" / "Carrier mechanism — intentionally deferred"。
+
 ## Consequences
 
 **Positive**:
@@ -186,3 +200,4 @@ type BlockSerializer<BlockState> = {
 ## Changelog
 
 - 2026-05-13 initial draft (decision LOCKED 2026-05-13 in source DI doc post 7 sub-decision pass)
+- 2026-05-16 external review (via ADR-0002 pass 3): gap noted —— Day-1 BlockPlugin contract 不携带 plugin sidecar schema / migration carrier 机制；新增 "Known gaps / future ADR markers" body 段 + blocker invariant（first sidecar plugin 实装前必须通过 follow-up ADR 锁定 carrier）；ADR-0002 / ADR-0014 互相 cross-ref。Body 修改在 proposed 阶段进行（accept 前 refine wording 不违 append-only —— append-only 绑 `accepted` 状态）
