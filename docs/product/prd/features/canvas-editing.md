@@ -5,8 +5,6 @@
 | Status | draft |
 | Last updated | 2026-05-16 |
 | Owner | W_YI |
-| Related ADRs | ADR-0003 (grid-engine), ADR-0013 (markdown tile editor), ADR-0016 (CSS framework / theme), ADR-0014 (plugin contract — defaultSize / EditView/RenderView) |
-| Related PRDs | `plugin-system.md` (block kinds), `authentication.md` (edit permission) |
 
 ## Overview
 
@@ -14,7 +12,7 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 本 PRD 锁的是 **canvas 作为放置表面的 user-observable 行为**——insert / move / resize / delete intent、视觉反馈、theme 切换、selection、edit vs view mode、mobile 投影、键盘 / a11y。
 
-**不**锁：什么 block kinds 存在（→ `plugin-system.md`）、单 block 内部如何编辑（→ ADR-0013 / 各 plugin EditView）、agent 怎么操作 canvas（→ `ai-integration.md`）。
+**不**锁：什么 block kinds 存在（→ plugin-system.md）、单 block 内部如何编辑（→ ADR-0013 / 各 plugin EditView）、agent 怎么操作 canvas（→ ai-integration.md）。
 
 ## User stories
 
@@ -85,9 +83,9 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 ## Non-functional requirements
 
 - **Performance**:
-  - Drag feedback < 16ms（60fps；ADR-0010 SLO）
+  - Drag feedback < 16ms（60fps；per ADR-0010 SLO）
   - Insert / move / resize op 端到端（含 server roundtrip）< 200ms p95（per ADR-0010）
-  - Lighthouse mobile score ≥ 90 on view mode（CI gate；ADR-0010）
+  - Lighthouse mobile score ≥ 90 on view mode（CI gate；per ADR-0010）
 - **Accessibility**:
   - 全键盘可操作（无 mouse 也可完成 insert / move / resize / delete）
   - Block focus 有 ARIA label（"Block 3 of 8, markdown, 12×2"）
@@ -98,12 +96,12 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 ## Non-goals
 
-- ❌ **Real-time collaborative editing (CRDT)** —— per `project.md` non-goals；Day-1 单人编辑，冲突走 last-write-wins
+- ❌ **Real-time collaborative editing (CRDT)** —— per project.md non-goals；Day-1 单人编辑，冲突走 last-write-wins
 - ❌ **Free continuous coordinates** —— per ADR-0003；canvas 是 discrete grid，不是 Figma
 - ❌ **Block 内部 prose-flow 编辑细节** —— 归 ADR-0013（markdown editor）/ 各 plugin EditView
-- ❌ **Plugin marketplace / theme marketplace** —— per `project.md`；Day-1 closed registry
-- ❌ **Block kind enumeration** —— 归 `plugin-system.md` PRD
-- ❌ **Note 跨链接 / wikilink** —— 单 note 内部 canvas behavior；跨 note 归 `search-discovery.md` PRD
+- ❌ **Plugin marketplace / theme marketplace** —— per project.md；Day-1 closed registry
+- ❌ **Block kind enumeration** —— 归 plugin-system.md PRD
+- ❌ **Note 跨链接 / wikilink** —— 单 note 内部 canvas behavior；跨 note 归 search-discovery.md PRD
 
 ## Acceptance criteria
 
@@ -117,7 +115,7 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 ### M3 acceptance
 
-- 至少 5 个 block kind 在 canvas 上 work（具体 kinds 详 `plugin-system.md`）
+- 至少 5 个 block kind 在 canvas 上 work（具体 kinds 详 plugin-system.md）
 - 键盘全 a11y baseline 完成
 - Drop preview / snap visualization polish
 
@@ -143,24 +141,18 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 ## Dependencies
 
-### ADRs
-
-- **ADR-0003** grid-engine（核心 invariant + Option A gravity + hole-fill）—— canvas behavior 的算法依据
-- **ADR-0013** markdown tile editor —— markdown block 内部编辑 UX（canvas 层不管 block 内部）
-- **ADR-0014** plugin contract（`BlockPlugin.defaultSize` / `EditView` / `RenderView`）—— canvas 拿 defaultSize 做 hole-fill clamp、render block 内容
-- **ADR-0016** CSS framework / theme —— Tailwind + shadcn + grid-themes CSS vars；theme 系统 carrier 待 lock
-- ADR-0002 sessions（edit 权限通过 session 验证）
-- ADR-0009 API style（mutation endpoints；canvas 操作走 POST）
-- ADR-0010 performance budget（drag fps / Lighthouse / SLO）
-
-### Other PRDs
-
-- `authentication.md` —— who can edit；session model
-- `plugin-system.md` —— 哪些 block kinds 存在；defaultSize 数值（不在本 PRD 锁）
-
-### External services
-
-- 无 Day-1 外部依赖（canvas 是 client-side React + server REST；不依赖外部 SaaS）
+- **ADRs**:
+  - [ADR-0003](../../engineering/decisions/ADR-0003-grid-engine-contract.md) grid-engine — 核心 invariant + Option A gravity + hole-fill
+  - [ADR-0013](../../engineering/decisions/ADR-0013-markdown-tile-editor.md) markdown tile editor — markdown block 内部编辑 UX
+  - [ADR-0014](../../engineering/decisions/ADR-0014-plugin-contract.md) plugin contract — `BlockPlugin.defaultSize` / `EditView` / `RenderView`
+  - [ADR-0016](../../engineering/decisions/ADR-0016-css-framework.md) CSS framework / theme — Tailwind + shadcn + grid-themes CSS vars
+  - [ADR-0002](../../engineering/decisions/ADR-0002-substrate-db-backed.md) sessions（edit 权限通过 session 验证）
+  - [ADR-0009](../../engineering/decisions/ADR-0009-api-style.md) API style — mutation endpoints
+  - [ADR-0010](../../engineering/decisions/ADR-0010-performance-budget.md) performance budget — drag fps / Lighthouse / SLO
+- **Other PRDs**:
+  - [authentication.md](./authentication.md) — who can edit；session model
+  - [plugin-system.md](./plugin-system.md) — 哪些 block kinds 存在；defaultSize 数值
+- **External services**: 无 Day-1 外部依赖
 
 ## Open questions
 
@@ -173,14 +165,22 @@ Note 不是 document-flow 页面，是 **constrained canvas**——内容以 til
 
 ## Surfaced ADR debts
 
-写本 PRD 触碰到的 ADR 漏洞 / 一致性问题，**喂回 `docs/engineering/decisions/AUDIT-2026-05.md`**：
+写本 PRD 触碰到的 ADR 漏洞 / 一致性问题，喂回 AUDIT-2026-05.md（footer 含 link）：
 
-- **ADR-0016 GAP**: theme system carrier 仍未承接（frozen DI §9.1 锁了 GridTheme interface / registry / hybrid persistence / floating chip 位置；ADR-0016 是 CSS framework 决策，没承接 theme system）。本 PRD must 列了 theme switching，必须有 ADR 承载 theme system 实装路径。**Action**: 在 plugin-system / canvas-editing PRD 拉通后，决定 theme system 走哪条路径（ADR-0016 扩展 / 新 ADR / 等 first runtime theme switch impl）。
-- **ADR-0013 ↔ ADR-0003 边界 verify**: 本 PRD 多次描述 "EditView 进入 / 退出 / 内部" —— 这条 boundary（canvas 层不管 block 内部）已 sync 到 ADR-0003 induction 3，但 ADR-0013 自身可能还有 PM-doc-SoT 残留措辞（AUDIT 已标 PENDING）。**Action**: audit ADR-0013 时 verify "block 内部编辑器 SoT 跟 canvas SoT 二分清晰"。
-- **Undo / redo scope GAP**: 现有 ADR 集（0003 / 0013 / 0014）都没明确 undo / redo 形态。Should-tier 列了但 scope 未拍。**Action**: 视 Open question 1 拍板，可能开 new ADR（如复杂）或归 ADR-0013（如归编辑器 SoT）。
-- **Multi-tab 冲突策略 GAP**: 本 PRD Edge case 写了 "last-write-wins，UI 不显式提示" —— 但 ADR-0002 / ADR-0009 没显式说 conflict detection。**Action**: audit ADR-0002 / 0009 时验证 last-write-wins 是否真在架构假设里。
-- **Mobile resize disabled 决策**: Edge case 写了 "mobile 1-col 投影下 resize disabled"，但这条决策没在 ADR-0003（Trade-offs 段没提）。**Action**: 决定是 PRD-only 决策（user-observable，归 PRD），还是要 ADR-0003 加 Trade-off 一行。倾向 PRD-only。
+- **ADR-0016 GAP**: theme system carrier 仍未承接（frozen DI §9.1 锁了 GridTheme interface / registry / hybrid persistence / floating chip 位置；ADR-0016 是 CSS framework 决策，没承接 theme system）。本 PRD must 列了 theme switching，必须有 ADR 承载 theme system 实装路径。**Action**: 在 plugin-system / canvas-editing PRD 拉通后，决定 theme system 走哪条路径（ADR-0016 扩展 / 新 ADR / 等 first runtime theme switch impl）
+- **ADR-0013 ↔ ADR-0003 边界 verify**: 本 PRD 多次描述 "EditView 进入 / 退出 / 内部" —— 这条 boundary（canvas 层不管 block 内部）已 sync 到 ADR-0003 induction 3，但 ADR-0013 自身可能还有 PM-doc-SoT 残留措辞（AUDIT 已标 PENDING）。**Action**: audit ADR-0013 时 verify "block 内部编辑器 SoT 跟 canvas SoT 二分清晰"
+- **Undo / redo scope GAP**: 现有 ADR 集（0003 / 0013 / 0014）都没明确 undo / redo 形态。Should-tier 列了但 scope 未拍。**Action**: 视 Open question 1 拍板，可能开 new ADR（如复杂）或归 ADR-0013（如归编辑器 SoT）
+- **Multi-tab 冲突策略 GAP**: 本 PRD Edge case 写了 "last-write-wins，UI 不显式提示" —— 但 ADR-0002 / ADR-0009 没显式说 conflict detection。**Action**: audit ADR-0002 / 0009 时验证 last-write-wins 是否真在架构假设里
+- **Mobile resize disabled 决策**: Edge case 写了 "mobile 1-col 投影下 resize disabled"，但这条决策没在 ADR-0003（Trade-offs 段没提）。**Action**: 决定是 PRD-only 决策（user-observable，归 PRD），还是要 ADR-0003 加 Trade-off 一行。倾向 PRD-only
+
+## References
+
+- Source frozen DI: [grid-redesign-2026-05-11.md](../../engineering/design/_frozen/grid-redesign-2026-05-11.md) §3 + §9
+- Project PRD: [project.md](../project.md)
+- Audit register: [AUDIT-2026-05.md](../../engineering/decisions/AUDIT-2026-05.md)
+- Doc cross-reference convention: [doc-conventions.md](../../process/methods/doc-conventions.md)
 
 ## Changelog
 
 - 2026-05-16 initial draft（Phase E Day-1 PRD 第一篇；为 ADR rework round 2 提供 trigger lens）
+- 2026-05-16 cross-reference 风格 sync doc-conventions.md（in-text plain identifier，footer link 集中）

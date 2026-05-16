@@ -3,9 +3,8 @@
 | Field | Value |
 |---|---|
 | Status | living |
-| Last updated | 2026-05-14 |
+| Last updated | 2026-05-16 |
 | Owner | W_YI |
-| Source | `engineering/design/_frozen/architecture-rebuild-2026-05-11.md` §0.5 + §0.6 |
 
 ## Vision
 
@@ -15,11 +14,11 @@
 
 ## 产品定义
 
-- **Canvas 不是文档**：内容是 2D tile placement（约束 canvas），不是 prose-flow（详 `engineering/design/mental-model.md`）
+- **Canvas 不是文档**：内容是 2D tile placement（约束 canvas），不是 prose-flow（详 mental-model.md）
 - **Self-hostable platform**：operator 自部署，不是 SaaS 集中托管
 - **Plugin-extensible**：block 种类通过 plugin 扩展；加功能块 = 写 plugin（详 ADR-0004）
 - **AI-native**：agent 通过 semantic API（MCP + Skills）操作 canvas，不读 raw 文件（详 ADR-0005 / ADR-0015）
-- **Multi-deploy**：一个 Docker image canonical artifact 覆盖 NAS / VPS / Cloud PaaS；single-binary + Workers 作 secondary（详 ADR-0001）
+- **Multi-deploy**：一个 OCI container image canonical artifact 覆盖 NAS / VPS / Cloud PaaS；single-binary + Workers 作 secondary tier（详 ADR-0001）
 
 ## 核心原则
 
@@ -59,7 +58,7 @@
 
 ## Success criteria
 
-- **M1-M4 演化路径** 每个 milestone 的 acceptance（详 `engineering/design/bootstrap-evolution.md`）
+- **M1-M4 演化路径** 每个 milestone 的 acceptance（详 bootstrap-evolution.md）
 - **M2 = minimum shippable** —— 可用的"个人笔记 + 公开发布" webapp
 - **Lighthouse mobile score ≥ 90** on public read mode（CI gate；详 ADR-0010）
 - **Self-host onboarding < 10 分钟**（Docker 模式：`docker compose up -d` 到能用）
@@ -69,25 +68,38 @@
 
 | Milestone | 目标 | 详 |
 |---|---|---|
-| **M1** | Foundation skeleton —— monorepo + carryover packages drop-in | `bootstrap-evolution.md` |
-| **M2** | First end-to-end slice —— login → 创建 note → markdown block → save → 公开访问（minimum shippable） | `bootstrap-evolution.md` |
-| **M3** | Plugin breadth + AI —— 5 light plugins + in-app AI + MCP server | `bootstrap-evolution.md` |
-| **M4** | Heavy plugins + production polish —— jupyter/nn-viz/agent-flow/discussion + 5 deploy mode 验证 | `bootstrap-evolution.md` |
+| **M1** | Foundation skeleton —— monorepo + carryover packages drop-in | bootstrap-evolution.md |
+| **M2** | First end-to-end slice —— login → 创建 note → markdown block → save → 公开访问（minimum shippable） | bootstrap-evolution.md |
+| **M3** | Plugin breadth + AI —— 5 light plugins + in-app AI + MCP server | bootstrap-evolution.md |
+| **M4** | Heavy plugins + production polish —— jupyter/nn-viz/agent-flow/discussion + 5 deploy mode 验证 | bootstrap-evolution.md |
 | **Phase 2+** | Plugin marketplace / wikilink + backlinks / MCP Apps / 协作（CRDT）/ 等 | TBD |
-
-## 相关文档
-
-- **架构总览**：`engineering/design/architecture-overview.md`
-- **心智模型**：`engineering/design/mental-model.md`
-- **演化路径**：`engineering/design/bootstrap-evolution.md`
-- **决策记录**：`engineering/decisions/`（ADR-0001 起）
-- **Framing 失败复盘**：`product/retrospectives/framing-control-2026-05.md`
-- **完整设计 discussion**：`engineering/design/_frozen/architecture-rebuild-2026-05-11.md`
 
 ## Feature PRDs
 
-详 `product/prd/features/`：canvas-editing / plugin-system / ai-integration / discussion / self-host-deploy / authentication / search-discovery。
+详 features/ 目录：
+
+- canvas-editing.md（draft；Day-1 PRD #1）
+- plugin-system.md（TODO；Day-1 PRD #2）
+- authentication.md（TODO；Day-1 PRD #3）
+- self-host-deploy.md（TODO；Day-1 PRD #4）
+- ai-integration.md（TODO；Phase 2+ owner-driven）
+- discussion.md（TODO；Phase 2+ owner-driven）
+- search-discovery.md（TODO；Phase 2+ owner-driven）
+
+## References
+
+- 架构总览（living doc，Phase C 待写）: [architecture-overview.md](../../engineering/design/architecture-overview.md)
+- 心智模型（living doc，Phase C 待写）: [mental-model.md](../../engineering/design/mental-model.md)
+- 演化路径（living doc，Phase C 待写）: [bootstrap-evolution.md](../../engineering/design/bootstrap-evolution.md)
+- 决策记录: [decisions/](../../engineering/decisions/)
+- ADR index: [decisions/README.md](../../engineering/decisions/README.md)
+- Feature PRD list: [features/README.md](./features/README.md)
+- Framing 失败复盘（Phase D 待写）: [framing-control-2026-05.md](../retrospectives/framing-control-2026-05.md)
+- 完整设计 discussion（frozen DI）: [architecture-rebuild-2026-05-11.md](../../engineering/design/_frozen/architecture-rebuild-2026-05-11.md)
+- Grid mental model 起源: [grid-redesign-2026-05-11.md](../../engineering/design/_frozen/grid-redesign-2026-05-11.md)
+- Doc cross-reference convention: [doc-conventions.md](../../process/methods/doc-conventions.md)
 
 ## Changelog
 
-- 2026-05-14 initial extraction — 产品定义 / operator 谱 / non-goals / success criteria 从 ADR-0001 草稿（Phase B 误把 product vision 写成 ADR）提取到此 project PRD；ADR-0001 同步 reframe 为 "canonical deployment artifact" 决策（详 ADR-0001 changelog）
+- 2026-05-14 initial extraction — 产品定义 / operator 谱 / non-goals / success criteria 从 ADR-0001 草稿（Phase B 误把 product vision 写成 ADR）提取到此 project PRD；ADR-0001 同步 reframe 为 "canonical deployment artifact" 决策
+- 2026-05-16 cross-reference 风格 sync doc-conventions.md；Feature PRDs 段加 Day-1 vs Phase 2+ 分级标注

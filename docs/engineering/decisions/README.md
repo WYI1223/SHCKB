@@ -4,7 +4,7 @@
 
 ## 规则
 
-详见 [`../../process/methods/adr-discipline.md`](../../process/methods/adr-discipline.md)。摘要：
+详见 adr-discipline.md（footer 含 link）。摘要：
 
 - ❌ 不修改已 `accepted` 的 ADR（除 metadata 类 status 更新）
 - ✅ 变更决策 → 新 ADR with `Supersedes: ADR-XXXX`；旧 ADR 改 status 为 `superseded`，加 link 到新 ADR
@@ -14,7 +14,7 @@
 
 ## Template
 
-每个 ADR 形态见 [`../../process/methods/adr-discipline.md`](../../process/methods/adr-discipline.md)。基本结构：
+每个 ADR 形态见 adr-discipline.md。基本结构：
 
 ```markdown
 # ADR-XXXX: <title>
@@ -38,17 +38,21 @@
 **Review status (2026-05-16)**: ADR-0001..0016 由 Phase B 批量起草，初始误标 `accepted`；现已全部改回 `proposed` 等 owner review-gate。Owner 逐个 / 逐批确认后改 `accepted`。
 
 Owner review findings 已处理：
+
 - ADR-0017 是 owner review ADR-0002 时新增（backup 从 substrate 剥离成独立 pluggable concern）
-- ADR-0001 owner review pass 1 (2026-05-14) 指出原稿是 product vision 不是 decision → product 定义剥离到 `product/prd/project.md`；ADR-0001 reframe 为真正决策 "canonical deployment artifact"
+- ADR-0001 owner review pass 1 (2026-05-14) 指出原稿是 product vision 不是 decision → product 定义剥离到 project.md；ADR-0001 reframe 为真正决策 "canonical deployment artifact"
 - ADR-0001 external review pass 2 (2026-05-16) 把 "canonical / secondary 二分" 细化为 **3-tier support 模型**（Canonical / Full-parity secondary / Supported-with-constraints）；标题 `Docker image` → `OCI container image`；installer 机制剥离到新增 ADR-0018
 - ADR-0018 是 ADR-0001 pass 2 review 时新增（install bootstrap 从 build artifact 决策剥离成独立 concern；承接 frozen DI §11.11 LOCK）
-- ADR-0003 owner review pass 2 (2026-05-16) reframe 为 **architecture-induction-style ADR**（与 ADR-0001 / 0002 同形态）：删除 Public API 函数签名 / OpResult shape / per-kind defaultSize / Constraints 段（下沉到 `packages/grid-engine/CONTRACT.md`）；Decision 段重组为 6 条 induction chain。同步：新增 `packages/grid-engine/CONTRACT.md` 初版 + `docs/engineering/contracts/README.md` 索引页 + `process/methods/adr-discipline.md` 补 foundational-ADR induction-chain pattern + ADR vs CONTRACT 分工节
+- ADR-0003 owner review pass 2 (2026-05-16) reframe 为 **architecture-induction-style ADR**（与 ADR-0001 / 0002 同形态）：删除 Public API 函数签名 / OpResult shape / per-kind defaultSize / Constraints 段（下沉到 packages/grid-engine/CONTRACT.md）；Decision 段重组为 6 条 induction chain。同步：新增 packages/grid-engine/CONTRACT.md 初版 + contracts/README 索引页 + adr-discipline.md 补 foundational-ADR induction-chain pattern + ADR vs CONTRACT 分工节
+- ADR-0003 friend review pass 2.1 (2026-05-16) kind-opaque 收紧 / leaf vs purity 拆 / target architecture vs carryover transitional / 12-col logical vs render projection / mental-model path 修正 / zod 措辞移除
+
+Audit register 详 AUDIT-2026-05.md（footer 含 link）。
 
 | ADR | 主题 | Status | Source frozen DI § |
 |---|---|---|---|
-| [ADR-0001](./ADR-0001-deployment-canonical-artifact.md) | Deployment — multi-arch OCI container image as canonical artifact | proposed | architecture-rebuild §0.6（product 定义已剥离到 `product/prd/project.md`；installer 机制剥离到 ADR-0018）|
+| [ADR-0001](./ADR-0001-deployment-canonical-artifact.md) | Deployment — multi-arch OCI container image as canonical artifact | proposed | architecture-rebuild §0.6（product 定义剥离 project.md；installer 剥离 ADR-0018）|
 | [ADR-0002](./ADR-0002-substrate-db-backed.md) | Substrate: DB-backed + plugin serializer | proposed | architecture-rebuild §3 + §6 L1 |
-| [ADR-0003](./ADR-0003-grid-engine-contract.md) | Grid-engine layer — constrained canvas 的架构 induction（pass 2 reframe） | proposed | grid-redesign + architecture-rebuild §2（contract 下沉至 `packages/grid-engine/CONTRACT.md`）|
+| [ADR-0003](./ADR-0003-grid-engine-contract.md) | Grid-engine layer — constrained canvas 的架构 induction（pass 2 reframe） | proposed | grid-redesign + architecture-rebuild §2（contract 下沉至 grid-engine CONTRACT.md）|
 | [ADR-0004](./ADR-0004-block-plugin-model.md) | Block plugin extension model | proposed | architecture-rebuild §4 |
 | [ADR-0005](./ADR-0005-agent-semantic-api.md) | AI agent semantic API（agentOps = block-scoped tool use）| proposed | architecture-rebuild §5 + §11.3 |
 | [ADR-0006](./ADR-0006-backend-stack.md) | Backend stack（TS + Bun + Hono + Drizzle multi-dialect）| proposed | architecture-rebuild §11.7 + §11.8 |
@@ -78,3 +82,11 @@ Owner review findings 已处理：
 - 决策**结论 + 简短 reasoning** 留 ADR；**完整 discussion / 替代方案 trace** 留 frozen DI doc
 - Alternatives considered 至少列 2 个被拒选项（不必每个 deep dive；point 到 frozen DI 即可）
 - References 必含 source frozen DI 链接
+- Cross-reference 风格遵 doc-conventions.md（in-text plain identifier，footer link 集中）
+
+## References
+
+- ADR 写作 method: [adr-discipline.md](../../process/methods/adr-discipline.md)
+- Doc cross-reference convention: [doc-conventions.md](../../process/methods/doc-conventions.md)
+- Audit register: [AUDIT-2026-05.md](./AUDIT-2026-05.md)
+- Project PRD: [project.md](../../product/prd/project.md)

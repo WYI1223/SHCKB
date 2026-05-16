@@ -1,10 +1,9 @@
 # ADR Discipline
 
 **Status**: living
-**Last updated**: 2026-05-13
-**Source**: `engineering/design/_frozen/architecture-rebuild-2026-05-11.md` §10 + §12
+**Last updated**: 2026-05-16
 
-ADR (Architecture Decision Record) 的写作规则 / append-only 机制 / supersede 流程 / template。
+ADR (Architecture Decision Record) 的写作规则 / append-only 机制 / supersede 流程 / template。Source: architecture-rebuild-2026-05-11.md §10 + §12（footer 含 link）。
 
 ## 核心规则
 
@@ -74,18 +73,18 @@ draft → proposed → accepted → superseded
 
 ## Consequences
 
-**正面**：
+**正面**:
 - ...
 
-**负面 / Trade-offs**：
+**负面 / Trade-offs**:
 - ...
 
-**Risks**：
+**Risks**:
 - ...
 
 ## Alternatives considered
 
-至少列 2 个被拒方案；每个一两句 why rejected：
+至少列 2 个被拒方案；每个一两句 why rejected:
 
 - **Alternative A**: brief description → rejected because ...
 - **Alternative B**: brief description → rejected because ...
@@ -94,9 +93,9 @@ draft → proposed → accepted → superseded
 
 ## References
 
-- Source DI doc：`engineering/design/_frozen/<file>.md` §<section>
-- Related ADRs: ADR-XXXX, ADR-YYYY
-- 外部 link：<spec / blog / standard>
+- Source DI doc: [<filename>](path/to/frozen/<file>.md) §<section>
+- Related ADRs: ADR-XXXX, ADR-YYYY（footer 链接 markdown 形式；正文用 plain identifier）
+- 外部 link: [<spec name>](https://...)
 
 ## Changelog
 
@@ -118,13 +117,17 @@ draft → proposed → accepted → superseded
 - **Decision** 段：结论 + 简短 reasoning；3-5 lines
 - **Context** 段：足够 reviewer 理解 why；通常 1-2 段
 - **Alternatives** 段：列 2-4 个被拒方案；每个一句 why
-- 完整 discussion / 怎么辩论出来的 → 留 frozen DI doc，ADR 用 reference link 指向
+- 完整 discussion / 怎么辩论出来的 → 留 frozen DI doc，ADR 用 reference 指向
 
 ### Reference 必含
 
 - Source DI doc（哪个 frozen DI doc 的哪个 § 是这个决策的源）
 - Related ADRs（如有依赖 / 互相 reference 的）
 - 外部 link（如引用 MCP spec / Tailwind docs / etc.）
+
+### Cross-reference 风格
+
+遵 doc-conventions.md：in-text 用 plain identifier（"per ADR-0003"），markdown link 集中在 References 段。
 
 ## ADR vs Frozen DI doc
 
@@ -153,8 +156,8 @@ Living doc（mental-model / architecture-overview / 等）跟 ADR 协作：
 |---|---|---|
 | 锁什么 | **Architectural induction**（架构承诺） | **Surface**（types / op set / 算法形态） |
 | 例子 | "engine 必须 pure / 必须 kind-opaque / Option A gravity 不变量承诺" | `OpResult` shape / `applyGravity` 算法伪代码 / `DEFAULT_SIZES` 表 |
-| 演化 | Append-only；变更走 supersede | 跟随包演化；breaking change 走 PR review；**不**每次走 ADR supersede |
-| 何时 supersede ADR | 破坏 induction 承诺时（如 gravity Option A → B） | 仅修改 surface 不破 induction 时**不**触发 ADR supersede |
+| 演化 | Append-only；变更走 supersede | 跟随包演化；breaking change 走 PR review；不每次走 ADR supersede |
+| 何时 supersede ADR | 破坏 induction 承诺时（如 gravity Option A → B） | 仅修改 surface 不破 induction 时不触发 ADR supersede |
 | 物理位置 | `docs/engineering/decisions/ADR-XXXX-*.md` | `packages/<pkg>/CONTRACT.md`（贴源码） |
 | 索引 | `docs/engineering/decisions/README.md` | `docs/engineering/contracts/README.md` |
 
@@ -203,10 +206,10 @@ Living doc（mental-model / architecture-overview / 等）跟 ADR 协作：
 
 ### 颗粒度规则
 
-- **不**下沉到函数签名 / 类型 shape（归 CONTRACT.md）
-- **不**重复 product PRD 的 WHAT（用 reference link）
-- **不**下沉到具体 algorithm（伪代码归 CONTRACT.md）
-- **保留**：架构事实 / 不变量承诺 / 责任边界 / consumer 拓扑关系
+- 不下沉到函数签名 / 类型 shape（归 CONTRACT.md）
+- 不重复 product PRD 的 WHAT（用 reference）
+- 不下沉到具体 algorithm（伪代码归 CONTRACT.md）
+- 保留：架构事实 / 不变量承诺 / 责任边界 / consumer 拓扑关系
 
 ### Reframe 信号
 
@@ -218,7 +221,7 @@ Living doc（mental-model / architecture-overview / 等）跟 ADR 协作：
 - ADR 内嵌算法伪代码（"loop until convergence ..."）
 - ADR 长度超 200 line 且 60%+ 是 code block
 
-这些症状表明 ADR 误把 CONTRACT 内容当 ADR 内容写。处理方式：**reframe 为 induction-chain ADR + 同步新增对应 `packages/<pkg>/CONTRACT.md`**。参见 ADR-0003 pass 2 reframe (2026-05-16) 的实际样例。
+这些症状表明 ADR 误把 CONTRACT 内容当 ADR 内容写。处理方式：**reframe 为 induction-chain ADR + 同步新增对应 CONTRACT.md**。参见 ADR-0003 pass 2 reframe (2026-05-16) 实际样例。
 
 ### 与其他 ADR 类型的关系
 
@@ -226,11 +229,27 @@ Living doc（mental-model / architecture-overview / 等）跟 ADR 协作：
 
 | ADR 类型 | 例子 | Pattern |
 |---|---|---|
-| Foundational induction | ADR-0001 / 0002 / 0003 / 0004 | induction-chain |
+| Foundational induction | ADR-0001 / ADR-0002 / ADR-0003 / ADR-0004 | induction-chain |
 | Stack 选型 | ADR-0006（Bun + Hono）/ ADR-0016（Tailwind） | "选 X 因为 Y"二选一 |
-| Pluggable abstraction | ADR-0007 / 0008 / 0017 | interface + adapter 表（contract 颗粒度，但因为对外扩展点正当） |
+| Pluggable abstraction | ADR-0007 / ADR-0008 / ADR-0017 | interface + adapter 表（contract 颗粒度，但因为对外扩展点正当） |
 | Cross-cutting quality | ADR-0010（perf budget）/ ADR-0011（sandbox） | invariant + 量化指标 |
 | Protocol / format | ADR-0009（API style）/ ADR-0015（agent wire） | 形态决策 + 实例 |
 | Detail / contract level | ADR-0014（plugin contract field-by-field） | 字段级 spec —— 因为 plugin 是**外部扩展点**，contract surface 本身即架构决策 |
 
 判定方法：**audience 是谁** —— 如果 contract surface 锁定的是**外部 author / operator** 看的契约（plugin author / API client / wire protocol consumer），下沉到字段级 ADR 是正当的；如果是**内部包**的契约，下沉到字段级走 CONTRACT.md。
+
+## References
+
+- Source DI doc: [architecture-rebuild-2026-05-11.md](../../engineering/design/_frozen/architecture-rebuild-2026-05-11.md) §10 + §12
+- Doc cross-reference convention: [doc-conventions.md](./doc-conventions.md)
+- PRD writing method: [prd-discipline.md](./prd-discipline.md)
+- DI doc taxonomy: [di-doc-class.md](./di-doc-class.md)
+- ADR index: [decisions/README.md](../../engineering/decisions/README.md)
+- CONTRACT index: [contracts/README.md](../../engineering/contracts/README.md)
+- Audit register: [AUDIT-2026-05.md](../../engineering/decisions/AUDIT-2026-05.md)
+
+## Changelog
+
+- 2026-05-13 initial draft (Phase A framework)
+- 2026-05-16 ADR vs CONTRACT + Foundational ADR induction-chain pattern + audience-based 颗粒度规则 (triggered by ADR-0003 pass 2 reframe)
+- 2026-05-16 cross-reference 风格 follow doc-conventions.md (in-text plain + footer link)

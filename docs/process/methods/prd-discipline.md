@@ -20,8 +20,12 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 ## Length
 
 - **Feature PRD**: target 80-200 lines；超 300 → 太长 → 拆 multiple PRDs
-- **Project-level PRD** (`project.md`): up to ~300 lines（覆盖 vision + operator 谱 + non-goals + success criteria）
+- **Project-level PRD** (project.md): up to ~300 lines（覆盖 vision + operator 谱 + non-goals + success criteria）
 - 不嵌大段 TS interface / 函数签名 / DB schema / wire protocol 形态 —— 这些归 ADR / CONTRACT
+
+## Cross-reference 风格
+
+遵 doc-conventions.md：in-text 用 plain identifier（"per ADR-0003" / "see canvas-editing.md"），markdown link 集中在 Dependencies / References / Surfaced ADR debts 段。
 
 ## Structure
 
@@ -108,7 +112,7 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 
 ## ADR debt surfacing
 
-写 PRD 时**期望**会暴露 ADR 漏洞 / 一致性问题。每个 PRD 应有 `## Surfaced ADR debts` 段，把发现的问题喂回 `docs/engineering/decisions/AUDIT-2026-05.md`：
+写 PRD 时**期望**会暴露 ADR 漏洞 / 一致性问题。每个 PRD 应有 `## Surfaced ADR debts` 段，把发现的问题喂回 AUDIT-2026-05.md（footer 含 link）：
 
 - ADR 没覆盖某 user behavior → AUDIT 标 GAP
 - ADR 与 PRD 描述的 behavior 矛盾 → AUDIT 标 REWORK
@@ -150,10 +154,20 @@ PRD 不直接修 ADR；PRD surface debt，owner / engineer 后续走 ADR rework 
 | 颗粒度 | 单一 feature scope | Cross-cut integration view |
 | 内容 | user stories / requirements | 心智模型 / 架构图 / 演化路径 |
 | 修改 | Owner-driven evolution | 跟随 ADR / PRD 演化 |
-| 例子 | `canvas-editing.md` | `mental-model.md` / `architecture-overview.md` |
+| 例子 | canvas-editing.md | mental-model.md / architecture-overview.md |
 
 Feature PRD 涉及多个 ADR；living doc 给跨 PRD 的 unifying view。
+
+## References
+
+- Doc cross-reference convention: [doc-conventions.md](./doc-conventions.md)
+- ADR writing method: [adr-discipline.md](./adr-discipline.md)
+- DI doc taxonomy: [di-doc-class.md](./di-doc-class.md)
+- Project PRD: [project.md](../../product/prd/project.md)
+- Feature PRD examples: [features/](../../product/prd/features/)
+- Audit register: [AUDIT-2026-05.md](../../engineering/decisions/AUDIT-2026-05.md)
 
 ## Changelog
 
 - 2026-05-16 initial draft（Phase B follow-up Stage 2 起；为 Phase E PRD-informed rework 做准备）
+- 2026-05-16 cross-reference 风格 sync doc-conventions.md（in-text plain + footer link）
