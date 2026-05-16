@@ -35,15 +35,17 @@
 
 ## ADR Index
 
-**Review status (2026-05-14)**: ADR-0001..0016 由 Phase B 批量起草，初始误标 `accepted`；现已全部改回 `proposed` 等 owner review-gate。Owner 逐个 / 逐批确认后改 `accepted`。
+**Review status (2026-05-16)**: ADR-0001..0016 由 Phase B 批量起草，初始误标 `accepted`；现已全部改回 `proposed` 等 owner review-gate。Owner 逐个 / 逐批确认后改 `accepted`。
 
 Owner review findings 已处理：
 - ADR-0017 是 owner review ADR-0002 时新增（backup 从 substrate 剥离成独立 pluggable concern）
-- ADR-0001 owner review 指出原稿是 product vision 不是 decision → product 定义剥离到 `product/prd/project.md`；ADR-0001 reframe 为真正决策 "canonical deployment artifact = multi-arch Docker image"
+- ADR-0001 owner review pass 1 (2026-05-14) 指出原稿是 product vision 不是 decision → product 定义剥离到 `product/prd/project.md`；ADR-0001 reframe 为真正决策 "canonical deployment artifact"
+- ADR-0001 external review pass 2 (2026-05-16) 把 "canonical / secondary 二分" 细化为 **3-tier support 模型**（Canonical / Full-parity secondary / Supported-with-constraints）；标题 `Docker image` → `OCI container image`；installer 机制剥离到新增 ADR-0018
+- ADR-0018 是 ADR-0001 pass 2 review 时新增（install bootstrap 从 build artifact 决策剥离成独立 concern；承接 frozen DI §11.11 LOCK）
 
 | ADR | 主题 | Status | Source frozen DI § |
 |---|---|---|---|
-| [ADR-0001](./ADR-0001-deployment-canonical-artifact.md) | Deployment — multi-arch Docker image as canonical artifact | proposed | architecture-rebuild §0.6（product 定义已剥离到 `product/prd/project.md`）|
+| [ADR-0001](./ADR-0001-deployment-canonical-artifact.md) | Deployment — multi-arch OCI container image as canonical artifact | proposed | architecture-rebuild §0.6（product 定义已剥离到 `product/prd/project.md`；installer 机制剥离到 ADR-0018）|
 | [ADR-0002](./ADR-0002-substrate-db-backed.md) | Substrate: DB-backed + plugin serializer | proposed | architecture-rebuild §3 + §6 L1 |
 | [ADR-0003](./ADR-0003-grid-engine-contract.md) | Grid-engine contract（12-col + AABB + gravity Option A）| proposed | grid-redesign + architecture-rebuild §2 |
 | [ADR-0004](./ADR-0004-block-plugin-model.md) | Block plugin extension model | proposed | architecture-rebuild §4 |
@@ -60,6 +62,7 @@ Owner review findings 已处理：
 | [ADR-0015](./ADR-0015-agent-wire-protocol.md) | Agent wire protocol（MCP + SKILL.md 双层 + REST + SSE）| proposed | architecture-rebuild §11.4 |
 | [ADR-0016](./ADR-0016-css-framework.md) | CSS framework（Tailwind 4 + cva + shadcn ui + grid-themes）| proposed | architecture-rebuild §11.16 |
 | [ADR-0017](./ADR-0017-backup-strategy.md) | Backup strategy（pluggable BackupProvider）| proposed | — (owner review of ADR-0002, 2026-05-14) |
+| [ADR-0018](./ADR-0018-install-bootstrap.md) | Install bootstrap（single-entry installer + profile selection + config generation）| proposed | architecture-rebuild §0.6 + §11.11（external review of ADR-0001, 2026-05-16） |
 
 ## 编号约定
 
