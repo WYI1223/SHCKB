@@ -153,15 +153,16 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
 
 - **Aligning ADRs**:
-  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — GridState rendering
-  - [ADR-0009](../../../engineering/decisions/ADR-0009-api-style.md) — GET /notes/:slug endpoint
-  - [ADR-0010](../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse / FCP / LCP
-  - [ADR-0013](../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — RenderView for markdown
-  - [ADR-0014](../../../engineering/decisions/ADR-0014-plugin-contract.md) — RenderView contract
-- **Audit**: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
-- **Doc convention**: [doc-conventions.md](../../../process/methods/doc-conventions.md)
+  - [ADR-0003](../../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — GridState rendering
+  - [ADR-0009](../../../../engineering/decisions/ADR-0009-api-style.md) — GET /notes/:slug endpoint
+  - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse / FCP / LCP
+  - [ADR-0013](../../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — RenderView for markdown
+  - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — RenderView contract
+- **Audit**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
+- **Doc convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
 
 ## Changelog
 
 - 2026-05-16 initial draft；reader view 单独成 sub-PRD（Q1 reframe：view 不是 "edit mode minus controls"，有 reader-centric 独立 concerns —— SSR / SEO / private auth / 404-410-403 / etc.）
 - 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段
+- 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正

@@ -49,6 +49,7 @@ Notepage 的**视觉主题系统** —— 3 个内置 theme 改变 canvas 底板
 
 ### Should (Day-1 if scope allows)
 
+- **Theme switcher 进阶可用性**：可拖位置 / 可隐藏（form factor 仍 theme 决定；这条只是 user-observable 期望）
 - **Theme 切换 transition**：CSS variable 切换 + 短 transition（200ms）平滑视觉变化
 - **Theme preview tooltip**：hover switcher option 显示 mini preview
 - **Reader 自己 override**：如 reader 偏好 graph-paper 但 author 指定 bento-canvas，reader 可 client-side toggle（不写 author 的 notepage）
@@ -83,7 +84,7 @@ Notepage 的**视觉主题系统** —— 3 个内置 theme 改变 canvas 底板
 ### M2 acceptance
 
 - 3 内置 theme 视觉差异明显；都可用
-- Theme switcher 可点 / 可切换 / 可拖位置 / 可隐藏
+- Theme switcher 可访问（任何 form factor）+ 可切换 + 状态可持久化
 - Persistence work：refresh 后 theme 仍是 user 选择
 - Frontmatter override work：指定 `theme: graph-paper` 的 notepage 用此 theme
 - Author 选 theme A → reader 访问看到 theme A（如 frontmatter 未 override）
@@ -139,11 +140,11 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。本 PRD 直接 trigger [ADR-0016] theme system carrier rework（详 Surfaced ADR debts + [AUDIT-2026-05.md] 流程）。
 
 - **Aligning ADRs**:
-  - [ADR-0016](../../../engineering/decisions/ADR-0016-css-framework.md) — CSS framework；theme system carrier **GAP**（本 PRD 触发 rework）
+  - [ADR-0016](../../../../engineering/decisions/ADR-0016-css-framework.md) — CSS framework；theme system carrier **GAP**（本 PRD 触发 rework）
   - Future render-system ADR — 候选承接 theme system；本 PRD 是 product input
-- **Frozen DI**: [grid-redesign-2026-05-11.md](../../../engineering/design/_frozen/grid-redesign-2026-05-11.md) §9 theme system LOCK
-- **Audit**: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
-- **Doc convention**: [doc-conventions.md](../../../process/methods/doc-conventions.md)
+- **Frozen DI**: [grid-redesign-2026-05-11.md](../../../../engineering/design/_frozen/grid-redesign-2026-05-11.md) §9 theme system LOCK
+- **Audit**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
+- **Doc convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
 
 ## Changelog
 
@@ -153,3 +154,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
   - 新增 "Theme 内 affordance 自治"：每 theme 决定 palette form factor / handle visual / drag visual / 等
   - Frozen DI §9.1 floating chip 提议降级为 reference 不是 mandate
 - 2026-05-16 pass 3 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段
+- 2026-05-16 hygiene pass 4 (owner review): 相对链接深度修正；M2 acceptance "可拖位置 / 可隐藏" 重新锁了 HOW → 移到 Should（M2 只 mandate "switcher 可访问 + 可切换 + 状态持久化"）

@@ -17,7 +17,7 @@
 - **Canvas 不是文档**：内容是 2D tile placement（约束 canvas），不是 prose-flow（详 [mental-model.md]）
 - **Self-hostable platform**：operator 自部署，不是 SaaS 集中托管
 - **Plugin-extensible**：block 种类通过 plugin 扩展；加功能块 = 写 plugin（详 [ADR-0004]）
-- **AI-native**：agent 通过 semantic API（MCP + Skills）操作 canvas，不读 raw 文件（详 [ADR-0005] / [ADR-0015]）
+- **AI-native（架构 Day-1 ready，user-visible 功能 M3+）**：架构 Day-1 为 AI 准备（semantic API surface / MCP server scaffold / plugin agentOps signature 都按 agent 是二等用户设计；详 [ADR-0005] / [ADR-0015]）；用户看得见的 AI 功能（in-app AI / external client integration）属 [ai-integration.md]，作 M3+ owner-driven 推进。**Day-1 不 ship user-visible AI feature 不等于 Day-1 不做 AI 准备**
 - **Multi-deploy**：一个 OCI container image canonical artifact 覆盖 NAS / VPS / Cloud PaaS；single-binary + Workers 作 secondary tier（详 [ADR-0001]）
 
 ## 核心原则
@@ -109,3 +109,4 @@
 - 2026-05-14 initial extraction — 产品定义 / operator 谱 / non-goals / success criteria 从 ADR-0001 草稿（Phase B 误把 product vision 写成 ADR）提取到此 project PRD；ADR-0001 同步 reframe 为 "canonical deployment artifact" 决策
 - 2026-05-16 cross-reference 风格 sync [doc-conventions.md]（pass 1: in-text plain identifier）；Feature PRDs 段加 Day-1 vs Phase 2+ 分级标注
 - 2026-05-16 pass 2: in-text 改为 `[bracketed identifier]` citation marker（form C）
+- 2026-05-16 hygiene pass 3: AI-native 原则措辞 sharpen — 区分 "架构 Day-1 ready" vs "user-visible AI 功能 M3+"；显式 cover Day-1 不 ship AI feature 不等于不做 AI 准备

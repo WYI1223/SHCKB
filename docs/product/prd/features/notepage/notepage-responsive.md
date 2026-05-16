@@ -143,13 +143,14 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
 
 - **Aligning ADRs**:
-  - [ADR-0003](../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — logical 12-col + Trade-offs（"logical coord vs render projection" 精确化）
-  - [ADR-0010](../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse mobile 90+
-  - [ADR-0016](../../../engineering/decisions/ADR-0016-css-framework.md) — Tailwind responsive utilities
-- **Audit**: [AUDIT-2026-05.md](../../../engineering/decisions/AUDIT-2026-05.md)
-- **Doc convention**: [doc-conventions.md](../../../process/methods/doc-conventions.md)
+  - [ADR-0003](../../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — logical 12-col + Trade-offs（"logical coord vs render projection" 精确化）
+  - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse mobile 90+
+  - [ADR-0016](../../../../engineering/decisions/ADR-0016-css-framework.md) — Tailwind responsive utilities
+- **Audit**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
+- **Doc convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
 
 ## Changelog
 
 - 2026-05-16 initial draft；从 features/canvas-editing.md mobile responsive 段拆出 + 扩展（3 breakpoint / touch baseline / 跨 viewport 一致 / mobile 编辑限制）
 - 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段
+- 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正
