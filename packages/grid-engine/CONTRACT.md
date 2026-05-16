@@ -244,12 +244,14 @@ Engine 显式承诺（per ADR-0003 induction 2 推论）——不是 leaf 位置
 
 ### Invariant 7: Monorepo dependency leaf (structural)
 
-Engine 在 monorepo package import 关系图上不指向其他 `@skb/*` package：
+Engine 在 monorepo package import 关系图上不指向其他 `@skb/*` package，**且不引入任何 runtime library**：
 
-- ✅ 允许 import：TypeScript 标准库 / 类型工具 / 纯 utility lib（如 `zod`）
-- ❌ 不允许 import：任何 `@skb/*` package / React / DOM / Drizzle / Lexical / Hono / fetch / IndexedDB / framework / runtime API
+- ✅ 允许 import：TypeScript 标准库 + 类型工具（**type-level only，无 runtime 行为**）
+- ❌ 不允许 import：**任何 runtime library（含 zod / immer / lodash / 等）** / 任何 `@skb/*` package / React / DOM / Drizzle / Lexical / Hono / fetch / IndexedDB / framework / runtime API
 
-Invariant 6 是行为承诺，invariant 7 是结构约束。Invariant 7 为 invariant 6 提供必要支撑但不充分——leaf 不阻止源码写 `Math.random()`；purity 必须独立保持。
+**Escape hatch**：若 implementation 判断需要 runtime lib，必须在 PR review 中显式说明理由 + 验证不破 invariant 6（purity / determinism / no side effect / reentrance）。默认 reject —— grid-engine 是 layout math，不需要 runtime validation / parsing；caller 在边界验证输入即可。
+
+Invariant 6 是行为承诺，invariant 7 是结构约束。Invariant 7 为 invariant 6 提供必要支撑但不充分——leaf 不阻止源码写 `Math.random()`；purity 必须独立保持。Runtime lib 禁令是 invariant 6+7 的合并 enforcement —— zod 这类 lib 不仅破 leaf 形态，更直接破 purity（throws / coerces / 等）。
 
 ---
 
