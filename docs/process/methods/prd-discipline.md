@@ -88,9 +88,9 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 
 ## WHAT vs HOW boundary
 
-写 PRD 时碰到的边界判断常见错误：
+写 PRD 时碰到的边界判断常见错误。PRD 写 **user-observable behavior**；dev / theme / library / architecture 实现选择都归 ADR / CONTRACT / dev decision。
 
-### ❌ Anti-pattern: PRD 写实现选择
+### ❌ Anti-pattern: PRD 写架构 / library / API 实现选择
 
 | 不该写在 PRD | 该归哪 |
 |---|---|
@@ -100,15 +100,53 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 | "POST /api/blocks/insert body: {kind, col, row}" | [ADR-0009] |
 | "blocks 表加 deleted_at 列" | [ADR-0002] |
 
-### ✅ Pattern: PRD 写 user-observable behavior
+### ❌ Anti-pattern: PRD 写 UI / interaction 形态实现
+
+PRD **不**规定 selection 用什么视觉 / reject 反馈用什么 UI / drag 用什么动画 / palette 用什么 form factor / 等。这些是 dev / theme 决策：
+
+| 不该写在 PRD（写到 PRD 里 = 越界） | PRD 该 mandate 的 user behavior 期望 |
+|---|---|
+| "Selected block 显式 outline" | "User 能识别当前活跃 block" |
+| "Reject 反馈用红色 toast" | "User 知道操作失败 + 至少有一种途径理解原因" |
+| "Drag in-flight 半透明 + 自定 image" | "User 看到 drag 跟随 cursor 的视觉反馈" |
+| "Resize handle hover-only visible" | "User 能识别 resize affordance" |
+| "Toolbar palette 顶部 12 col 排列" | "User 有 palette 入口添加 block"（form factor theme 决定）|
+| "Tab 选下一 block / Enter 进入 EditView / Esc 退出" | "User 全键盘可操作；应遵循 OS / Web 标准 keyboard 约定" |
+| "删除按钮在 block 右上角 ×" | "User 能触发删除 block" |
+| "Status banner 显示 'block moved'" | "User 知道操作成功 / 失败" |
+
+**判定方法**：去掉视觉 / 形态描述后这句话还成立吗？
+
+- "Selected block 显式 outline" → 去 "显式 outline" 剩 "Selected block" 没有 behavior，是 visual prescription → 不该 PRD
+- "User 能识别当前活跃 block" → user-observable expectation → PRD 该写
+
+### ✅ Pattern: PRD 写 user-observable behavior + 必要 algorithm contract
 
 | 该写在 PRD | 对应 HOW 归 |
 |---|---|
-| "拖 block 到空 hole 时显示 snap preview，松手后 block 落到 snap 位置" | [ADR-0003] induction 4 + [ADR-0013] 实现 |
+| "拖 block 到空 hole 时显示 snap preview，松手后 block 落到 snap 位置" | [ADR-0003] induction 4 + dev/theme 视觉细节 |
 | "user 可以选 3 个内置 theme 之一，刷新页面记住选择" | 未来 render-system ADR |
-| "拖 block 跨过另一 block 时，目标位置可能被 reject（如重叠）" | [ADR-0003] induction 3 + 4 |
-| "API 失败时 UI 显示具体原因（如 'overlap with X block'）" | [ADR-0009] error contract |
+| "拖 block 跨过另一 block 时，目标位置可能被 reject" | [ADR-0003] induction 3 + 4 |
+| "API 失败时 user 知道失败原因"（**不**写"如 toast"）| [ADR-0009] error contract + dev/theme UI 决策 |
 | "block 删除后立刻消失，30 天内可 restore" | [ADR-0002] `deleted_at` + [ADR-0017] GC |
+| "Resize 走 6 axes（4 边 + 2 角）+ atomic transform"（algorithm contract，prototype validated）| [ADR-0003] + prototype + CONTRACT |
+
+### Algorithm contract = exception
+
+部分 PRD 内容**应该**显式 mandate algorithm 层 invariants —— 因为这是 user-observable 行为的底层承诺，跨 implementation / theme 都不能变。
+
+例子（应在 PRD）:
+
+- "Resize 6 axes" —— prototype 验证；implementation 不能减到 4 axes
+- "Move 保 size，不 hole-fill clamp" —— user expectation；不能让 implementation 自由改成"move 也走 hole-fill"
+- "Insert hole-fill clamp" —— user expectation；implementation 不能跳过
+- "Option A gravity invariant" —— architectural commitment（[ADR-0003] induction 4）
+
+这些应在 PRD 标 "algorithm contract（prototype validated 或 ADR-X 承诺）"，区别于 UI 实现选择。
+
+### Out of PRD scope section（推荐）
+
+复杂 PRD（如 [notepage-editing.md]）建议加 `## Out of PRD scope (dev / theme decisions)` 段，**显式列**本 PRD 不规定但容易被误以为该规定的 UI / form factor 选择。Helps reader 区分 "PRD 没说" 与 "PRD 故意不说"。
 
 ## ADR debt surfacing
 
@@ -172,3 +210,8 @@ Feature PRD 涉及多个 ADR；living doc 给跨 PRD 的 unifying view。
 - 2026-05-16 initial draft（Phase B follow-up Stage 2 起；为 Phase E PRD-informed rework 做准备）
 - 2026-05-16 cross-reference 风格 sync [doc-conventions.md]（pass 1: in-text plain + footer link）
 - 2026-05-16 pass 2: in-text 改为 `[bracketed identifier]` citation marker（form C）
+- 2026-05-16 WHAT vs HOW boundary 段重写 + sharpen（triggered by notepage-editing.md prototype audit）：
+  - 区分 architecture / library 实现选择（已有）vs UI / interaction form factor 选择（新增）
+  - 新增"判定方法"："去掉视觉 / 形态描述后这句话还成立吗"
+  - 新增 algorithm contract = exception 段（如 prototype-validated 算法 invariant 应在 PRD）
+  - 新增 "Out of PRD scope" section 推荐（复杂 PRD 显式列不规定的 UI 决策）

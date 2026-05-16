@@ -34,9 +34,8 @@ Notepage 的**视觉主题系统** —— 3 个内置 theme 改变 canvas 底板
   - `lego-studs`：80px slot；凸点显式 + cell 边框 baseplate；hue tint + 浅边 block；积木心智
   - `bento-canvas`：100px slot；默认隐藏 baseplate（drag 时显）；圆角 + shadow + hue header block；dashboard 心智
 - **Default theme** = `lego-studs`（per frozen DI §9.1 — 对 grid 心智表达最直观）
-- **Theme switcher UI**:
-  - Floating chip 右下角（per frozen DI §9.1）；hide 在 production fold
-  - 可拖动位置（user 自定）；可隐藏（不强制 always-visible）
+- **Theme switcher 入口存在**: user 能切换 theme（form factor / 位置 / 是否可拖 等具体 UI 选择**由各 theme 自己决定**；frozen DI §9.1 提议右下角 floating chip 仅作 reference，不规定）
+- **Theme 内 affordance 自治**: 每个 theme 可决定 palette form factor / handle visual / drag visual / selection visual / 等具体形态（per [notepage-editing.md] "Out of PRD scope"）—— theme 不只是 "换皮"，还包括 affordance 选择
 - **Persistence hybrid**（per frozen DI §9.1）：
   - 默认 per-user：`localStorage['skb.grid.theme']`
   - 单 notepage 可 frontmatter override（`theme: bento-canvas`）
@@ -146,3 +145,7 @@ Notepage 的**视觉主题系统** —— 3 个内置 theme 改变 canvas 底板
 ## Changelog
 
 - 2026-05-16 initial draft；从 features/canvas-editing.md theme switching 段拆出 + 扩展承接 frozen DI §9 LOCK 全部内容；本 PRD 起 trigger AUDIT GAP `ADR-0016 theme system carrier`
+- 2026-05-16 pass 2 (owner clarify against prototype): theme 责任范围扩到 affordance 自治 ——
+  - "Theme switcher 入口存在" 替代具体 "floating chip 右下角"（form factor 由 theme 决定）
+  - 新增 "Theme 内 affordance 自治"：每 theme 决定 palette form factor / handle visual / drag visual / 等
+  - Frozen DI §9.1 floating chip 提议降级为 reference 不是 mandate
