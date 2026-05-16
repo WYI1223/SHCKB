@@ -80,8 +80,8 @@
 
 ### Day-1 critical
 
-- [notepage/]（draft；包含 top-level + 4 sub-PRDs：notepage / -view / -editing / -themes / -responsive）
-- [plugin-system/]（TODO）
+- [notepage/]（draft；top + 4 sub-PRDs：notepage / -view / -editing / -themes / -responsive；note author / reader 视角）
+- [plugin-system/]（draft；top + new-block + new-theme sub-PRDs；extension author 视角；generic extension framework 不只 block kind）
 - [authentication/]（TODO）
 - [self-host-deploy/]（TODO）
 

@@ -27,7 +27,7 @@ features/
 | Feature | Folder | Status |
 |---|---|---|
 | Notepage（user-facing notepage 整体） | [notepage/](./notepage/) | draft（top + 4 sub-PRDs） |
-| Multi-plugin block system（extensibility） | [plugin-system/](./plugin-system/) | TODO |
+| Plugin system（generic extension framework） | [plugin-system/](./plugin-system/) | draft（top + new-block + new-theme sub-PRDs） |
 | Authentication + multi-user | [authentication/](./authentication/) | TODO |
 | Self-host deployment（5 modes） | [self-host-deploy/](./self-host-deploy/) | TODO |
 
@@ -39,17 +39,27 @@ features/
 | Discussion（per-block opt-in） | [discussion/](./discussion/) | TODO |
 | Search + cross-note discovery | [search-discovery/](./search-discovery/) | TODO |
 
-## Notepage sub-PRDs
+## Hierarchical sub-PRDs
 
-Notepage 是当前唯一 hierarchically decomposed 的 feature：
+### Notepage（note author / reader 视角）
 
 | Sub-PRD | Scope |
 |---|---|
 | [notepage/notepage.md](./notepage/notepage.md) | top-level framing + cross-cutting invariants + cross-feature seams |
 | [notepage/notepage-view.md](./notepage/notepage-view.md) | Reader 阅读流（view mode + SSR + private auth） |
 | [notepage/notepage-editing.md](./notepage/notepage-editing.md) | Author 编辑流（insert/move/resize/delete + affordance + keyboard） |
-| [notepage/notepage-themes.md](./notepage/notepage-themes.md) | Theme system（3 内置 theme + persistence + switcher） |
+| [notepage/notepage-themes.md](./notepage/notepage-themes.md) | Theme system 的 user-observable behavior（3 内置 theme + persistence + switcher） |
 | [notepage/notepage-responsive.md](./notepage/notepage-responsive.md) | Viewport projection（mobile 1-col / tablet 6-col / desktop 12-col） |
+
+### Plugin-system（extension author 视角）
+
+| Sub-PRD | Scope |
+|---|---|
+| [plugin-system/plugin-system.md](./plugin-system/plugin-system.md) | top-level framing：generic extension framework + cross-cutting invariants + plugin vs operator-pluggable 区分 |
+| [plugin-system/new-block.md](./plugin-system/new-block.md) | Block kind extension（author 怎么写 new block plugin） |
+| [plugin-system/new-theme.md](./plugin-system/new-theme.md) | Theme extension（author 怎么写 new theme + fork / compose path） |
+
+**Cross-PRD audience split**: notepage/ = note author / reader 视角；plugin-system/ = extension author（developer-user）视角。Theme / block 在两 folder 都出现，分别是 user-observable vs author-observable view。
 
 ## Feature PRD template
 
@@ -65,3 +75,4 @@ Notepage 是当前唯一 hierarchically decomposed 的 feature：
 
 - 2026-05-16 initial（Phase E setup）
 - 2026-05-16 reframe: canvas-editing.md → notepage/ folder（vocab `canvas` → `notepage` PRD product vocabulary；hierarchical structure with top + 4 sub-PRDs）；其他 feature 同步 folder 结构
+- 2026-05-16 plugin-system reframe: 从 "block extension only" 扩为 generic extension framework；plugin-system/ folder 加 top + new-block + new-theme sub-PRDs；audience split 显式化（notepage/ = user 视角；plugin-system/ = author 视角）

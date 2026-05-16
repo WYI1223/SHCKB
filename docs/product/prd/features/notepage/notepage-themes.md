@@ -11,9 +11,11 @@
 
 Notepage 的**视觉主题系统** —— 3 个内置 theme 改变 canvas 底板 + block 渲染视觉，但不动 data。Theme 跨 view + edit mode 一致；切换不丢 GridState。
 
-本 PRD 锁的是 **theme system 的 user-observable 行为**：3 内置 theme 视觉、theme 切换 UI、persistence（user pref + frontmatter override）、reader / author 一致性。
+本 PRD 锁的是 **theme 作为 product feature 的 user-observable 行为**（note author / reader 视角）：3 内置 theme 视觉、theme 切换 UI、persistence（user pref + frontmatter override）、reader / author 一致性。
 
-不锁：底层 GridTheme interface 实现（→ [ADR-0016] 或 future render-system ADR）、theme registry 内部结构（→ CONTRACT）。
+**Theme extension author 视角**（怎么写 theme / fork / compose / 扩展 surface）归 [new-theme.md]（plugin-system sub-PRD）。
+
+不锁：底层 GridTheme interface 实现（→ [ADR-0016] 或 future render-system ADR）、theme registry 内部结构（→ CONTRACT）、theme author authoring path 细节（→ [new-theme.md]）。
 
 **本 PRD 直接 trigger AUDIT GAP**：`[ADR-0016]` theme system carrier 至今未承接 frozen DI [grid-redesign-2026-05-11.md] §9 LOCK；本 PRD 写完后 carrier 决策有 user-facing 依据。
 
@@ -119,6 +121,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 
 - **Parent PRD**: [notepage.md](./notepage.md)
 - **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-editing.md](./notepage-editing.md) / [notepage-responsive.md](./notepage-responsive.md)（都消费 theme system）
+- **Other feature PRDs**: [new-theme.md](../plugin-system/new-theme.md) —— theme extension author 视角（本 PRD 的对偶 developer-side）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions
@@ -155,3 +158,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
   - Frozen DI §9.1 floating chip 提议降级为 reference 不是 mandate
 - 2026-05-16 pass 3 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段
 - 2026-05-16 hygiene pass 4 (owner review): 相对链接深度修正；M2 acceptance "可拖位置 / 可隐藏" 重新锁了 HOW → 移到 Should（M2 只 mandate "switcher 可访问 + 可切换 + 状态持久化"）
+- 2026-05-16 pass 5: 显式 audience split — 本 PRD = note author / reader 视角；theme extension author 视角归 [new-theme.md]（plugin-system sub-PRD）；Dependencies 加 cross-ref

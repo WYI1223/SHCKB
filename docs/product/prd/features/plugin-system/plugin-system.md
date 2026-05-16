@@ -1,0 +1,160 @@
+# Feature PRD: Plugin system (top-level)
+
+| Field | Value |
+|---|---|
+| Status | draft |
+| Last updated | 2026-05-16 |
+| Owner | W_YI |
+| Parent PRD | [project.md] |
+
+## Overview
+
+**Plugin system** = 通用 extension framework。Third-party developer 通过 plugin 给产品加新能力 —— 不只是 new block kind，还包括 new theme，未来可能更多。
+
+每个 plugin 是一个独立 TS module；声明自己是什么类型的 extension（block / theme / 等）；framework 在启动时 register；运行时通过 capability ctx 访问需要的 resource。
+
+本 PRD 锁的是 **extension framework 整体的 framing + 跨 extension type 的 cross-cutting invariants**。具体 extension type 细节归各 sub-PRD（[new-block.md] / [new-theme.md] / 等）。
+
+**关键 audience split**:
+
+- **Note author / reader 视角**（产品 user）—— 看 features/notepage/* PRDs
+- **Extension author 视角**（developer-user）—— 看本 PRD + sub-PRDs
+
+## Sub-features
+
+Day-1 cover 两类 extension：
+
+| Sub-PRD | Extension type | 简述 |
+|---|---|---|
+| [new-block.md] | Block kind plugin | Author 加新的 block kind（如 markdown / image / nn-viz / 自定 widget）|
+| [new-theme.md] | Theme plugin | Author 加新的视觉 + affordance theme（fork / compose existing built-ins）|
+
+未来可能的 extension type（owner-driven 加 sub-PRD，**不**预写）：keyboard binding plugin / gesture plugin / export adapter / import source / AI provider / etc.
+
+## Plugin vs operator-pluggable（关键 scope 边界）
+
+**Plugin** ≠ **operator-level pluggable adapter**。Day-1 容易混淆，要明确区分：
+
+| | Plugin（本 PRD 范围）| Operator-pluggable（**不**在本 PRD）|
+|---|---|---|
+| 例子 | new block kind / new theme | storage provider / search provider / backup provider |
+| Audience | third-party developer | operator at deploy time |
+| 选择时机 | 运行时 register；user 可启用 / 禁用 | Deploy / install 时 env var 配置；运行时不切换 |
+| 切换机制 | Plugin module 加载 / 卸载 | **导出 → 重新安装 → 导入** workflow（基础设施迁移不能 runtime 热切换）|
+| 谁负责 | extension author 写代码 | operator 部署时选；adapter 内置 |
+| Day-1 状态 | closed registry（内置 9 block / 3 theme），Phase 2+ 第三方加入 | closed adapter set；operator config 选 |
+| PRD 归属 | features/plugin-system/ | [self-host-deploy.md] |
+| ADR 归属 | [ADR-0004] / [ADR-0014] / [ADR-0011] | [ADR-0007] / [ADR-0008] / [ADR-0017] / [ADR-0018] |
+
+**判定**："这个东西能不能 runtime 热切换" → 能 = plugin；不能 = operator-pluggable（迁移要 export-reinstall-import）。
+
+## Cross-cutting invariants
+
+跨所有 extension type 的不变量。**任何 sub-PRD 都不能破这些**：
+
+| Invariant | 含义 | 源 |
+|---|---|---|
+| **不破 algorithm core** | Plugin / theme 不能改 GridState 内部 / 12-col logical / Option A gravity / AABB no-overlap | [ADR-0003] inductions |
+| **不替代 data SoT** | Plugin 不绕开 DB 写自己的 storage；走 framework 的 storage provider | [ADR-0002] |
+| **运行 in sandbox** | Plugin 通过 capability ctx 访问 resource（storage / search / engine read-only / 等）；不能直接 fs / network | [ADR-0011] |
+| **Lifecycle 一致** | 所有 extension type 共享 register / version / migration / unload 形态 | [ADR-0014] |
+| **Plugin churn 不破核心 UX** | 新增 / 修改 / 删除 extension 不破 notepage 的 view / editing / themes / responsive 任何 sub-feature | [ADR-0003] induction 3 kind-opaque + cross-cutting |
+| **Versioning** | 每个 extension 含 semver；framework 支持 lazy migration（旧 row / 旧 theme state 迁移到新版本）| [ADR-0014] |
+
+## Cross-cutting user stories（extension author 视角）
+
+具体 author journey 见 sub-PRD；这里只列跨 type 的：
+
+- As an **extension author**, I want to **从一个 well-defined plugin contract 起步**，so that **不必猜框架内部**
+- As an **extension author**, I want to **声明我的 plugin 需要哪些 capability**（如 storage write / search query / engine read），so that **sandbox 知道允许什么**
+- As an **extension author**, I want to **写 semver + migration**，so that **plugin 升版 不破旧数据**
+- As an **extension author**, I want to **fork 或 compose 已有 built-in plugin 作为起点**，so that **不必每次从零写**（详 [new-theme.md] / [new-block.md]）
+- As a **plugin user**（note author who installs a plugin），I want to **安装后 plugin 立刻可用 + 卸载后 data 不丢**，so that **试 plugin 不带 risk**
+
+## Non-goals
+
+- ❌ **Plugin marketplace UI / 第三方发布渠道** —— Phase 2+；Day-1 closed registry（plugin / theme code 跟 project source 一起部署）
+- ❌ **Operator-pluggable adapter**（storage / search / backup）—— 不在本 PRD；归 [self-host-deploy.md]
+- ❌ **Hot reload plugin** —— Day-1 plugin 改 → 重启 server；hot reload Phase 2+
+- ❌ **Plugin 间直接 call** —— 跨 plugin 走 framework capability ctx；不允许 `getPlugin('other').handler.x()`（per [ADR-0014]）
+- ❌ **Plugin 改 framework 内部**（API endpoint / DB schema / 等）—— 这些是 framework owner 决策，不开放给 plugin
+- ❌ **第三方 plugin Day-1 ship** —— Day-1 仅 9 built-in block + 3 built-in theme；第三方 Phase 2+ open
+
+## Acceptance criteria
+
+### M2 acceptance（minimum shippable extension framework）
+
+- Framework 能 register 9 built-in block plugin + 3 built-in theme plugin
+- Plugin contract 形态稳定（[ADR-0014]）；author 能读 contract 写一个简单 plugin（即便 Day-1 closed 也可 demo 写第 10 个 block / 第 4 个 theme）
+- Plugin lifecycle work：register / version / migration baseline
+
+### M3 acceptance
+
+- Sandbox baseline（[ADR-0011] Phase 1 inline → Phase 2 worker boundary 起步）
+- Plugin author 文档完整（[new-block.md] + [new-theme.md] author guide）
+
+### M4 acceptance
+
+- 5 deploy mode 下 plugin 都 work（含 Workers runtime constraint）
+- Plugin 卸载 / data cleanup workflow
+
+### Phase 2+
+
+- 第三方 plugin discovery / install
+- Plugin marketplace
+
+## Edge cases（cross-cutting）
+
+| 场景 | 期望行为 |
+|---|---|
+| Plugin A 跟 plugin B 版本冲突（共享 dep）| Framework 警告；user 选保留哪一个 |
+| Plugin 抛 exception | Sandbox 隔离；不 crash framework；user 看到 plugin 状态 "error"；其他 plugin / 内置功能继续 work |
+| Plugin 声明 capability X 但 framework 不支持 | Plugin register 失败；明确 error message |
+| Plugin 版本升级 + migration 失败 | 回滚到旧版本 + plugin 标 "needs attention"；data 不动 |
+| 卸载 plugin 但留有 data（如 block 用此 plugin）| Data 保留 + 显示 "this block requires plugin X (uninstalled)"；user 可重装或导出迁移 |
+
+## Dependencies
+
+PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
+
+- **Parent PRD**: [project.md](../../project.md)
+- **Sibling PRDs**:
+  - [new-block.md](./new-block.md)
+  - [new-theme.md](./new-theme.md)
+- **Other feature PRDs**:
+  - [notepage.md](../notepage/notepage.md) —— plugin / theme 在 notepage 上的 user-observable behavior
+  - [notepage-themes.md](../notepage/notepage-themes.md) —— theme 作为 product feature 的 user view
+  - [authentication.md](../authentication/authentication.md) —— plugin 权限管理（如有）
+- **External services**: 无 Day-1 外部依赖
+
+## Open questions
+
+1. **Plugin 安装 / 卸载 UI 形态** Day-1 不需要（closed registry）；Phase 2+ 形态待定（CLI / UI / config file?）
+2. **Plugin author 文档归 plugin-system PRD 还是另立 author-guide?** 倾向归本 PRD + sub-PRDs（不另立 PRD；author-guide 是 runbook 不是 PRD）
+3. **Future extension types 准入门槛**：什么 trigger 加一个 new sub-PRD？建议：当 owner 想 ship 一个 user-visible extension type 时（如 "M5 加 export-to-PDF" → 触发 plugin-system/new-export-adapter.md）
+
+## Surfaced ADR debts
+
+本 PRD 触发的 ADR 层 framing 问题（reframe round 2 候选）：
+
+- **[ADR-0004] "Block plugin extension model" 名字过窄**：当前 ADR 限定 block；本 PRD 把 plugin-system 扩到 generic extension framework（含 block + theme + future）。**Action**: audit round 2 时考虑 reframe 为 "Extension model"（generic）；不本轮做
+- **[ADR-0014] "Plugin contract details" 全 BlockPlugin 字段**：当前 contract 是 BlockPlugin 17+ fields；如果 plugin-system 支持多 extension type，contract 应分层（generic Plugin base + per-type specialization：BlockPlugin / ThemePlugin / etc.）。**Action**: audit round 2 时考虑分层；Day-1 BlockPlugin 已存在，ThemePlugin 待 [new-theme.md] PRD 推动定义
+- **[ADR-0011] sandboxing**: 当前讲 plugin sandboxing；自然扩到所有 extension type（theme 也走 sandbox）；wording 可能不需变，但 audit 时 verify
+
+详 [AUDIT-2026-05.md] PRD-surfaced debts log。
+
+## References
+
+PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
+
+- **Aligning ADRs**:
+  - [ADR-0004](../../../../engineering/decisions/ADR-0004-block-plugin-model.md) — extension model（当前 framing 限 block；待 reframe）
+  - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — plugin contract（当前限 BlockPlugin；待 reframe 加 generic + per-type 分层）
+  - [ADR-0011](../../../../engineering/decisions/ADR-0011-sandboxing-evolution.md) — sandbox capability boundary
+  - [ADR-0005](../../../../engineering/decisions/ADR-0005-agent-semantic-api.md) — agentOps（block plugin specific）
+- **Audit**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
+- **Doc convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
+
+## Changelog
+
+- 2026-05-16 initial draft；Phase E Day-1 PRD #2；reframe plugin-system 为通用 extension framework（不只 block kind）；hierarchical 结构 with sub-PRDs new-block / new-theme；区分 plugin vs operator-pluggable；surface ADR-0004/0014/0011 reframe debts
