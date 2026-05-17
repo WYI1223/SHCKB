@@ -24,6 +24,15 @@ Historical conversation records；**完全 frozen**；只 owner 可 fix typo / l
 | [`_frozen/grid-redesign-2026-05-11.md`](./_frozen/grid-redesign-2026-05-11.md) | Parent DI；grid-engine 心智 + 3 theme lock | ~280 lines |
 | [`_frozen/architecture-rebuild-2026-05-11.md`](./_frozen/architecture-rebuild-2026-05-11.md) | 完整 architecture rebuild DI；所有决策 trace 源头 | ~1700 lines |
 
+### Discussion records ([`discussions/`](./discussions/))
+
+**Living** records of ongoing framing / 架构层 design discussion；记录 reviewer + owner + claude 多方讨论过程；**不**是决策本身（决策归 ADR / PRD）。
+
+| 文件 | 主题 | Status |
+|---|---|---|
+| [`discussions/README.md`](./discussions/README.md) | folder 制度 + 命名约定 + 何时写 | living |
+| [`discussions/auth-setup-2026-05-17.md`](./discussions/auth-setup-2026-05-17.md) | Phase E Day-1 PRD #3 authentication framing review；reviewer 10 findings + Claude 5 challenges（其中 3 条 self-withdrawn）；待 owner 拍 B3 / B4 | pending owner decisions |
+
 ## DI doc 写作规则
 
 ### Living DI
@@ -52,3 +61,11 @@ Historical conversation records；**完全 frozen**；只 owner 可 fix typo / l
 - 完成一轮重大设计 discussion 后，把整个 conversation 记录冻结
 - 用作"为什么 emerge 出这套决策"的 trace 源
 - 不替代 ADR；ADR 是简洁决策，Frozen DI 是完整辩论
+
+## 何时新建 Discussion record
+
+详 [`discussions/README.md`](./discussions/README.md)。简述：
+- 新 PRD / ADR initial draft 后 reviewer 给 multi-findings 时
+- 跨多个 stakeholder 的 framing 决策（reviewer + owner + claude 多方）
+- Multi-round review 触发的 layer / scope reframe
+- 涉及多个 PRD / ADR 反向 sync 的 architectural reframe
