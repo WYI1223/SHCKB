@@ -32,7 +32,9 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 
 **Cross-folder（同级 horizontal subsystem）**：[theme-system.md](../theme-system/theme-system.md) — theme extension type 自身的 product PRD；走 plugin-system 通用 lifecycle / capability，但 cascade + presentation 责任在 theme-system folder。
 
-未来可能的 extension type（owner-driven 加 sub-PRD 或独立 folder，**不**预写）：keyboard binding plugin / gesture plugin / palette form factor plugin / export adapter / import source / AI provider / **AuthProvider**（per [authentication.md] —— OAuth / WebAuthn / OIDC 各自 AuthProvider plugin；Day-1 UsernamePassword built-in）/ etc.
+未来可能的 extension type（owner-driven 加 sub-PRD 或独立 folder，**不**预写）：keyboard binding plugin / gesture plugin / palette form factor plugin / export adapter / import source / AI provider / etc.
+
+**注意**：**AuthProvider 不是 plugin extension type**——它是 **operator-pluggable adapter**（跟 storage/search/backup 一个 pattern；切换涉及 schema / secrets / callback URL / 重 deploy）。详 [authentication.md] cross-cutting invariants + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section A1（2026-05-17 framing reframe）。Plugin-system 跟 authentication subsystem 通过 `ctx.user`（capability ctx 字段，per [ADR-0011]）协同；不通过 plugin extension type。
 
 ## Plugin vs operator-pluggable（关键 scope 边界）
 
@@ -40,14 +42,14 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 
 | | Plugin（本 PRD 范围）| Operator-pluggable（**不**在本 PRD）|
 |---|---|---|
-| 例子 | new block kind / new theme | storage provider / search provider / backup provider |
+| 例子 | new block kind / new theme | storage provider / search provider / backup provider / **auth provider (Day-1 UsernamePassword built-in；future OAuth / WebAuthn / OIDC as operator-enabled adapter)** |
 | Audience | third-party developer | operator at deploy time |
 | 选择时机 | 运行时 register；user 可启用 / 禁用 | Deploy / install 时 env var 配置；运行时不切换 |
-| 切换机制 | Plugin module 加载 / 卸载 | **导出 → 重新安装 → 导入** workflow（基础设施迁移不能 runtime 热切换）|
+| 切换机制 | Plugin module 加载 / 卸载 | **导出 → 重新安装 → 导入** workflow（基础设施迁移不能 runtime 热切换；含 auth provider 切换涉及 schema / secrets / callback URL）|
 | 谁负责 | extension author 写代码 | operator 部署时选；adapter 内置 |
 | Day-1 状态 | closed registry（内置 9 block / 3 theme），Phase 2+ 第三方加入 | closed adapter set；operator config 选 |
-| PRD 归属 | features/plugin-system/ | [self-host-deploy.md] |
-| ADR 归属 | [ADR-0004] / [ADR-0014] / [ADR-0011] | [ADR-0007] / [ADR-0008] / [ADR-0017] / [ADR-0018] |
+| PRD 归属 | features/plugin-system/ | [self-host-deploy.md] + [authentication.md]（auth provider 归 authentication subsystem 而非 self-host-deploy） |
+| ADR 归属 | [ADR-0004] / [ADR-0014] / [ADR-0011] | [ADR-0007] / [ADR-0008] / [ADR-0017] / [ADR-0018] / future auth library selection ADR |
 
 **判定**："这个东西能不能 runtime 热切换" → 能 = plugin；不能 = operator-pluggable（迁移要 export-reinstall-import）。
 
@@ -131,7 +133,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
   - [theme-system-author-view.md](../theme-system/theme-system-author-view.md) — theme author 视角（与 [new-block.md] 对偶）
 - **Other feature PRDs**:
   - [notepage.md](../notepage/notepage.md) —— plugin / theme 在 notepage 上的 user-observable behavior
-  - [authentication.md](../authentication/authentication.md) —— system-level PEP + AuthProvider 跟 plugin-system extension type 平级（per authentication PRD framing）
+  - [authentication.md](../authentication/authentication.md) —— system-level PEP；AuthProvider 是 **operator-pluggable adapter**（不是 plugin extension type；详 2026-05-17 framing reframe）；plugin-system 通过 `ctx.user` capability ctx 字段（per [ADR-0011]）跟 authentication 协同
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions
@@ -166,3 +168,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 
 - 2026-05-16 initial draft；Phase E Day-1 PRD #2；reframe plugin-system 为通用 extension framework（不只 block kind）；hierarchical 结构 with sub-PRDs new-block / new-theme；区分 plugin vs operator-pluggable；surface ADR-0004/0014/0011 reframe debts
 - 2026-05-16 **pass 2 — theme-system 抽离独立 folder**：new-theme.md `git mv` 到 `theme-system/theme-system-author-view.md`；plugin-system 收窄为 "通用 extension framework + block sub-PRD"；显式声明 plugin-system 跟 theme-system 是平级 horizontal subsystem 关系（不是 parent-child）；cross-folder ref 到 theme-system；future extension types 不预写 sub-PRD（owner-driven）
+- 2026-05-17 **pass 3 — A1 framing reframe (authentication PRD round 2 触发)**：删除 future extension type 列表里 "AuthProvider" entry；改为 explicit note "AuthProvider **不**是 plugin extension type，是 operator-pluggable adapter"；plugin vs operator-pluggable 表 operator-pluggable 例子加 "auth provider"；ADR 归属表加 future auth library selection ADR；cross-folder ref to authentication.md 重写（plugin-system 跟 authentication 通过 ctx.user capability ctx 协同；不通过 plugin extension type）。详 [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section A1

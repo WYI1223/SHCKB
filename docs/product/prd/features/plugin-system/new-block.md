@@ -146,7 +146,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 - **Other feature PRDs**:
   - [notepage-editing.md](../notepage/notepage-editing.md) —— block 在 edit mode 的 user view
   - [notepage-view.md](../notepage/notepage-view.md) —— block 在 view mode 的 user view
-  - [authentication.md](../authentication/authentication.md) —— ctx.user 桥接 + plugin author 视角 AuthProvider extension type 对比
+  - [authentication.md](../authentication/authentication.md) —— `ctx.user` 桥接（block plugin 通过 capability ctx 拿当前 user identity；per [ADR-0011] capability ctx 只读契约；ctx.user 是 immutable Value Object）
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions
@@ -182,3 +182,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 
 - 2026-05-16 initial draft；Phase E Day-1 PRD #2 sub-PRD；block extension 作为 plugin-system 的 specialization；与 [new-theme.md] 平级；user-observable block 行为归 notepage/* PRDs
 - 2026-05-16 **pass 2 — theme-system 抽离独立 folder**：原 sibling [new-theme.md] 已 git mv 到 [theme-system/theme-system-author-view.md]（cross-folder horizontal subsystem）；本 PRD 现在是 plugin-system 内唯一 Day-1 sub-PRD；refs to new-theme 重写为 theme-system-author-view
+- 2026-05-17 **pass 3 — authentication PRD round 2 触发的 cross-ref 简化**：去 AuthProvider extension type 类比（AuthProvider 不是 plugin extension type，是 operator-pluggable adapter；详 [authentication.md] + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) A1）；本 PRD cross-ref 只留 `ctx.user` 桥接（block plugin 通过 capability ctx 拿当前 user identity）
