@@ -532,6 +532,32 @@ Change ladder (uniform across subsystems):
   Replace L1 / L2                → NEVER (subsystem contract stable)
 ```
 
+### Reviewer follow-up: pattern variants, not one uniform migration ladder（post-6a95eaa）
+
+**Catch**: `6a95eaa` 的 Section G 抽象方向有价值，但 "所有 SHCKB horizontal subsystem 遵循 operator config opt-in" + "Change ladder uniform across subsystems" 泛化过头。它对 **auth / storage / search / backup / DB** 这类 deploy-time adapter/provider 成立；对 **plugin / theme** 这类 runtime extension / catalog / user-selection path 不成立。
+
+需要保留的 insight：
+
+- SHCKB horizontal subsystem 都应有 **L1 stable layer**：framework-owned invariants / interface / enforcement boundary 不漂。
+- 有些 subsystem 需要 **L2 SHCKB-owned thin wrapper** 隔离 volatile L3 implementation。当前最明显例子是 auth。
+- L3 / L4 的 change semantics 必须按 subsystem variant 拆，不应一刀切。
+
+建议未来 lift 到 `architecture-overview.md` 时拆成两个 variants：
+
+| Variant | Applies to | L3 meaning | L4 meaning | Change ladder |
+|---|---|---|---|---|
+| **Runtime extension / catalog variant** | plugin-system / theme-system | plugin extension type / built-in or third-party catalog item / theme module | runtime enable/disable / user preference / notepage metadata selection | register / version / migration / disable / fallback；**不**套 export-redeploy-import |
+| **Operator-pluggable adapter variant** | auth / storage / search / backup / DB | deploy-time adapter / provider / backing implementation | env / install profile / operator config | add option/config may coexist；replace L3 may require operator migration workflow (export → redeploy → import) |
+
+Auth-specific current truth remains:
+
+- Add L4 provider option（如 username-password 之外加 GitHub OAuth）→ operator config + redeploy；co-exist；不迁移 user pool。
+- Replace identity source → user-level migration / link flow。
+- Replace L3 AuthAdapter implementation / backing auth library 或完整 provider model → export users/session-relevant data → redeploy with new AuthAdapter implementation/config → import/migrate/link users。
+- Replace L1 / L2（SHCKB auth subsystem / AuthAdapter interface）→ NEVER。
+
+**Follow-up suggested for PRD cleanup**: [plugin-system.md] `Plugin vs operator-pluggable` 表的 "切换机制" 行应避免写成所有 operator-pluggable 都是 `导出 → 重新安装 → 导入`，尤其不能让读者误解为新增 OAuth provider option 也要 export/import。更精确：L3 infrastructure/AuthAdapter replacement 可能进入 migration workflow；L4 provider option add/enable 是 config + redeploy + coexist。
+
 ### When L2 is needed
 
 不是所有 horizontal subsystem 都需要 L2 thin wrapper：
@@ -569,3 +595,4 @@ Auth 是当前唯一显式需要 L2 wrapper 的 horizontal subsystem。
 - 2026-05-17 Better Auth capability investigation 写入：source-backed 记录官方 docs 调查；列清 Better Auth 可承接的 session/auth mechanics、不应替代的 SHCKB-own policy/PEP/authz/sandbox/install/agent path；登记还需确认的 email optional、Workers/D1、Drizzle migration、endpoint wrapper、schema ownership、role mapping、provider switching 等问题；明确 ADR 暂不改，等 PRD 全完成后写 auth library/provider selection ADR。
 - 2026-05-17 AuthAdapter terminology clarification 写入：逐字同步 owner/reviewer 对话；将 "替换整个 auth" 收紧为 "替换 SHCKB AuthAdapter implementation / backing auth library 或完整 provider model"；明确 SHCKB auth subsystem 稳定不换，provider options 位于 AuthAdapter 内部。
 - 2026-05-17 Section G "Cross-subsystem modular pattern symmetry" 写入（per Claude round 4 Sharpen C）：抽取 SHCKB horizontal subsystem 通用 L1-L4 pattern (stable layer / optional L2 wrapper / replaceable implementation / operator opt-in)；列对比表覆盖 plugin / theme / auth / storage / search / backup / DB；明确 L2 何时需要（library API volatility）；喂回 [prd-discipline.md] backfill todo "horizontal subsystem modular pattern" 准则；未来 architecture-overview.md 写时 lift 过去。Section G/H 编号下移 References 段。
+- 2026-05-17 post-6a95eaa reviewer follow-up 写入：Section G 的 L1-L4 insight 保留，但记录 "uniform migration ladder" 泛化过头；未来 architecture-overview.md 应拆 Runtime extension / catalog variant（plugin/theme；register/version/disable/fallback，不套 export-redeploy-import）与 Operator-pluggable adapter variant（auth/storage/search/backup/DB；L3 replacement 可能 export → redeploy → import）。同时标记 plugin-system.md `Plugin vs operator-pluggable` 表需要避免把新增 auth provider option 误写成 export/import migration。

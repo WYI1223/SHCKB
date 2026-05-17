@@ -45,13 +45,13 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 | 例子 | new block kind / new theme | storage provider / search provider / backup provider / **AuthAdapter implementation (L3) + provider options (L4)**（Day-1 username-password；future OAuth / WebAuthn / OIDC as operator-enabled provider options）|
 | Audience | third-party developer | operator at deploy time |
 | 选择时机 | 运行时 register；user 可启用 / 禁用 | Deploy / install 时 env var 配置；运行时不切换 |
-| 切换机制 | Plugin module 加载 / 卸载 | **导出 → 重新安装 → 导入** workflow（基础设施迁移不能 runtime 热切换；含 auth provider 切换涉及 schema / secrets / callback URL）|
+| 切换机制 | Plugin module 加载 / 卸载（register / version / migration / disable / fallback；runtime；**不**走 export-redeploy-import） | **分层**（per 2026-05-17 reviewer post-6a95eaa catch；详 discussion record Section G follow-up）：(a) **L4 option add / enable**（如新加 OAuth provider option / 切 storage local-fs → S3）→ operator config + redeploy；新选项与既有 **co-exist**；**不**触发 export-redeploy-import；(b) **L3 replacement**（如 AuthAdapter implementation 整换 / DB engine 整换 / 完整 provider model 替换）→ 才进入 export → redeploy with new config → import / migrate / link users **migration workflow** |
 | 谁负责 | extension author 写代码 | operator 部署时选；adapter 内置 |
 | Day-1 状态 | closed registry（内置 9 block / 3 theme），Phase 2+ 第三方加入 | closed adapter set；operator config 选 |
 | PRD 归属 | features/plugin-system/ | [self-host-deploy.md] + [authentication.md]（auth provider 归 authentication subsystem 而非 self-host-deploy） |
 | ADR 归属 | [ADR-0004] / [ADR-0014] / [ADR-0011] | [ADR-0007] / [ADR-0008] / [ADR-0017] / [ADR-0018] / future auth library selection ADR |
 
-**判定**："这个东西能不能 runtime 热切换" → 能 = plugin；不能 = operator-pluggable（迁移要 export-reinstall-import）。
+**判定**："这个东西能不能 runtime 热切换" → 能 = plugin；不能 = operator-pluggable。**注意**：operator-pluggable 内**不是所有变更**都走 export-reinstall-import；只有 L3 replacement（整换 adapter / backing implementation / 完整 provider model）才走，L4 option add / enable 是 config + redeploy + coexist（per discussion record Section G follow-up）。
 
 ## Cross-cutting invariants
 
@@ -169,3 +169,5 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 - 2026-05-16 initial draft；Phase E Day-1 PRD #2；reframe plugin-system 为通用 extension framework（不只 block kind）；hierarchical 结构 with sub-PRDs new-block / new-theme；区分 plugin vs operator-pluggable；surface ADR-0004/0014/0011 reframe debts
 - 2026-05-16 **pass 2 — theme-system 抽离独立 folder**：new-theme.md `git mv` 到 `theme-system/theme-system-author-view.md`；plugin-system 收窄为 "通用 extension framework + block sub-PRD"；显式声明 plugin-system 跟 theme-system 是平级 horizontal subsystem 关系（不是 parent-child）；cross-folder ref 到 theme-system；future extension types 不预写 sub-PRD（owner-driven）
 - 2026-05-17 **pass 3 — A1 framing reframe (authentication PRD round 2 触发)**：删除 future extension type 列表里 "AuthProvider" entry；改为 explicit note "AuthProvider **不**是 plugin extension type，是 operator-pluggable adapter"；plugin vs operator-pluggable 表 operator-pluggable 例子加 "auth provider"；ADR 归属表加 future auth library selection ADR；cross-folder ref to authentication.md 重写（plugin-system 跟 authentication 通过 ctx.user capability ctx 协同；不通过 plugin extension type）。详 [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section A1
+- 2026-05-17 **pass 4 — authentication pass 4 round 4 sync**：cross-folder ref + future extension type note + plugin vs operator-pluggable 表 全 sync 4-layer 新术语（AuthAdapter implementation L3 + provider options L4）；详 discussion record Section F + G
+- 2026-05-17 **pass 5 — 切换机制 sharpen** (per reviewer post-6a95eaa catch；详 discussion record Section G "Reviewer follow-up: pattern variants" 子段)：旧"切换机制"行写成 uniform "导出→重新安装→导入"，对 plugin/theme 不成立，对 auth/storage/search/backup/DB 也只对 L3 replacement 成立。新表述拆 (a) L4 option add/enable 是 config + redeploy + coexist (不触发 export-redeploy-import); (b) L3 replacement 才走 migration workflow。判定段同步加 nuance
