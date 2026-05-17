@@ -34,7 +34,7 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 
 未来可能的 extension type（owner-driven 加 sub-PRD 或独立 folder，**不**预写）：keyboard binding plugin / gesture plugin / palette form factor plugin / export adapter / import source / AI provider / etc.
 
-**注意**：**AuthProvider 不是 plugin extension type**——它是 **operator-pluggable adapter**（跟 storage/search/backup 一个 pattern；切换涉及 schema / secrets / callback URL / 重 deploy）。详 [authentication.md] cross-cutting invariants + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section A1（2026-05-17 framing reframe）。Plugin-system 跟 authentication subsystem 通过 `ctx.user`（capability ctx 字段，per [ADR-0011]）协同；不通过 plugin extension type。
+**注意**：**Auth subsystem 不走 plugin extension type pattern**——它走 **4-layer abstraction**（L1 Auth subsystem + L2 AuthAdapter interface = SHCKB-owned stable；L3 AuthAdapter implementation 跟 storage/search/backup adapter 一个 pattern；L4 provider options 是 operator config）。详 [authentication.md] cross-cutting invariants 段 4-layer diagram + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section F（terminology sharpen）+ Section G（cross-subsystem modular pattern symmetry）。Plugin-system 跟 authentication subsystem 通过 `ctx.user`（capability ctx 字段，per [ADR-0011]）协同；不通过 plugin extension type。
 
 ## Plugin vs operator-pluggable（关键 scope 边界）
 
@@ -42,7 +42,7 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 
 | | Plugin（本 PRD 范围）| Operator-pluggable（**不**在本 PRD）|
 |---|---|---|
-| 例子 | new block kind / new theme | storage provider / search provider / backup provider / **auth provider (Day-1 UsernamePassword built-in；future OAuth / WebAuthn / OIDC as operator-enabled adapter)** |
+| 例子 | new block kind / new theme | storage provider / search provider / backup provider / **AuthAdapter implementation (L3) + provider options (L4)**（Day-1 username-password；future OAuth / WebAuthn / OIDC as operator-enabled provider options）|
 | Audience | third-party developer | operator at deploy time |
 | 选择时机 | 运行时 register；user 可启用 / 禁用 | Deploy / install 时 env var 配置；运行时不切换 |
 | 切换机制 | Plugin module 加载 / 卸载 | **导出 → 重新安装 → 导入** workflow（基础设施迁移不能 runtime 热切换；含 auth provider 切换涉及 schema / secrets / callback URL）|
@@ -133,7 +133,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
   - [theme-system-author-view.md](../theme-system/theme-system-author-view.md) — theme author 视角（与 [new-block.md] 对偶）
 - **Other feature PRDs**:
   - [notepage.md](../notepage/notepage.md) —— plugin / theme 在 notepage 上的 user-observable behavior
-  - [authentication.md](../authentication/authentication.md) —— system-level PEP；AuthProvider 是 **operator-pluggable adapter**（不是 plugin extension type；详 2026-05-17 framing reframe）；plugin-system 通过 `ctx.user` capability ctx 字段（per [ADR-0011]）跟 authentication 协同
+  - [authentication.md](../authentication/authentication.md) —— system-level PEP；**Auth subsystem 4-layer abstraction**（L1 Auth subsystem + L2 AuthAdapter interface = SHCKB-owned stable；L3 AuthAdapter implementation + L4 provider options = replaceable）；plugin-system 通过 `ctx.user` capability ctx 字段（per [ADR-0011]）跟 authentication 协同；**AuthAdapter / provider options 不是 plugin extension type**
 - **External services**: 无 Day-1 外部依赖
 
 ## Open questions

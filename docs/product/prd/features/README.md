@@ -29,7 +29,7 @@ features/
 | Notepage（user-facing notepage 整体） | [notepage/](./notepage/) | draft（top + 3 sub-PRDs） |
 | Theme system（presentation layer + 4-layer cascade） | [theme-system/](./theme-system/) | draft（top + user-view + author-view） |
 | Plugin system（generic extension framework） | [plugin-system/](./plugin-system/) | draft（top + new-block sub-PRD） |
-| Authentication（system-level PEP + AuthProvider plugin）| [authentication/](./authentication/) | draft（flat single PRD） |
+| Authentication（system-level PEP + 4-layer abstraction）| [authentication/](./authentication/) | draft（flat single PRD；pass 4）|
 | Self-host deployment（5 modes） | [self-host-deploy/](./self-host-deploy/) | TODO |
 
 ### Phase 2+ (owner-driven)
@@ -66,11 +66,11 @@ features/
 | [plugin-system/plugin-system.md](./plugin-system/plugin-system.md) | top-level framing：generic extension framework + cross-cutting invariants + plugin vs operator-pluggable 区分 |
 | [plugin-system/new-block.md](./plugin-system/new-block.md) | Block kind extension（author 怎么写 new block plugin） |
 
-### Authentication（system-level PEP + AuthProvider plugin extension）
+### Authentication（system-level PEP + 4-layer abstraction）
 
 | Sub-PRD | Scope |
 |---|---|
-| [authentication/authentication.md](./authentication/authentication.md) | flat single PRD：system-level PEP framing + 8 cross-cutting invariants + AuthProvider as plugin extension type + Build/Buy=Buy（Better-Auth baseline）+ Day-1 3-role + cross-feature seams |
+| [authentication/authentication.md](./authentication/authentication.md) | flat single PRD（pass 4）：system-level PEP framing + 13 cross-cutting invariants + **4-layer abstraction**（L1 Auth subsystem + L2 AuthAdapter interface = SHCKB-owned stable；L3 AuthAdapter implementation + L4 provider options = replaceable）+ Build/Buy=Buy（Better-Auth preferred baseline pending ADR verification）+ Day-1 authenticated 2-role + anonymous principal state + cross-feature seams |
 
 **Cross-PRD audience split**:
 - `notepage/` = note author / reader 视角（产品 user）

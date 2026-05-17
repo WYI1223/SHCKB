@@ -365,10 +365,198 @@ Better Auth can probably cover **session/authentication mechanics** for M2 brows
 
 `Better Auth or fallback library` → wrapped by `SHCKB AuthAdapter` → feeds `PEP middleware` → emits immutable `ctx.user` → SHCKB route/resource policies enforce capabilities.
 
-## Section F — References
+## Section F — Verbatim conversation: AuthAdapter terminology clarification（2026-05-17）
+
+**Trigger**: after commit `0b9a3bd`, owner and reviewer clarified that "replacing auth" should not mean replacing SHCKB's whole auth subsystem. It means replacing the external backing auth implementation through a SHCKB-owned thin wrapper.
+
+### Verbatim chat excerpt
+
+**User**
+
+```text
+你说的这个第一点有什么问题吗？能简单解释一下吗？
+```
+
+**Assistant**
+
+```text
+问题是它把 **“加一个 OAuth 登录方式”** 和 **“更换整个身份来源模型”** 混成了一件事。
+
+比如现在系统已有 username/password 用户。后来 operator 想加 GitHub OAuth：
+
+- 这通常只是 **新增一个 provider**。
+- 现有用户池还在。
+- 现有账号可以继续用密码登录。
+- 用户以后可以把 GitHub account link 到原账号。
+- 这不需要 export-reinstall-import。
+
+但如果是另一种情况：operator 要从“本地 username/password 用户池”整体迁到“LDAP-only / 外部身份源唯一可信”，那才像是 **换身份模型**：
+
+- 原 user identity source 变了。
+- 账号映射/迁移规则要重定。
+- 旧 password 可能失效。
+- schema/secrets/callback/user linking 都要迁移。
+- 这才可能需要 export-reinstall-import 或 migration runbook。
+
+所以顶部那句 “切 OAuth = export-reinstall-import” 太一刀切。更准确是：
+
+> Auth provider 变更分层处理：新增 provider 可共存；替换 identity source 需要 user-level migration/link flow；完全切 provider model 才走 export-reinstall-import。
+```
+
+**User**
+
+```text
+可能是搞错了，我原本的意思是，如果想替换整个auth层，就要导出数据+redeploy项目选新的auth+导入。我当时觉得这是一个稳定性+灵活性的选择。
+```
+
+**Assistant**
+
+```text
+那你的意思是成立的，而且我同意这个设计取向。
+
+我刚才担心的是它被读成“加 OAuth provider 也要 export-reinstall-import”。如果你说的是 **替换整个 auth layer / auth library / auth provider model**，那 export → redeploy with new auth → import 是合理的，甚至是更稳的：
+
+- 避免 runtime 热切 auth 这种高风险能力。
+- 避免把 session/schema/secrets/callback/user-linking 做成在线迁移大怪物。
+- operator 明确进入 maintenance/migration mode。
+- auth 层和 DB/search/storage 一样，属于部署期选择，不是运行期插件。
+
+建议把文案改成这个粒度：
+
+> Adding an auth provider may be config-only and can coexist with existing login methods. Replacing the whole auth layer/provider model is an operator migration workflow: export data → redeploy with new auth config/library → import/migrate users.
+
+这样既保留你的稳定性+灵活性选择，也不会误伤“新增 OAuth provider”这种更轻的场景。
+```
+
+**User**
+
+```text
+我们和刚刚讨论的其实是auth system with betterauth吧？不能说成整个auth，起码要有个外部thin wrapper去承载这个不同的auth系统？你怎么看？
+```
+
+**Assistant**
+
+```text
+对，我会把它表述成 **SHCKB AuthAdapter / thin wrapper**，而不是“替换整个 auth”。
+
+更准确的分层是：
+
+- **SHCKB auth subsystem**：稳定不换。包括 PEP middleware、`ctx.user`、declarative authz、`requireOwner`、operator policy、first admin bootstrap、browser vs agent path 分离。
+- **AuthAdapter / provider implementation**：可替换。比如 Better Auth adapter、Auth.js adapter、future custom thin adapter。
+- **Provider options inside adapter**：可配置。比如 username-password、GitHub OAuth、OIDC、passkey。
+
+所以替换时不是“换掉 auth system”，而是：
+
+> 替换 SHCKB AuthAdapter 的 implementation / backing auth library。
+
+这样 `ctx.user`、API policy、ownership check、operator config shape 尽量稳定，换的是底层 authentication mechanics。
+
+我建议术语统一成：
+
+- `Auth subsystem` = SHCKB-owned stable layer
+- `AuthAdapter` = SHCKB thin wrapper interface
+- `AuthAdapter implementation` = Better Auth / Auth.js / custom thin layer
+- `Auth provider option` = username-password / GitHub OAuth / OIDC / passkey
+- `Auth migration workflow` = export users/session-relevant data → redeploy with new AuthAdapter implementation/config → import/link users
+
+这样你的稳定性+灵活性选择会更清楚：**外部库可以换，但 SHCKB 的 auth contract 不漂。**
+```
+
+**User**
+
+```text
+那你觉得我们需要怎么改现在的auth prd？然后把我们的对话一字不差的同步至discussion record。
+```
+
+### Resulting PRD direction
+
+Current PRD should use this terminology:
+
+| Term | Meaning |
+|---|---|
+| **Auth subsystem** | SHCKB-owned stable layer: PEP middleware, `ctx.user`, declarative authz, `requireOwner`, operator policy, first admin bootstrap, browser vs agent path separation |
+| **AuthAdapter** | SHCKB thin wrapper interface between SHCKB auth subsystem and backing auth library/provider implementation |
+| **AuthAdapter implementation** | Better Auth adapter / Auth.js adapter / custom thin layer |
+| **Auth provider option** | username-password / GitHub OAuth / OIDC / passkey inside an AuthAdapter implementation |
+| **Auth migration workflow** | export users/session-relevant data → redeploy with new AuthAdapter implementation/config → import/migrate/link users |
+
+**Decision shape**:
+
+- Adding an OAuth/OIDC/passkey provider option does **not** imply export-reinstall-import.
+- Replacing identity source requires user-level migration/link flow.
+- Replacing AuthAdapter implementation / backing auth library or full provider model uses the operator migration workflow.
+- SHCKB auth subsystem itself remains stable; only the backing implementation is replaceable.
+
+## Section G — Cross-subsystem modular pattern symmetry（2026-05-17 round 4 Sharpen C）
+
+**Trigger**: pass 4 把 auth 收紧到 4-layer abstraction 后，发现 SHCKB 几个 horizontal subsystem 用同一 modular pattern。这条 architectural symmetry 应该显式记录，让未来 horizontal subsystem 设计有 reference。**当前归 discussion record；未来 [architecture-overview.md] (Phase C 待写) 写时 lift 过去**。
+
+### Pattern
+
+所有 SHCKB horizontal subsystem 遵循 **SHCKB-owned stable layer + replaceable layer + operator config opt-in** 三段结构：
+
+| Subsystem | L1 SHCKB stable layer | L3 replaceable layer | L4 operator opt-in |
+|---|---|---|---|
+| **Plugin system** | plugin-system framework (registry / lifecycle / sandbox / capability ctx) | block / theme **plugin extension type** (runtime register; built-in + future 3rd-party) | plugin enable/disable (M2 closed registry; Phase 2+ open) |
+| **Theme system** | theme-system + 4-layer cascade rules + L0 hard invariants | L2 built-in themes (graph-paper / lego-studs / bento-canvas) + L3 plugin themes (Phase 2+) | theme selection (user pref + notepage metadata) |
+| **Auth subsystem** | Auth subsystem (PEP / ctx.user / declarative authz / requireOwner / first admin / browser-agent path) + **AuthAdapter interface (L2)** | AuthAdapter implementation (Better Auth adapter / Auth.js adapter / custom thin) | provider options inside L3 (username-password / OAuth / OIDC / passkey) |
+| **Storage** ([ADR-0007]) | StorageProvider interface | local-fs / S3-compat adapter | env config (path / bucket / etc.) |
+| **Search** ([ADR-0008]) | SearchProvider interface | SQLite FTS5 / Postgres tsvector / Meilisearch adapter | env config |
+| **Backup** ([ADR-0017]) | BackupProvider interface + GC policy | local / S3 adapter | env config |
+| **DB** ([ADR-0006]) | Drizzle multi-dialect abstraction | SQLite / Postgres / MySQL backend | env config |
+
+### Architectural principle (extracted)
+
+```
+SHCKB Horizontal Subsystem Pattern:
+   ┌──────────────────────────────────────┐
+   │ L1: SHCKB stable layer (contract)    │  ← never replaced
+   │     defines invariants + interfaces  │
+   ├──────────────────────────────────────┤
+   │ L2: SHCKB-owned thin wrapper (opt.)  │  ← decouples L1 from L3 (auth-style)
+   │     (only for subsystems where the   │     not all subsystems need L2 —
+   │      backing library API is volatile  │     storage/search/backup go L1→L3 direct
+   │      enough to need a wrapper)        │
+   ├──────────────────────────────────────┤
+   │ L3: Replaceable implementation       │  ← operator deploy-time choose
+   │     (adapter or built-in catalog)    │
+   ├──────────────────────────────────────┤
+   │ L4: Operator config opt-in           │  ← env / install profile
+   │     (which options enabled, if any)  │
+   └──────────────────────────────────────┘
+
+Change ladder (uniform across subsystems):
+  + Add option @ L4              → operator config; co-exist
+  Replace L3 implementation      → operator migration workflow
+                                   (export → redeploy → import)
+  Replace L1 / L2                → NEVER (subsystem contract stable)
+```
+
+### When L2 is needed
+
+不是所有 horizontal subsystem 都需要 L2 thin wrapper：
+
+- **L2 needed**: when L3 implementation API is volatile / 跨 implementation 差异大 / 想 isolate L1 from L3 churn。**例**: auth (different libraries 暴露 surface 差异大，wrapper 隔离)
+- **L2 not needed**: when L3 implementations 已经 implement 同一 stable interface naturally。**例**: storage / search / backup（adapter pattern already standardizes via SHCKB-defined interface）；DB（Drizzle 已经是 multi-dialect abstraction）
+
+Auth 是当前唯一显式需要 L2 wrapper 的 horizontal subsystem。
+
+### Implications for future subsystem design
+
+新增 horizontal subsystem 时 follow 此 pattern：
+1. 明确 L1 invariants + interface（SHCKB stable）
+2. 判断是否需要 L2 wrapper（library volatility / API churn risk）
+3. 定义 L3 replaceable adapter / implementation 候选
+4. 定义 L4 operator opt-in mechanism（env / install profile）
+5. 明确 change ladder（add option vs replace implementation vs never）
+
+这条 pattern 喂回 [prd-discipline.md] backfill todo："horizontal subsystem modular pattern" 准则。
+
+## Section H — References
 
 - `authentication.md` initial draft: commit 6748872
 - `authentication.md` round 2 fix: commit 2050a2d
+- `authentication.md` AuthAdapter terminology sharpen: post-0b9a3bd discussion
 - AUDIT-2026-05.md `From authentication/ PRD` + reviewer follow-up: line 318-349
 - 相关已 ratified ADR: [ADR-0011] / [ADR-0014] / [ADR-0009] / [ADR-0002] / [ADR-0006] / [ADR-0018] / [ADR-0015]
 - 相关 PRD: [authentication.md](../../../product/prd/features/authentication/authentication.md) / [plugin-system.md](../../../product/prd/features/plugin-system/plugin-system.md) / [project.md](../../../product/prd/project.md)
@@ -379,3 +567,5 @@ Better Auth can probably cover **session/authentication mechanics** for M2 brows
 - 2026-05-17 initial record；整理 reviewer 10 findings + Claude 5 challenges + A1 触发的连锁 sync 工作；待 owner 拍板后 round 2 fix 落地
 - 2026-05-17 self-correction（owner catch B2 layer 错误）：B1 / B2 / B5 withdrawn from PRD scope；B1 rerouted to future auth library selection ADR；B2 rerouted to testing + UX implementation；B5 rerouted to future operator runbook。Section B 重新分类 + Section D pending decisions 收窄。加 Methodology lesson "判定 PRD challenge 的 user-observable 准则"；喂回 [prd-discipline.md] backfill todo
 - 2026-05-17 Better Auth capability investigation 写入：source-backed 记录官方 docs 调查；列清 Better Auth 可承接的 session/auth mechanics、不应替代的 SHCKB-own policy/PEP/authz/sandbox/install/agent path；登记还需确认的 email optional、Workers/D1、Drizzle migration、endpoint wrapper、schema ownership、role mapping、provider switching 等问题；明确 ADR 暂不改，等 PRD 全完成后写 auth library/provider selection ADR。
+- 2026-05-17 AuthAdapter terminology clarification 写入：逐字同步 owner/reviewer 对话；将 "替换整个 auth" 收紧为 "替换 SHCKB AuthAdapter implementation / backing auth library 或完整 provider model"；明确 SHCKB auth subsystem 稳定不换，provider options 位于 AuthAdapter 内部。
+- 2026-05-17 Section G "Cross-subsystem modular pattern symmetry" 写入（per Claude round 4 Sharpen C）：抽取 SHCKB horizontal subsystem 通用 L1-L4 pattern (stable layer / optional L2 wrapper / replaceable implementation / operator opt-in)；列对比表覆盖 plugin / theme / auth / storage / search / backup / DB；明确 L2 何时需要（library API volatility）；喂回 [prd-discipline.md] backfill todo "horizontal subsystem modular pattern" 准则；未来 architecture-overview.md 写时 lift 过去。Section G/H 编号下移 References 段。

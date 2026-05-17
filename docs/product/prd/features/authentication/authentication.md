@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (pass 3 — Better Auth source-backed investigation + provider switching nuance + 3 surfaced debts + POC gates) |
+| Status | draft (pass 4 — AuthAdapter terminology sharpened + visual diagram + 5 sharpening cleanup) |
 | Last updated | 2026-05-17 |
 | Owner | W_YI |
 | Parent PRD | [project.md] |
@@ -16,9 +16,18 @@
 - Plugin = cross-cutting **extension framework**（多 extension type 平级；可缺席）
 - **Auth = cross-cutting enforcement**（必须集中入口；不可缺席；失败模式 = 数据泄漏 / 越权）
 
-**Build vs Buy = Buy**：Day-1 用成熟 TS auth library（**Better-Auth = preferred baseline，pending auth library selection ADR verification**：Bun + Hono + Drizzle + Workers 约束下 verify maturity / API stability / 集成可行性；候选对比 Auth.js core / 自己写 + 小 libs；自研 crypto 仍 rejected）作 implementation 底层。SHCKB **不**自己实现 token rotation / reuse detection / signing key / password hash 等 framework 决策。PRD 只 mandate **SHCKB-own** scope：PEP middleware contract / operator-selected AuthProvider adapter contract / declarative authz route metadata（含 resource ownership）/ ctx.user immutable Value Object 桥接 / admin setup flow / production cookie + CSRF baseline / cross-feature seams。
+**Build vs Buy = Buy**：Day-1 用成熟 TS auth library（**Better-Auth = preferred baseline，pending auth library selection ADR verification**：Bun + Hono + Drizzle + Workers 约束下 verify maturity / API stability / 集成可行性；候选对比 Auth.js core / 自己写 + 小 libs；自研 crypto 仍 rejected）作 implementation 底层。SHCKB **不**自己实现 token rotation / reuse detection / signing key / password hash 等 framework 决策。PRD 只 mandate **SHCKB-own** scope：PEP middleware contract / **SHCKB AuthAdapter thin-wrapper contract** / declarative authz route metadata（含 resource ownership）/ ctx.user immutable Value Object 桥接 / admin setup flow / production cookie + CSRF baseline / cross-feature seams。
 
-**关键 framing reframe (2026-05-17)**: AuthProvider **不**是 runtime plugin extension type（跟 BlockPlugin / ThemePlugin 平级是 framing 错误）；AuthProvider 是 **operator-selected adapter / provider option**，跟 [ADR-0007] storage / [ADR-0008] search / [ADR-0017] backup 一个 pattern——切换涉及 schema / secrets / callback URL / 重 deploy；切 OAuth = export-reinstall-import 模式。详 [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section A1。
+**关键 framing reframe (2026-05-17)**: 早期 draft 用 "AuthProvider" 一词同时承担 adapter / library plugin / identity source model 三种语义，**framing 模糊**。2026-05-17 pass 4 收紧为 **4-layer abstraction**：
+
+- **L1 Auth subsystem**（SHCKB-owned；STABLE 不换）：PEP / ctx.user / declarative authz / requireOwner / operator policy / first admin / browser-agent path
+- **L2 AuthAdapter interface**（SHCKB-owned；STABLE 不换）：thin wrapper interface expose to L1
+- **L3 AuthAdapter implementation**（可替换）：Better Auth adapter / Auth.js adapter / custom thin layer
+- **L4 Auth provider options**（operator config）：username-password / GitHub OAuth / OIDC / passkey 等 inside L3
+
+新增 provider option（L4）可以与既有登录方式共存；替换 L3 implementation 或完整 provider model 才进入 **operator migration workflow**：export users/session-relevant data → redeploy with new L3 implementation/config → import/migrate/link users。**L1 / L2 永远不换**（SHCKB auth contract 不漂）。
+
+详见下面 cross-cutting invariants 段的 4-layer diagram + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section F + Section G（跨 subsystem modular pattern 对称）。
 
 本 PRD 锁的是 **authentication subsystem 整体的 framing + cross-cutting invariants + cross-feature seams**。具体 library 内部决策（TTL / rotation / signing / hash）**不**写在本 PRD，归 library + future auth library selection ADR。
 
@@ -27,7 +36,7 @@
 ### 本 PRD 子系统负责（SHCKB-own）
 
 - **PEP middleware contract**：所有 API route 过统一 auth middleware chain；ctx.user 是 verified identity；handler 不重复 check
-- **Operator-selected AuthProvider adapter contract**：identity 验证机制是 **operator-pluggable adapter** 选项（不是 runtime plugin extension type；跟 storage/search/backup adapter 一个 pattern）；Day-1 ship UsernamePassword built-in adapter；future OAuth / WebAuthn / OIDC 是 operator-enabled provider options（不走 runtime install/uninstall）
+- **SHCKB AuthAdapter contract**：identity/session mechanics 通过 SHCKB-owned thin wrapper 承接（不是 runtime plugin extension type；不是直接把 library API 泄漏给业务层）；Day-1 AuthAdapter implementation 以 username-password provider option 为 baseline；future Better Auth / Auth.js / custom thin adapter 是可替换 implementation，OAuth / WebAuthn / OIDC 是 adapter 内部 operator-enabled provider options（不走 runtime install/uninstall）
 - **Declarative authz**：route metadata 声明 required role / permission / **resource ownership policy**（如 `requireOwner(note)`）；middleware 自动 enforce；handler 不散落 role / permission / ownership if-check；集成 [ADR-0009] / [ADR-0012] OpenAPI gen
 - **ctx.user 桥接（immutable Value Object）**：跟 plugin sandbox capability ctx（per [ADR-0011]）统一；middleware 在 request entry 设一次；request 内只读；plugin / handler 不可 mutate；不含 token / session secret / refresh token
 - **Authenticated role model + anonymous principal state**：`admin` / `author` 是 authenticated roles（入 `users.role`）；anonymous = `ctx.user === null` 合法 principal state（不入 users 表）
@@ -47,7 +56,7 @@
 | Cookie / CSRF 实现机制 | library 内部（PRD mandate user-observable security baseline；具体实现库做） | implementation detail |
 | Library token strategy replacement / runtime 切换 | future auth library selection ADR；M2 不暴露 | library 内部决策 |
 | JWT signing key rotation 流程 | future operator runbook（per [ADR-0018] follow-up）| operator ops |
-| Auth library wrapper layer 设计（Better-Auth plugin → SHCKB operator config 适配）| future auth library selection ADR | implementation 架构 |
+| AuthAdapter implementation 设计（Better Auth / Auth.js / custom thin adapter；provider option 怎么映射到 operator config）| future auth library selection ADR | implementation 架构 |
 | Operator-pluggable adapter for storage / search / backup | [self-host-deploy/] / [ADR-0007] / [ADR-0008] / [ADR-0017] | operator-pluggable layer |
 | Plugin sandbox 通用机制 / capability 数据流 | [plugin-system.md] / [ADR-0011] / [ADR-0014] | extension framework |
 | Notepage edit / view UX | [notepage-editing.md] / [notepage-view.md] | feature PRD |
@@ -60,11 +69,43 @@
 
 ## Cross-cutting invariants
 
+### 4-layer abstraction（per 2026-05-17 pass 4 terminology sharpen；discussion record Section F）
+
+Auth subsystem 的核心 mental model 是 **4-layer stable-replaceable boundary**：上 2 层 SHCKB-owned 稳定不换；下 2 层是 implementation + operator config 可替换。
+
+```
+┌──────────────────────────────────────────────────────┐
+│ L1 Auth subsystem (SHCKB-owned; STABLE)              │  ← 永远不换
+│    PEP middleware / ctx.user / declarative authz     │     SHCKB auth contract 不漂
+│    requireOwner / operator policy / first admin      │
+│    browser-vs-agent path separation                  │
+├──────────────────────────────────────────────────────┤
+│ L2 AuthAdapter interface (SHCKB-owned; STABLE)       │  ← 永远不换
+│    thin wrapper interface expose to L1               │     decouple L1 from L3
+├──────────────────────────────────────────────────────┤
+│ L3 AuthAdapter implementation (REPLACEABLE)          │  ← 可替换
+│    Better Auth adapter / Auth.js adapter / custom    │     operator deploy-time choose
+│    thin layer                                        │
+├──────────────────────────────────────────────────────┤
+│ L4 Auth provider options (operator CONFIG)           │  ← operator config
+│    username-password / GitHub OAuth / OIDC / passkey │     opt-in via install profile
+│    (inside L3 implementation)                        │     可 co-exist
+└──────────────────────────────────────────────────────┘
+
+Change semantics (跟 theme-system cascade 模式形成 architectural symmetry):
+  + Add provider option @ L4         → operator config only; co-exist with existing; no migration
+  Replace identity source @ L4       → user-level migration / link flow (not M2 acceptance)
+  Replace L3 implementation          → operator migration workflow (export → redeploy → import)
+  Replace L1 / L2                    → NEVER (subsystem contract stable; 不漂)
+```
+
+### Invariants table
+
 | Invariant | 含义 |
 |---|---|
 | **Centralized PEP** | 所有 API request 必须过 auth middleware chain；handler 不重复 verify；middleware 决定 anonymous / authenticated / forbidden |
 | **ctx.user 是 immutable Value Object** | Middleware 在 request entry 设一次；request 内只读；plugin / handler 不可 mutate（per [ADR-0011] capability ctx 只读契约）；含 minimal identity fields (id / role / displayName / etc.)；**不**含 token / session secret / refresh token；`ctx.user === null` 是合法 anonymous principal state |
-| **AuthProvider as operator-pluggable adapter** | Identity verification 走**operator-selected adapter**（不是 runtime plugin extension type；跟 [ADR-0007] storage / [ADR-0008] search / [ADR-0017] backup 一个 pattern）；Day-1 UsernamePassword built-in adapter；future OAuth/* / WebAuthn / OIDC 是 operator-enabled provider options。**Provider 变更分三层语义**（per 2026-05-17 discussion record Section E sharpening）：(a) **添加 provider co-exist**（如 UsernamePassword ⊕ 加 OAuth-GitHub）→ 加 operator config；现有 user 不变；可 link account；**不**需 export-reinstall-import；(b) **替换 identity source**（强制 user 改用新 provider）→ user-level migration / link flow；不是 simple 切换；(c) **完全切 provider model**（如 self-hosted user pool → LDAP-only）→ 才走 export-reinstall-import |
+| **AuthAdapter stable boundary + provider option layering** | SHCKB auth subsystem 稳定不换；可替换的是 AuthAdapter implementation / backing auth library（Better Auth adapter / Auth.js adapter / custom thin adapter）或完整 provider model；username-password / OAuth / OIDC / passkey 是 AuthAdapter 内部 provider options。**变更分三层语义**（per 2026-05-17 discussion record Section F）：(a) **添加 provider option co-exist**（如 UsernamePassword ⊕ 加 OAuth-GitHub）→ 加 operator config；现有 user 不变；可 link account；**不**需 export-reinstall-import；(b) **替换 identity source**（强制 user 改用新 provider）→ user-level migration / link flow；不是 simple 切换；(c) **替换 AuthAdapter implementation / backing auth library 或完整 provider model** → export users/session-relevant data → redeploy with new AuthAdapter implementation/config → import/migrate/link users |
 | **Declarative authz**（含 resource ownership） | Route metadata 声明 required role / permission / **resource policy**（如 `requireOwner(note)`）；middleware 集中 enforce；business handler 不写 `if (role == x)` 或 `if (note.owner_id == ctx.user.id)` 之类的散落 check |
 | **Authenticated role model + anonymous principal state** | `users.role` 只含 authenticated roles（`admin` / `author`）；anonymous = `ctx.user === null` 不入 users 表；不是 "third role" |
 | **Anonymous first-class** | Public notepage 无 cookie / 无 session；不 track；symmetric path: authenticated / anonymous 都能访问 public notepage |
@@ -94,7 +135,8 @@
 ### Operator（self-host operator）
 
 - As an **operator opening public signup**（如 community 站），I want to **在 install profile / env 显式开启 signup policy**，so that **default OFF 安全；显式 opt-in 才 ON**
-- As an **operator switching auth provider**（如 username/password → OAuth），I want to **走 export-reinstall-import 模式**（不是 runtime 热切），so that **schema / secrets / callback URL 迁移有明确 workflow**
+- As an **operator adding an auth provider option**（如在 username-password 之外加 GitHub OAuth），I want to **通过 operator config 启用并与既有登录方式共存**，so that **不需要迁移整个 user pool**
+- As an **operator replacing the AuthAdapter implementation / backing auth library**（如 Better Auth adapter → Auth.js adapter / custom thin adapter），I want to **走 export users/session-relevant data → redeploy with new AuthAdapter implementation/config → import/migrate/link users**，so that **底层 authentication mechanics 可替换，但 SHCKB auth subsystem contract 不漂**
 
 ### Extension / plugin author（developer-user，cross-feature seam）
 
@@ -108,7 +150,7 @@
 收窄后 M2 scope（per reviewer A3 + Claude self-correction）：admin UI / session device list / logout-all / email reset 全归 **M3 default**；M2 只 ship minimum path。
 
 - **PEP middleware chain**：所有 API route 过 Hono middleware；middleware 验证 token + populate `ctx.user`（immutable Value Object）
-- **UsernamePassword AuthProvider built-in adapter**（operator-selected provider 形态；非 runtime plugin）：login / logout / change password；signup endpoint **存在但 default OFF**（policy = operator config）
+- **Username-password provider option via SHCKB AuthAdapter**（非 runtime plugin）：login / logout / change password；signup endpoint **存在但 default OFF**（policy = operator config）
 - **First admin via install bootstrap** (per [ADR-0018])：install profile 含 admin credential（username + bootstrap password）；deploy 后 admin 立即可 login；**install profile 检测 admin credential 缺失 → reject startup 或 force first-admin setup screen**（per A5 invariant；first-signup-becomes-admin fallback default OFF）
 - **Multi-user 必须 work**：M2 deploy 后能加 second user + 用 second user login + author role 隔离验证（具体加 user UX 路径——CLI / minimum admin page / invite token / install profile 配置——归 testing + UX implementation phase 决定；PRD 不 mandate 具体形态）
 - **Authenticated role model + anonymous principal state**：
@@ -137,8 +179,8 @@
 
 ### Nice-to-have (M3+ / Phase 2+)
 
-- **OAuth providers as operator-pluggable adapter**（GitHub / Google / OIDC）：每 provider 是 operator-enabled option（不是 runtime plugin install）
-- **WebAuthn / Passkey** as operator-pluggable AuthProvider option
+- **OAuth provider options inside AuthAdapter**（GitHub / Google / OIDC）：每 provider 是 operator-enabled option（不是 runtime plugin install）
+- **WebAuthn / Passkey** as AuthAdapter provider option
 - **2FA (TOTP)** as auth extension feature
 - **PAT (Personal Access Token)** for API / external client；走独立 wire path（per A10；不混 cookie-session）
 - **MCP / agent auth wire path**（per [ADR-0015]）：独立 bearer token；Phase 2+ 单独设计
@@ -167,7 +209,8 @@
 
 - ❌ **Library 内部 token / hash / signing 决策** —— 归 library + future auth library selection ADR
 - ❌ **Library token strategy replacement M2 暴露** —— 用 library recommended default；strategy switch 留 future ADR
-- ❌ **AuthProvider as runtime plugin extension type** —— framing 错误（已 reframe 为 operator-pluggable adapter；详 invariants）
+- ❌ **AuthAdapter / provider options as runtime plugin extension type** —— framing 错误（已 reframe 为 4-layer abstraction：L1/L2 SHCKB-owned stable + L3 implementation + L4 provider options operator config；详 cross-cutting invariants 段 4-layer diagram + 2026-05-17 pass 4 terminology sharpen）
+- ❌ **替换 L1 / L2（SHCKB auth subsystem / AuthAdapter interface）** —— 永远不换（SHCKB auth contract 不漂）；可换的只是 L3 implementation 或 L4 provider options
 - ❌ **Public signup default ON** —— self-host 公网安全风险；default OFF；operator 显式 enable invite/signup
 - ❌ **First-signup-becomes-admin default ON** —— critical security incident risk；default OFF；operator 显式 enable
 - ❌ **Admin-toggleable signup policy** —— signup policy = operator config；admin 不可 toggle（防 admin compromise 变 public signup）
@@ -199,7 +242,7 @@
   - 生产 cookie 含 `HttpOnly` / `Secure` / `SameSite`（dev tools 可 verify）
   - POST mutation 无 CSRF token / 错 origin → reject
   - HTTPS only in production（operator config 启用）
-- **Library 集成**：preferred baseline (Better-Auth) 或 fallback (Auth.js core) 集成 + ctx.user 桥接 + AuthProvider operator-selected adapter 起作用（library selection 待 future ADR 拍）
+- **Library 集成**：preferred baseline (Better-Auth) 或 fallback (Auth.js core) 集成 + SHCKB AuthAdapter thin wrapper + ctx.user 桥接起作用（library selection 待 future ADR 拍）
 - **Mainline POC gate (M2 verify; per 2026-05-17 Section E recommendation #6)**：Bun + Hono + Drizzle + SQLite/Postgres + auth library + ctx.user mapping 端到端 work；含 sign-in / sign-out / session cookie / schema migration / ctx.user immutable wrapper 验证；POC 失败 → fallback Auth.js core 或自己写 thin layer + 自研 crypto 仍 rejected
 
 ### M3 — admin polish + a11y
@@ -240,9 +283,9 @@
 | Anonymous user 想 follow author / discussion 等 future feature | Phase 2+ 走轻量 auth 路径（归 [discussion/]） |
 | API request without session | 401 JSON response (not redirect) |
 | Web navigation without session for private | 302 to `/login?return=...` |
-| Operator 添加 provider co-exist（如 UsernamePassword ⊕ 加 OAuth-GitHub）| 加 operator config + 重 deploy；现有 user 不变；user 可主动 link OAuth account；**不**走 export-reinstall-import |
+| Operator 添加 provider option co-exist（如 UsernamePassword ⊕ 加 OAuth-GitHub）| 加 operator config + 重 deploy；现有 user 不变；user 可主动 link OAuth account；**不**走 export-reinstall-import |
 | Operator 替换 identity source（强制现有 user 改用 OAuth；password 失效）| User-level migration / link flow（不在 M2 acceptance）；归 future migration runbook + auth library selection ADR |
-| Operator 完全切 provider model（如 self-hosted pool → LDAP-only）| Export-reinstall-import workflow；schema / secrets / callback URL 迁移；不在 M2 acceptance |
+| Operator 替换 AuthAdapter implementation / backing auth library 或完整 provider model（如 Better Auth adapter → Auth.js adapter；self-hosted pool → LDAP-only）| Export users/session-relevant data → redeploy with new AuthAdapter implementation/config → import/migrate/link users；schema / secrets / callback URL 迁移；不在 M2 acceptance |
 | User 多 tab 同时 login + 同时 access token 过期 | Library 默认 race-safe（grace window；不会全 tab 自动 logout） |
 | Admin reset user password 后 | User 现有 session 全 invalidate；user 用新 password re-login |
 | `ctx.user` 字段被 plugin 试图改 | Plugin 不可写 `ctx.user`（per [ADR-0011] capability ctx 只读契约） |
@@ -255,7 +298,7 @@ PRD 层 upstream 依赖（ADR / library 是 downstream，归 References）：
 - **Cross-folder PRDs**（authentication 跟其他 feature 协同）:
   - [notepage.md](../notepage/notepage.md) — edit 权限 / private read 权限消费者
   - [theme-system-user-view.md](../theme-system/theme-system-user-view.md) — user pref server-side persist 消费者
-  - [plugin-system.md](../plugin-system/plugin-system.md) — plugin-system 跟 authentication 通过 `ctx.user` capability ctx 协同（per [ADR-0011]）；**AuthProvider 不是 plugin extension type，是 operator-pluggable adapter**（详 cross-cutting invariants + 2026-05-17 framing reframe）
+  - [plugin-system.md](../plugin-system/plugin-system.md) — plugin-system 跟 authentication 通过 `ctx.user` capability ctx 协同（per [ADR-0011]）；**Auth subsystem 是 system-level PEP；AuthAdapter / provider options 不是 plugin extension type**（详 cross-cutting invariants 4-layer diagram + 2026-05-17 pass 4 terminology sharpen）
   - [self-host-deploy/](../self-host-deploy/README.md) — operator-pluggable adapter 边界 + install bootstrap 集成（正式 PRD TODO）
 - **External services**: 无 Day-1 必须依赖（SMTP optional；OAuth provider Phase 2+）
 
@@ -271,8 +314,8 @@ PRD 层 upstream 依赖（ADR / library 是 downstream，归 References）：
 
 本 PRD 触发的 ADR 层 framing 问题（reframe round 2 candidates，等本批 PRD 全完成后做 ADR round）：
 
-- **Auth library selection ADR (new)**：preferred baseline = Better-Auth；候选对比（Auth.js core / 自己写 + small libs）；Hono + Drizzle adapter + Workers 集成 verify；M2 ship 前 verify checklist；含 AuthProvider operator-pluggable adapter contract（不进 [ADR-0014] plugin contract）；含 Auth library wrapper layer 设计（Better-Auth 内部 plugin → SHCKB operator config 暴露）
-- **AuthProvider 不进 [ADR-0014] plugin contract**：AuthProvider 是 operator-pluggable adapter（跟 storage/search/backup 一个 pattern），不是 runtime plugin extension type；[ADR-0014] 只在需要给 plugin 暴露 `ctx.user` / auth capability 时 cross-ref
+- **Auth library/provider selection ADR (new)**：preferred baseline = Better-Auth；候选对比（Auth.js core / 自己写 + small libs）；Hono + Drizzle adapter + Workers 集成 verify；M2 ship 前 verify checklist；含 **SHCKB AuthAdapter thin-wrapper contract**（不进 [ADR-0014] plugin contract）；含 provider option → operator config 的映射；含 AuthAdapter implementation replacement / migration workflow
+- **AuthAdapter / provider options 不进 [ADR-0014] plugin contract**：AuthAdapter 是 SHCKB auth subsystem 的 stable boundary + library wrapper，provider options 是 operator config；二者都不是 runtime plugin extension type；[ADR-0014] 只在需要给 plugin 暴露 `ctx.user` / auth capability 时 cross-ref
 - **[ADR-0011] ctx.user immutable Value Object pattern**：capability ctx 加 ctx.user 字段；只读契约（plugin 不可 mutate）；含 minimal identity fields；不含 token / secret；anonymous = ctx.user === null 合法 state
 - **Declarative authz resource ownership policy (new)**：route metadata 加 resource policy / ownership guard（如 `requireOwner(note)`）；middleware enforce；归 [ADR-0009] / [ADR-0012] OpenAPI gen 链路；handler 不散落 ownership check
 - **[ADR-0009] auth endpoints 表 verify**：login / logout / session / reset password 等 endpoint 是否在 [ADR-0009] REST style 覆盖；agent wire path 独立于 cookie session（per A10）
@@ -284,17 +327,18 @@ PRD 层 upstream 依赖（ADR / library 是 downstream，归 References）：
 - **Auth schema ownership (new；2026-05-17 Section E)**：Better-Auth 默认 schema (`user/session/account/verification` style) vs [ADR-0002] 草图 (`users/sessions/refresh_tokens` style)；三个候选：(a) library-owned sub-schema + SHCKB wrapper 引用；(b) SHCKB-owned schema + library 用 SHCKB-provided adapter；(c) mapped wrapper（最复杂）；归 future auth library selection ADR + [ADR-0002] schema audit；M2 ship 前必须 lock
 - **Endpoint wrapper strategy (new；2026-05-17 Section E)**：Better-Auth default endpoints 不自动 match [ADR-0009] REST style 表；二选一：(a) accept library native `/api/auth/*` namespace；(b) 写 thin SHCKB wrapper 维持 [ADR-0009] surface；归 future auth library selection ADR；M2 ship 前必须 lock 避免后期 URL break
 - **Role mapping (new；2026-05-17 Section E)**：Better-Auth admin plugin 自带 roles/permissions model（潜在 RBAC matrix）；SHCKB 只想要 2 authenticated roles (`admin` / `author`) + anonymous principal state；mapping POC 验证后避免 import 完整 RBAC 进 M2；归 future auth library selection ADR
+- **AuthAdapter interface surface area scope (new；2026-05-17 pass 4 Sharpen A)**：AuthAdapter (L2) 暴露给 L1 的 method / capability 必须 stable；三层划分参考 [ADR-0003] grid-engine + grid-engine CONTRACT.md 模式——(a) **PRD 锁语义边界**：interface 必须 cover 哪些 capability 概念（verify token / create session / revoke / change password / list sessions / etc.；不绑具体 signature）；(b) **ADR 锁 signature 形态**：函数 input/output 形状（归 future auth library selection ADR）；(c) **CONTRACT 锁字段集**：精确字段定义（归 packages/auth/CONTRACT.md，M2 ship 前 lock）；本 PRD 不展开具体 method enumeration
 
 详 [AUDIT-2026-05.md] PRD-surfaced debts log + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section E（含 source-backed Better-Auth capability investigation + still-needs-confirmation list）。
 
 ## References
 
-PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。本 PRD 触发新 **auth library/provider selection ADR**（含 AuthProvider operator-pluggable adapter contract；**AuthProvider 不进 [ADR-0014] plugin contract**）；详 Surfaced ADR debts + [AUDIT-2026-05.md] 流程 + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section E。
+PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。本 PRD 触发新 **auth library/provider selection ADR**（含 SHCKB AuthAdapter thin-wrapper contract；AuthAdapter / provider options 不进 [ADR-0014] plugin contract）；详 Surfaced ADR debts + [AUDIT-2026-05.md] 流程 + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section F。
 
 - **Aligning ADRs**:
   - [ADR-0009](../../../../engineering/decisions/ADR-0009-api-style.md) — API style + auth endpoint 路径
   - [ADR-0011](../../../../engineering/decisions/ADR-0011-sandboxing-evolution.md) — sandbox capability + ctx.user 协议
-  - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — plugin contract（**AuthProvider 不进 ADR-0014**；只在需要 plugin 暴露 ctx.user / auth capability 时 cross-ref）
+  - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — plugin contract（**AuthAdapter / provider options 不进 ADR-0014**；只在需要 plugin 暴露 ctx.user / auth capability 时 cross-ref）
   - [ADR-0018](../../../../engineering/decisions/ADR-0018-install-bootstrap.md) — install profile + first admin credential bootstrap
   - [ADR-0002](../../../../engineering/decisions/ADR-0002-substrate-db-backed.md) — users / sessions schema 兼容
   - [ADR-0006](../../../../engineering/decisions/ADR-0006-backend-stack.md) — Bun + Hono + Drizzle stack 跟 auth library 集成
@@ -331,3 +375,12 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
   - **Sharpen 2: 3 个 surfaced debts 新增**：(a) auth schema ownership（library schema vs ADR-0002 草图；三种 wrapper 候选）；(b) endpoint wrapper strategy（library native vs SHCKB wrapper 维持 ADR-0009）；(c) role mapping（library 自带 RBAC matrix vs SHCKB 2-role + anonymous state）
   - **Sharpen 3: POC acceptance gate**：M2 加 Mainline POC pass gate（Bun + Hono + Drizzle + SQLite/Postgres + auth library + ctx.user mapping）；M4 加 Constraint POC verify gate（Workers + D1 + auth library；如不支持 → 文档化为 known constraint 不静默失败）
   - References intro + Surfaced debts 段 cross-ref discussion record Section E（source-backed Better Auth investigation 含 11 个 official docs URL + 8 项 "should not replace" 边界 + 9 项 "still needs confirmation"）
+- 2026-05-17 **pass 4 — AuthAdapter terminology sharpened**：根据 owner + reviewer 对话，进一步把术语收紧为：`Auth subsystem` = SHCKB-owned stable layer；`AuthAdapter` = SHCKB thin wrapper interface；`AuthAdapter implementation` = Better Auth / Auth.js / custom thin layer；`Auth provider option` = username-password / GitHub OAuth / OIDC / passkey；`Auth migration workflow` = export users/session-relevant data → redeploy with new AuthAdapter implementation/config → import/migrate/link users。替换的是 AuthAdapter implementation / backing auth library 或完整 provider model，不是替换 SHCKB auth subsystem；新增 OAuth provider option 可共存，不触发 export-reinstall-import。详 discussion record Section F verbatim conversation。
+- 2026-05-17 **pass 4 cleanup (round 4 — 5 sharpening 落地)**（Claude self-catch on pass 4 leftover + new sharpening）：
+  - **Sharpen A — AuthAdapter interface surface area scope (new surfaced debt)**：跟 [ADR-0003] grid-engine + grid-engine CONTRACT.md 模式一致；PRD 锁语义边界 / ADR 锁 signature / CONTRACT 锁字段集 三层划分
+  - **Sharpen B — 4-layer ASCII diagram**：cross-cutting invariants 段加 visual 4-layer box（跟 theme-system cascade box 形成 architectural symmetry）+ change ladder
+  - **Sharpen C — Cross-subsystem modular pattern symmetry**：discussion record 加 Section G 抽取 SHCKB horizontal subsystem 通用 L1-L4 pattern；列对比表 (plugin / theme / auth / storage / search / backup / DB)；说明 L2 何时需要（library API volatility）；喂回 prd-discipline.md backfill
+  - **Sharpen D — plugin-system / new-block 反向 sync**：cross-ref 改新术语（4-layer + AuthAdapter / provider options）；future extension type note 改 4-layer 表述；plugin vs operator-pluggable 表 "auth provider" 行改 "AuthAdapter implementation (L3) + provider options (L4)"
+  - **Sharpen E — Non-goal L171 术语**：旧 "AuthProvider as runtime plugin extension type" → 新 "AuthAdapter / provider options as runtime plugin extension type"；加 "替换 L1 / L2 永远不换" non-goal
+  - Overview reframe note (L21) 改用 4-layer 表述；Dependencies + References cross-ref 改新术语；status 升 "draft (pass 4 — AuthAdapter terminology sharpened + visual diagram + 5 sharpening cleanup)"
+  - features/README.md sync：feature table + hierarchical sub-PRDs 表改新术语 / 强调 4-layer
