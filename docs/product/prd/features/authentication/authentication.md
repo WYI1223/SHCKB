@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (pass 2 — reviewer findings + Claude challenges 落地) |
+| Status | draft (pass 3 — Better Auth source-backed investigation + provider switching nuance + 3 surfaced debts + POC gates) |
 | Last updated | 2026-05-17 |
 | Owner | W_YI |
 | Parent PRD | [project.md] |
@@ -64,7 +64,7 @@
 |---|---|
 | **Centralized PEP** | 所有 API request 必须过 auth middleware chain；handler 不重复 verify；middleware 决定 anonymous / authenticated / forbidden |
 | **ctx.user 是 immutable Value Object** | Middleware 在 request entry 设一次；request 内只读；plugin / handler 不可 mutate（per [ADR-0011] capability ctx 只读契约）；含 minimal identity fields (id / role / displayName / etc.)；**不**含 token / session secret / refresh token；`ctx.user === null` 是合法 anonymous principal state |
-| **AuthProvider as operator-pluggable adapter** | Identity verification 走**operator-selected adapter**（不是 runtime plugin extension type；跟 [ADR-0007] storage / [ADR-0008] search / [ADR-0017] backup 一个 pattern）；Day-1 UsernamePassword built-in adapter；future OAuth/* / WebAuthn / OIDC 是 operator-enabled provider options；切换涉及 schema / secrets / callback URL / 重 deploy = export-reinstall-import 模式 |
+| **AuthProvider as operator-pluggable adapter** | Identity verification 走**operator-selected adapter**（不是 runtime plugin extension type；跟 [ADR-0007] storage / [ADR-0008] search / [ADR-0017] backup 一个 pattern）；Day-1 UsernamePassword built-in adapter；future OAuth/* / WebAuthn / OIDC 是 operator-enabled provider options。**Provider 变更分三层语义**（per 2026-05-17 discussion record Section E sharpening）：(a) **添加 provider co-exist**（如 UsernamePassword ⊕ 加 OAuth-GitHub）→ 加 operator config；现有 user 不变；可 link account；**不**需 export-reinstall-import；(b) **替换 identity source**（强制 user 改用新 provider）→ user-level migration / link flow；不是 simple 切换；(c) **完全切 provider model**（如 self-hosted user pool → LDAP-only）→ 才走 export-reinstall-import |
 | **Declarative authz**（含 resource ownership） | Route metadata 声明 required role / permission / **resource policy**（如 `requireOwner(note)`）；middleware 集中 enforce；business handler 不写 `if (role == x)` 或 `if (note.owner_id == ctx.user.id)` 之类的散落 check |
 | **Authenticated role model + anonymous principal state** | `users.role` 只含 authenticated roles（`admin` / `author`）；anonymous = `ctx.user === null` 不入 users 表；不是 "third role" |
 | **Anonymous first-class** | Public notepage 无 cookie / 无 session；不 track；symmetric path: authenticated / anonymous 都能访问 public notepage |
@@ -200,6 +200,7 @@
   - POST mutation 无 CSRF token / 错 origin → reject
   - HTTPS only in production（operator config 启用）
 - **Library 集成**：preferred baseline (Better-Auth) 或 fallback (Auth.js core) 集成 + ctx.user 桥接 + AuthProvider operator-selected adapter 起作用（library selection 待 future ADR 拍）
+- **Mainline POC gate (M2 verify; per 2026-05-17 Section E recommendation #6)**：Bun + Hono + Drizzle + SQLite/Postgres + auth library + ctx.user mapping 端到端 work；含 sign-in / sign-out / session cookie / schema migration / ctx.user immutable wrapper 验证；POC 失败 → fallback Auth.js core 或自己写 thin layer + 自研 crypto 仍 rejected
 
 ### M3 — admin polish + a11y
 
@@ -212,6 +213,7 @@
 ### M4 — production polish
 
 - 5 deploy mode 全 verify (含 Workers runtime constraint)
+- **Constraint POC verified (per 2026-05-17 Section E recommendation #6)**：Workers + D1 + auth library 可行性 verify；如 library 不支持 Workers runtime → 文档化为 known constraint（M4 ship 其他 mode；Workers mode tier 降级或 wait Phase 2+）；不静默失败
 - Rate limit baseline shipped
 - Operator runbook: JWT signing key rotation flow（per [ADR-0018] follow-up）
 
@@ -238,7 +240,9 @@
 | Anonymous user 想 follow author / discussion 等 future feature | Phase 2+ 走轻量 auth 路径（归 [discussion/]） |
 | API request without session | 401 JSON response (not redirect) |
 | Web navigation without session for private | 302 to `/login?return=...` |
-| Operator 想换 auth provider（如 username/password → OAuth） | Export-reinstall-import workflow（不是 runtime 切换）；schema / secrets / callback URL 迁移；现有 user 视实际情况 link account |
+| Operator 添加 provider co-exist（如 UsernamePassword ⊕ 加 OAuth-GitHub）| 加 operator config + 重 deploy；现有 user 不变；user 可主动 link OAuth account；**不**走 export-reinstall-import |
+| Operator 替换 identity source（强制现有 user 改用 OAuth；password 失效）| User-level migration / link flow（不在 M2 acceptance）；归 future migration runbook + auth library selection ADR |
+| Operator 完全切 provider model（如 self-hosted pool → LDAP-only）| Export-reinstall-import workflow；schema / secrets / callback URL 迁移；不在 M2 acceptance |
 | User 多 tab 同时 login + 同时 access token 过期 | Library 默认 race-safe（grace window；不会全 tab 自动 logout） |
 | Admin reset user password 后 | User 现有 session 全 invalidate；user 用新 password re-login |
 | `ctx.user` 字段被 plugin 试图改 | Plugin 不可写 `ctx.user`（per [ADR-0011] capability ctx 只读契约） |
@@ -251,7 +255,7 @@ PRD 层 upstream 依赖（ADR / library 是 downstream，归 References）：
 - **Cross-folder PRDs**（authentication 跟其他 feature 协同）:
   - [notepage.md](../notepage/notepage.md) — edit 权限 / private read 权限消费者
   - [theme-system-user-view.md](../theme-system/theme-system-user-view.md) — user pref server-side persist 消费者
-  - [plugin-system.md](../plugin-system/plugin-system.md) — AuthProvider 作为 plugin extension type；cross-cutting invariants 协同
+  - [plugin-system.md](../plugin-system/plugin-system.md) — plugin-system 跟 authentication 通过 `ctx.user` capability ctx 协同（per [ADR-0011]）；**AuthProvider 不是 plugin extension type，是 operator-pluggable adapter**（详 cross-cutting invariants + 2026-05-17 framing reframe）
   - [self-host-deploy/](../self-host-deploy/README.md) — operator-pluggable adapter 边界 + install bootstrap 集成（正式 PRD TODO）
 - **External services**: 无 Day-1 必须依赖（SMTP optional；OAuth provider Phase 2+）
 
@@ -277,12 +281,15 @@ PRD 层 upstream 依赖（ADR / library 是 downstream，归 References）：
 - **[ADR-0002] users / sessions / refresh_tokens schema verify**：library 默认 schema 跟 SHCKB sub schema 兼容性；slug Day-1 immutable invariant 跟 user identity ID 关系
 - **[ADR-0018] install profile auth bootstrap**：5 profile 都要 cover admin credential setup + JWT signing key generation + secrets file 写入；first-signup-becomes-admin fallback default OFF；install profile 检测缺失 → reject startup / force setup screen
 - **[ADR-0006] backend stack ↔ auth library 兼容**：Bun + Hono + Drizzle 跟 preferred baseline (Better-Auth) 实际集成 verify
+- **Auth schema ownership (new；2026-05-17 Section E)**：Better-Auth 默认 schema (`user/session/account/verification` style) vs [ADR-0002] 草图 (`users/sessions/refresh_tokens` style)；三个候选：(a) library-owned sub-schema + SHCKB wrapper 引用；(b) SHCKB-owned schema + library 用 SHCKB-provided adapter；(c) mapped wrapper（最复杂）；归 future auth library selection ADR + [ADR-0002] schema audit；M2 ship 前必须 lock
+- **Endpoint wrapper strategy (new；2026-05-17 Section E)**：Better-Auth default endpoints 不自动 match [ADR-0009] REST style 表；二选一：(a) accept library native `/api/auth/*` namespace；(b) 写 thin SHCKB wrapper 维持 [ADR-0009] surface；归 future auth library selection ADR；M2 ship 前必须 lock 避免后期 URL break
+- **Role mapping (new；2026-05-17 Section E)**：Better-Auth admin plugin 自带 roles/permissions model（潜在 RBAC matrix）；SHCKB 只想要 2 authenticated roles (`admin` / `author`) + anonymous principal state；mapping POC 验证后避免 import 完整 RBAC 进 M2；归 future auth library selection ADR
 
-详 [AUDIT-2026-05.md] PRD-surfaced debts log + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md)。
+详 [AUDIT-2026-05.md] PRD-surfaced debts log + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section E（含 source-backed Better-Auth capability investigation + still-needs-confirmation list）。
 
 ## References
 
-PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。本 PRD 触发新 auth library selection ADR + ADR-0014 specialization rework（详 Surfaced ADR debts + [AUDIT-2026-05.md] 流程）。
+PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。本 PRD 触发新 **auth library/provider selection ADR**（含 AuthProvider operator-pluggable adapter contract；**AuthProvider 不进 [ADR-0014] plugin contract**）；详 Surfaced ADR debts + [AUDIT-2026-05.md] 流程 + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section E。
 
 - **Aligning ADRs**:
   - [ADR-0009](../../../../engineering/decisions/ADR-0009-api-style.md) — API style + auth endpoint 路径
@@ -318,3 +325,9 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
   - **B1 / B2 / B5 self-withdrawn**：B1 → future auth library selection ADR；B2 → testing + UX implementation；B5 → future operator runbook（详 discussion record Section B 重新分类）
   - Cross-cutting invariants 8 → 13 条；surface ADR debts 重组（删 ADR-0014 AuthProvider specialization；加 ctx.user immutable / declarative ownership policy / browser-agent path 分离 / cookie+CSRF baseline / library wrapper layer 设计）
   - Methodology lesson（喂回 prd-discipline.md backfill）：判定 PRD challenge 的 user-observable 准则
+- 2026-05-17 **pass 3 — Round 3 cleanup**（reviewer Better Auth source-backed investigation + Claude sharpening 落地，per [auth-setup-2026-05-17.md] Section E）：
+  - **Rec #4 leftover 2 处修**：(L254 旧 Dependencies cross-folder ref "AuthProvider 作为 plugin extension type" → 改为 "AuthProvider 不是 plugin extension type，是 operator-pluggable adapter"；plugin-system 通过 ctx.user 协同；(L285 旧 References intro "ADR-0014 specialization rework" → 改为 "auth library/provider selection ADR；AuthProvider 不进 ADR-0014"）
+  - **Sharpen 1: Provider switching 三层语义**：invariant + edge case 拆分 (a) add provider co-exist (不需 export-reinstall-import) / (b) replace identity source (user-level migration) / (c) 完全切 provider model (export-reinstall-import)；之前 "AuthProvider 切换 = export-reinstall-import" 措辞过于一刀切
+  - **Sharpen 2: 3 个 surfaced debts 新增**：(a) auth schema ownership（library schema vs ADR-0002 草图；三种 wrapper 候选）；(b) endpoint wrapper strategy（library native vs SHCKB wrapper 维持 ADR-0009）；(c) role mapping（library 自带 RBAC matrix vs SHCKB 2-role + anonymous state）
+  - **Sharpen 3: POC acceptance gate**：M2 加 Mainline POC pass gate（Bun + Hono + Drizzle + SQLite/Postgres + auth library + ctx.user mapping）；M4 加 Constraint POC verify gate（Workers + D1 + auth library；如不支持 → 文档化为 known constraint 不静默失败）
+  - References intro + Surfaced debts 段 cross-ref discussion record Section E（source-backed Better Auth investigation 含 11 个 official docs URL + 8 项 "should not replace" 边界 + 9 项 "still needs confirmation"）

@@ -272,9 +272,103 @@ A1 "AuthProvider = operator-pluggable 不是 plugin" 是 framing 修订；之前
 - B2 → testing + UX implementation 任务（implementation phase 决策 + QA mandate cover multi-user）
 - B5 → future operator runbook（M2+ ops 任务；不进 acceptance）
 
-## Section E — References
+## Section E — Better Auth capability investigation（2026-05-17）
+
+**Trigger**: commit `2050a2d` 落地 authentication round 2 后，owner 要求确认：
+
+1. 哪些修复仍需再确认 / 再调查；
+2. Better Auth 能承接哪些层；
+3. Better Auth 不能替代哪些 SHCKB-own 决策。
+
+**Scope note**: 本节只是 source-backed discussion note，**不修改 ADR**。最终 auth library/provider selection ADR 等所有 PRD 完成后，在更大的 product / architecture view 下统一写。
+
+### Official sources checked
+
+Access date: 2026-05-17.
+
+| Source | URL | 用来判断什么 |
+|---|---|---|
+| Better Auth installation | https://better-auth.com/docs/installation | server/client 初始化、base path、环境变量、通用 setup 形态 |
+| Better Auth Hono integration | https://better-auth.com/docs/integrations/hono | Hono handler / middleware / `getSession` 集成方式 |
+| Better Auth database concepts | https://better-auth.com/docs/concepts/database | schema、adapter、migration、Drizzle/Kysely 关系 |
+| Better Auth cookies | https://better-auth.com/docs/concepts/cookies | cookie 配置、跨域/子域 cookie、secure cookie 相关能力 |
+| Better Auth security reference | https://canary.better-auth.com/docs/reference/security | trusted origins、CSRF / origin / fetch metadata 等安全边界参考 |
+| Email/password auth | https://better-auth.com/docs/authentication/email-password | email/password sign-up/sign-in、reset/change password 能力 |
+| Username plugin | https://better-auth.com/docs/plugins/username | username 登录/注册能力；是否能替代“无 email user” |
+| Admin plugin | https://better-auth.com/docs/plugins/admin | create/list users、roles、ban/impersonate/session 管理等 admin 能力 |
+| API key plugin | https://better-auth.com/docs/plugins/api-key | Phase 2+ API/PAT 候选能力 |
+| JWT plugin | https://better-auth.com/docs/plugins/jwt | token mint / JWKS 等 Phase 2+ 候选能力 |
+| Bearer plugin | https://better-auth.com/docs/plugins/bearer | bearer token 作为非 browser session wire path 的候选能力 |
+
+### What Better Auth can carry
+
+| SHCKB need | Better Auth fit | Notes |
+|---|---|---|
+| Browser human auth session | **Good candidate** | 可承接 cookie session、sign-in/sign-out、session lookup、password reset/change password 等 auth-library 层能力 |
+| Hono integration | **Good candidate** | 官方 Hono integration 提供 handler / middleware / `getSession` path；SHCKB 仍需把结果转成自己的 `ctx.user` immutable Value Object |
+| Database-backed auth tables | **Possible, needs schema decision** | Better Auth 有自有 schema / adapter / CLI；但 ADR-0002 的 `users/sessions` 草图不能假设零摩擦复用 |
+| Drizzle integration | **Possible, POC required** | Better Auth 支持 Drizzle schema generation；但 programmatic migration 语义和 Drizzle/SHCKB migration pipeline 要验证 |
+| Cookie/session security baseline | **Good candidate for implementation** | cookie flags / trusted origins / CSRF-origin 类机制可由 library 承接；PRD 仍保留 security acceptance 抓手 |
+| Signup disabled by default | **Can help implement** | 可以通过 config / hooks / disabled paths / route policy 实现；但“默认 off、operator-only toggle”是 SHCKB product policy |
+| Admin create user / reset password | **Likely useful** | Admin plugin 可作为 M2/M3 user management 底层候选；但是否采用 plugin、是否暴露 UI、role mapping 仍归 SHCKB |
+| OAuth / OIDC / passkey / 2FA | **Phase 2+ provider candidate** | Better Auth 内部把这些建模为 library plugins；SHCKB 应包装为 operator-enabled auth provider options，不暴露为 SHCKB runtime plugin |
+| API key / JWT / bearer | **Phase 2+ candidate** | 可作为 PAT / API / agent auth 的底层候选，但不能混入 M2 browser cookie-session 承诺 |
+
+### What Better Auth should not replace
+
+| SHCKB-own surface | Why Better Auth cannot replace it |
+|---|---|
+| Auth = system-level PEP framing | Better Auth 是 auth library；它不定义 SHCKB 全 API 的 enforcement architecture |
+| Declarative authz / `requireOwner(note)` | Better Auth 能给 identity/session；notepage visibility、owner_id、author/admin capability 是 SHCKB resource policy |
+| `ctx.user` immutable Value Object | Better Auth 可返回 user/session；“middleware 设一次、request 内只读、plugin 不可 mutate、不含 token/secret”是 SHCKB sandbox/capability contract |
+| Signup default OFF / operator-only toggle | Library 可以实现开关；默认值和谁能改是 SHCKB product/security policy |
+| First admin bootstrap | Better Auth 不替代 install profile、secret generation、startup reject / setup screen、first admin seed flow |
+| Browser vs agent/API wire path separation | Better Auth 的 API key/JWT/bearer 插件可作为底层候选；ADR-0015 / MCP / PAT 的 product wire path 仍由 SHCKB 设计 |
+| Install / deploy / backup / restore semantics | auth tables、secrets、provider config、key rotation、backup restore 都要进 SHCKB operator story / runbook |
+| ADR-0009 endpoint style | Better Auth 默认 endpoint 形态不自动等于 SHCKB `/api/auth/login|logout|register`；需要 wrapper 或改 ADR |
+
+### Still needs confirmation / investigation
+
+| Item | Why it matters | Suggested investigation |
+|---|---|---|
+| **Email optional vs Better Auth email requirement** | PRD 当前写 admin 可不带 email 创建 user；Better Auth email/password 与 username plugin 仍倾向 email-based user model | 先拍 product stance：M2 是否允许 truly no-email user？若允许，验证 Better Auth 是否支持；否则改 PRD 为 email optional only for SMTP, not user record |
+| **Username plugin boundary** | Username plugin 可能支持 username login，但不等于“纯 username/password without email” | POC sign-up payload + DB row，确认 email 是否 required、unique constraint 如何处理 |
+| **Hono + Bun + Drizzle + SQLite/Postgres path** | M2 canonical likely Bun/Hono/Drizzle；auth library selection 必须先证明主路径能跑 | Minimal POC：sign-in/out、session cookie、schema migration、ctx.user mapping |
+| **Workers + D1 path** | ADR-0001 M4 includes Workers supported-with-constraints；Better Auth + Hono + Drizzle/D1 能否 work 不能凭想象 | 单独 Workers POC；如果成本高，auth library ADR 写成 M4 verify gate 而非 M2 blocker |
+| **CSRF coverage scope** | Better Auth 可保护自己的 auth endpoints；SHCKB 其他 POST mutation 仍要保护 | 区分 library-provided auth endpoint protection vs SHCKB app-wide POST mutation CSRF/origin middleware |
+| **Endpoint wrapper strategy** | Better Auth default endpoints may not match ADR-0009 path table | Auth ADR 时二选一：accept Better Auth native `/api/auth/*` namespace，或写 thin SHCKB wrapper maintaining ADR-0009 surface |
+| **Schema ownership** | Better Auth schema may be `user/session/account/verification` style；ADR-0002 草图是 `users/sessions/refresh_tokens` | Decide whether auth tables are Better Auth-owned sub-schema, SHCKB-owned schema, or mapped wrapper; do not mix ad hoc |
+| **Role mapping** | PRD wants `admin` / `author`; Better Auth admin plugin has its own roles/permissions model | POC mapping: Better Auth role field vs SHCKB `users.role`; avoid importing full RBAC matrix into M2 |
+| **Admin create second user path** | PRD says M2 multi-user must work but does not mandate UX path | Implementation planning must choose CLI / minimum admin page / invite token / install seed; discussion lean still invite token/minimum path, but not PRD-mandated |
+| **Provider switching semantics** | Current PRD says OAuth switch = export-reinstall-import; may be too broad | Distinguish adding a provider to existing user pool vs migrating provider/user identity source; only the latter needs export-reinstall-import |
+
+### Recommendations / direction
+
+1. Keep `2050a2d` main direction: AuthProvider is **operator-pluggable provider/adapter**, not SHCKB runtime plugin.
+2. Keep Better Auth as **preferred baseline pending ADR verification**, not PRD-locked final choice.
+3. Treat Better Auth as implementation substrate for browser human auth, not as the owner of SHCKB authorization policy.
+4. Add one small PRD cleanup pass before moving on:
+   - `authentication.md` Dependencies still says AuthProvider is plugin extension type.
+   - `authentication.md` References intro still says ADR-0014 specialization rework.
+   - Optional: AUDIT old initial-draft/changelog wording can remain historical, but current-state paragraphs should avoid suggesting ADR-0014 AuthProvider specialization.
+5. For future auth library/provider ADR, evaluate at least these tracks:
+   - Better Auth direct integration + SHCKB wrapper.
+   - Auth.js core / lower-level auth library.
+   - Small-libs thin layer only if Better Auth/Auth.js fail stack constraints; self-built crypto remains rejected.
+6. Before implementation planning, run two small POCs:
+   - Mainline POC: Bun + Hono + Drizzle + SQLite/Postgres + Better Auth + ctx.user mapping.
+   - Constraint POC: Workers + D1 + Better Auth feasibility, allowed to become M4 gate if not needed for M2.
+
+### Provisional source-backed conclusion
+
+Better Auth can probably cover **session/authentication mechanics** for M2 browser human auth. It should not be allowed to own **authorization semantics**, **operator policy**, **plugin/sandbox contract**, **install bootstrap**, or **agent/API wire path**. The correct SHCKB shape is therefore:
+
+`Better Auth or fallback library` → wrapped by `SHCKB AuthAdapter` → feeds `PEP middleware` → emits immutable `ctx.user` → SHCKB route/resource policies enforce capabilities.
+
+## Section F — References
 
 - `authentication.md` initial draft: commit 6748872
+- `authentication.md` round 2 fix: commit 2050a2d
 - AUDIT-2026-05.md `From authentication/ PRD` + reviewer follow-up: line 318-349
 - 相关已 ratified ADR: [ADR-0011] / [ADR-0014] / [ADR-0009] / [ADR-0002] / [ADR-0006] / [ADR-0018] / [ADR-0015]
 - 相关 PRD: [authentication.md](../../../product/prd/features/authentication/authentication.md) / [plugin-system.md](../../../product/prd/features/plugin-system/plugin-system.md) / [project.md](../../../product/prd/project.md)
@@ -284,3 +378,4 @@ A1 "AuthProvider = operator-pluggable 不是 plugin" 是 framing 修订；之前
 
 - 2026-05-17 initial record；整理 reviewer 10 findings + Claude 5 challenges + A1 触发的连锁 sync 工作；待 owner 拍板后 round 2 fix 落地
 - 2026-05-17 self-correction（owner catch B2 layer 错误）：B1 / B2 / B5 withdrawn from PRD scope；B1 rerouted to future auth library selection ADR；B2 rerouted to testing + UX implementation；B5 rerouted to future operator runbook。Section B 重新分类 + Section D pending decisions 收窄。加 Methodology lesson "判定 PRD challenge 的 user-observable 准则"；喂回 [prd-discipline.md] backfill todo
+- 2026-05-17 Better Auth capability investigation 写入：source-backed 记录官方 docs 调查；列清 Better Auth 可承接的 session/auth mechanics、不应替代的 SHCKB-own policy/PEP/authz/sandbox/install/agent path；登记还需确认的 email optional、Workers/D1、Drizzle migration、endpoint wrapper、schema ownership、role mapping、provider switching 等问题；明确 ADR 暂不改，等 PRD 全完成后写 auth library/provider selection ADR。
