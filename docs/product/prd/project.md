@@ -84,7 +84,7 @@
 - [theme-system/]（draft；top + user-view + author-view；presentation layer + 4-layer cascade + L0 hard invariants；horizontal subsystem）
 - [plugin-system/]（draft；top + new-block sub-PRD；extension author 视角；generic extension framework 不只 block kind；与 theme-system 平级 horizontal subsystem）
 - [authentication/]（draft；flat single PRD；system-level PEP + AuthProvider plugin extension type + Build/Buy=Buy Better-Auth baseline + Day-1 3-role + anonymous first-class）
-- [self-host-deploy/]（TODO）
+- [self-host-deploy/]（draft；top + setup-time + runtime；operator-facing；3-tier profile + 5 deploy mode；setup-time vs run-time 时间维度二分；M2 = Canonical OCI + single-binary + < 10 min onboarding）
 
 ### Phase 2+ (owner-driven)
 
@@ -113,3 +113,4 @@
 - 2026-05-16 hygiene pass 3: AI-native 原则措辞 sharpen — 区分 "架构 Day-1 ready" vs "user-visible AI 功能 M3+"；显式 cover Day-1 不 ship AI feature 不等于不做 AI 准备
 - 2026-05-16 theme-system reframe：theme 抽出独立 horizontal subsystem folder（与 plugin-system 平级）；Day-1 critical feature 列表加 `theme-system/`；notepage/ 收窄为 3 sub-PRDs（去掉 themes）；plugin-system/ 收窄为 1 sub-PRD（去掉 new-theme）
 - 2026-05-16 Day-1 PRD #3 authentication 起草：reframe 为 system-level PEP；Build/Buy=Buy（Better-Auth baseline）；AuthProvider 跟 BlockPlugin / ThemePlugin 平级 plugin extension type
+- 2026-05-17 Day-1 PRD #4 self-host-deploy 起草：operator-facing feature folder；3 PRDs（top + setup-time + runtime）；setup-time vs run-time 时间维度二分；M2 = Canonical OCI + single-binary + < 10 min onboarding；M3 NAS/VPS templates；M4 Workers tier 3 verify + 5 mode 全 verify。**Day-1 critical 4 PRDs 全部 draft 完成**

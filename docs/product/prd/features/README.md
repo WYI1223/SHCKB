@@ -30,7 +30,7 @@ features/
 | Theme system（presentation layer + 4-layer cascade） | [theme-system/](./theme-system/) | draft（top + user-view + author-view） |
 | Plugin system（generic extension framework） | [plugin-system/](./plugin-system/) | draft（top + new-block sub-PRD） |
 | Authentication（system-level PEP + 4-layer abstraction）| [authentication/](./authentication/) | draft（flat single PRD；pass 4）|
-| Self-host deployment（5 modes） | [self-host-deploy/](./self-host-deploy/) | TODO |
+| Self-host deployment（operator-facing；3-tier + 5 modes） | [self-host-deploy/](./self-host-deploy/) | draft（top + setup-time + runtime）|
 
 ### Phase 2+ (owner-driven)
 
@@ -72,6 +72,14 @@ features/
 |---|---|
 | [authentication/authentication.md](./authentication/authentication.md) | flat single PRD（pass 4）：system-level PEP framing + 13 cross-cutting invariants + **4-layer abstraction**（L1 Auth subsystem + L2 AuthAdapter interface = SHCKB-owned stable；L3 AuthAdapter implementation + L4 provider options = replaceable）+ Build/Buy=Buy（Better-Auth preferred baseline pending ADR verification）+ Day-1 authenticated 2-role + anonymous principal state + cross-feature seams |
 
+### Self-host deployment（operator-facing；setup-time vs run-time 二分）
+
+| Sub-PRD | Scope |
+|---|---|
+| [self-host-deploy/self-host-deploy.md](./self-host-deploy/self-host-deploy.md) | top：framing + audience=operator + 3-tier operator profile + 5 deploy mode（per [ADR-0001]）+ 12 cross-cutting invariants + cross-feature seams + sub-PRD 索引 |
+| [self-host-deploy/setup-time.md](./self-host-deploy/setup-time.md) | Operator-active redeploy 期间：5 H2 sections（first install / initial adapter config / L4 option add / SHCKB upgrade / L3 replacement migration）+ 6 setup-time invariants |
+| [self-host-deploy/runtime.md](./self-host-deploy/runtime.md) | SHCKB-autonomous 期间：4 H2 sections（automated backup schedule / health monitoring / log + audit / anomaly detection）+ 7 runtime invariants |
+
 **Cross-PRD audience split**:
 - `notepage/` = note author / reader 视角（产品 user）
 - `theme-system/` = horizontal subsystem，含 user-view 和 author-view 双 PRD
@@ -100,3 +108,4 @@ features/
 - 2026-05-16 plugin-system reframe: 从 "block extension only" 扩为 generic extension framework；plugin-system/ folder 加 top + new-block + new-theme sub-PRDs；audience split 显式化（notepage/ = user 视角；plugin-system/ = author 视角）
 - 2026-05-16 **theme-system reframe (horizontal subsystem)**：theme 抽出独立 folder `theme-system/`（原 `notepage/notepage-themes.md` + `plugin-system/new-theme.md` `git mv` 合并）；承载 4-layer cascade model（L0 hard invariants / L1 framework default / L2 theme default / L3 plugin new theme）+ per-attribute override + fork-friendly；audience split 升级（theme-system 跟 plugin-system 平级 horizontal subsystem；非 parent-child）；notepage / plugin-system 6 PRD 同步 cross-folder refs
 - 2026-05-16 **Day-1 PRD #3 authentication 起草**：reframe auth 为 **system-level PEP**（vs horizontal feature）；8 cross-cutting invariants；Build vs Buy = Buy（Better-Auth baseline，M2 ship 前 verify）；3-layer abstraction（AuthProvider plugin / TokenStrategy operator-config / TokenCarrier library-internal）；AuthProvider 跟 BlockPlugin / ThemePlugin 平级 plugin extension type；Day-1 M2 = UsernamePassword + admin via install bootstrap + 3-role + anonymous public read；OAuth / WebAuthn / 2FA / PAT Phase 2+ as AuthProvider plugin
+- 2026-05-17 **Day-1 PRD #4 self-host-deploy 起草**：operator-facing feature folder（非 horizontal subsystem）；owner ratify **setup-time vs run-time 时间维度二分**（per discussion 候选 Y）；3 PRDs（top + setup-time + runtime）；top 含 3-tier operator profile + 5 deploy mode + 12 cross-cutting invariants；setup-time 5 sections（first install / adapter config / L4 option add / upgrade / L3 replacement migration）；runtime 4 sections（backup schedule / health / log + audit / anomaly detection）；M2 ship Canonical OCI + single-binary + < 10 min onboarding；M3 NAS/VPS templates；M4 Workers tier 3 verify + 5 mode 全 verify；surface 多条 ADR debts（migration archive format / metrics ADR / audit event ADR / alert delivery / install profile validation / etc.）
