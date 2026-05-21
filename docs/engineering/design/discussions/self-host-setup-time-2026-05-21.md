@@ -139,7 +139,184 @@ Applied follow-up in `setup-time.md`:
 
 **Resulting PRD status**: `setup-time.md` pass 3 is acceptable as a structure-level cleanup, pending any owner/writer objections to the specific first-admin profile split or migration failure wording.
 
-## Section F — References
+## Section F — Second-pass multi-angle review（2026-05-21）
+
+**Trigger**: owner asked Codex to review the latest `setup-time.md` pass 3 from multiple angles:
+
+1. 文档 / PRD 角度
+2. 撰写者 / 阅读者 / 执行者角度
+3. 社区 / 开源贡献者角度
+4. 可发展 / 可拓展 / 可维护角度
+5. Agent 限定角度（灵活性 vs 关键限制）
+
+### Overall judgment
+
+Current judgment: **`setup-time.md` pass 3 can pass as an operator-lifecycle PRD structure**, and it is materially better than the earlier checklist form for this topic. The narrative-first shape works because setup-time is primarily a lifecycle / mental-model problem: reader must understand active operator moments, redeploy boundaries, and failure semantics before implementation details.
+
+But this form should **not** become the default for every PRD. It should be the default only for lifecycle / operator / system-facing PRDs. Narrow feature PRDs still need compact user-story / functional-requirement structure, with acceptance gates visible enough for reviewer grep.
+
+### Highest-priority remaining issues
+
+1. **First-admin canonical path is now precise in `setup-time.md`, but not yet synced across related PRDs.**
+
+   `setup-time.md` now says production/public profile uses **profile-seeded admin → direct login**, while localhost/dev may use setup screen + one-time setup token. Parent `self-host-deploy.md` still says `<10 min = first-admin setup → author → notepage`, and `identity.md` still uses the broader "reject startup 或 force setup screen" wording.
+
+   **Recommended action**: sync parent PRD + `identity.md` to the profile split:
+
+   - internet-exposed / production profile: admin credential must be seeded in install profile; missing admin rejects startup.
+   - dev-local profile: setup screen is allowed, gated by one-time setup token.
+
+2. **M2 upgrade recovery depends on backup/runbook, but backup prompt is currently M3.**
+
+   `setup-time.md` correctly weakens migration failure guarantees: partial migration failure rejects startup and recovery depends on backup + runbook. However, backup-before-upgrade prompt is currently listed under M3. That leaves an M2 failure path that tells operator to rely on backup while not requiring even a manual backup warning.
+
+   **Recommended action**: M2 should at least mandate a manual backup warning / runbook pointer before upgrade. Auto-backup can remain M3+ / Phase 2+.
+
+3. **PRD body should remove internal review provenance such as "per Codex finding".**
+
+   Those references are useful in discussion/changelog but read as internal process leakage in a PRD intended for developers and external contributors.
+
+   **Recommended action**: keep provenance in this discussion record and changelog; in PRD body, state the product decision directly.
+
+4. **Support matrix should split "config vocabulary" from "M2 verified combinations".**
+
+   M2 currently lists several adapter families in one sentence: DB SQLite/Postgres/MySQL, storage local/S3, search FTS5/tsvector/Meilisearch, backup local/S3. For execution, that can be read as all combinations are M2 acceptance scope.
+
+   **Recommended action**: add a small table:
+
+   | Category | M2 config vocabulary | M2 verified gate |
+   |---|---|---|
+   | DB | SQLite / Postgres / MySQL via Drizzle | SQLite + one Team VPS Postgres path |
+   | Storage | local-fs / S3-compatible | local-fs + one S3-compatible smoke path |
+   | Search | SQLite FTS5 / Postgres tsvector / external | profile-matched default |
+   | Backup | local / S3 | manual/local baseline; stronger path later |
+
+### Angle 1 — document / PRD form
+
+The form is strong for this PRD because it separates:
+
+- narrative mental model (`What / Why / Whole picture`);
+- operator experience (`User-facing experience`);
+- explicit milestone scope (`MVP / Progressive / Done`);
+- lookup appendix (`Reference`).
+
+The main risk is **narrative hiding scope**. Pass 3 mitigates this with explicit M2 gates, but the template should include a rule: narrative-first PRDs still need a mechanically reviewable milestone gate section.
+
+### Angle 2 — writer / reader / executor
+
+**Writer**: the form helps avoid checklist dumping, but it can encourage private shorthand. Writer must introduce technical terms through plain-language names first.
+
+**Reader**: the timeline is effective and should stay. It lets a new developer understand setup-time vs runtime quickly.
+
+**Executor**: executor still needs sharper gates around adapter combinations, backup warning, and first-admin path. Without that, an implementation agent may overbuild or test the wrong matrix.
+
+### Angle 3 — community / open-source contributor
+
+The document is moving toward open-source readability, but two wording issues remain:
+
+- `production/public profile` may be confused with the `Public Cloud` operator tier. Recommended canonical term: **internet-exposed profile** vs **dev-local profile**.
+- Internal process references like "per Codex finding" should not appear in the PRD body. Community readers need the decision, not the review origin.
+
+### Angle 4 — evolution / extensibility / maintainability
+
+The L4 vs L3 distinction is good and should stay:
+
+- L4 = additive config / coexisting option; redeploy but no user-data migration.
+- L3 = backing implementation replacement; export → redeploy → import; rare and not M2.
+
+Maintainability risk is **cross-document drift**. First-admin behavior now appears in `setup-time.md`, `self-host-deploy.md`, and `identity.md`. The project should treat `setup-time.md` as the canonical table for profile-specific bootstrap behavior, and other docs should summarize or reference it rather than restating a broader rule.
+
+### Angle 5 — agent constraints
+
+This version gives agents better constraints than pass 2:
+
+- no OAuth provider add as M2 gate;
+- no `skb export/import` CLI skeleton in M2;
+- no automatic rollback promise across DB engines;
+- no runtime config hot reload;
+- no silent fallback for missing admin / config.
+
+Remaining agent risk: an implementation agent may still overbuild from future-contract language. Recommended PRD phrasing for M2:
+
+- "Do not implement export/import CLI in M2."
+- "Do not implement OAuth/OIDC/passkey provider add unless identity PRD promotes it."
+- "Do not implement auto rollback for partially applied migrations."
+- "Do implement startup rejection, clear error, and manual backup/runbook warning."
+
+### Recommended follow-up order
+
+1. Sync first-admin profile split into `self-host-deploy.md` and `identity.md`.
+2. Add M2 manual backup warning / runbook pointer before upgrade.
+3. Remove "per Codex finding" style provenance from PRD body.
+4. Split adapter support into "config vocabulary" vs "M2 verified combinations".
+5. If this form becomes a reusable template, record it in `prd-discipline.md` as **operator-lifecycle PRD form**, not universal PRD form.
+
+### Execution note — Codex applied cleanup（2026-05-21）
+
+Applied after owner approved the recommended direction:
+
+- `setup-time.md`: switched first-admin terminology to **internet-exposed bootstrap mode** vs **dev-local bootstrap mode**; added M2 manual backup warning + runbook pointer; split adapter support into roadmap vocabulary / M2 selectable / M2 verified gate; removed internal review provenance from PRD body.
+- `self-host-deploy.md`: synced `<10 min` onboarding and first-admin invariant to the bootstrap-mode split.
+- `authentication.md` / `identity.md`: synced first-admin detection / onboarding wording and clarified that L3 replacement is M2 future-contract marker only, with no export/import CLI skeleton or user-facing migration guarantee.
+- `prd-discipline.md`: recorded the narrative-first form as an **operator-lifecycle PRD form**, not a universal PRD template.
+
+### Follow-up review after cleanup（2026-05-21）
+
+Codex reviewed the cleanup diff across `setup-time.md`, `self-host-deploy.md`, `authentication.md`, `identity.md`, `prd-discipline.md`, and this discussion record.
+
+**What is fixed**:
+
+- First-admin behavior is now mostly synchronized across setup-time, self-host top PRD, and identity PRD.
+- Internal review provenance such as "per Codex finding" has been removed from the PRD body and kept in changelog/discussion context.
+- L3 replacement M2 scope is now aligned: future contract marker only; no export/import CLI skeleton; no user-facing migration guarantee.
+- The operator-lifecycle PRD form is now recorded in `prd-discipline.md` with the right scope limitation.
+
+**Remaining issues**:
+
+1. **M2 backup scope conflict between setup-time and runtime PRDs**
+
+   `setup-time.md` says M2 upgrade flow only requires **manual backup warning + runbook pointer**, while backup-now shortcut / tighter backup integration can move to M3+. But `runtime.md` still mandates an M2 **manual trigger endpoint / CLI `skb backup now`**.
+
+   Recommended resolution: distinguish the two concerns explicitly:
+
+   - `runtime.md` M2 may keep **manual backup endpoint / CLI exists** as a runtime capability.
+   - `setup-time.md` M2 upgrade flow only mandates **warning + pointer to that manual backup path**, not an integrated one-click pre-upgrade backup UX.
+   - M3 can then mean **upgrade flow integrates backup-now** (shortcut / dry-run / restore verification), not that manual backup first appears in M3.
+
+2. **`bootstrap mode` is introduced but not yet defined as a first-class dimension**
+
+   The new terms **internet-exposed bootstrap mode** and **dev-local bootstrap mode** are clearer than production/public vs localhost/dev, but readers still need to know whether bootstrap mode is an install profile field, derived from deploy mode, or a security dimension.
+
+   Recommended resolution: add one sentence near the first bootstrap-mode table:
+
+   > Bootstrap mode is an install-bootstrap security mode, orthogonal to operator profile; install profile selects it or derives it from exposure.
+
+   This prevents future writers / agents from turning bootstrap mode into a fourth operator profile or confusing it with Public Cloud.
+
+3. **Adapter matrix column language is improved but still slightly soft**
+
+   The new matrix solves the earlier all-combinations ambiguity, but the column name "M2 selectable / accepted" and phrases like "optional smoke" / "if provider configured" can still be read inconsistently.
+
+   Recommended resolution:
+
+   - Rename the column to **M2 selectable behavior**.
+   - Each row should use one of three explicit states:
+     - `supported`
+     - `unsupported with clear error`
+     - `optional smoke, not release gate`
+
+   This makes implementation-agent scope tighter and avoids accidental release gating on optional adapter paths.
+
+### Execution note — follow-up fixes applied（2026-05-21）
+
+Applied after owner approved direct cleanup:
+
+- `setup-time.md`: added bootstrap mode definition as an install-bootstrap security mode orthogonal to operator profile.
+- `setup-time.md`: renamed adapter matrix column to **M2 selectable behavior** and rewrote rows with explicit `supported` / `unsupported with clear error` / `optional smoke, not release gate` states.
+- `runtime.md`: clarified that M2 manual backup endpoint / CLI remains a runtime capability, while setup-time M2 upgrade flow only warns and points to that path; one-click pre-upgrade backup integration remains M3+.
+- `prd-discipline.md`: sharpened the operator-lifecycle PRD form rule for support matrices with the same explicit-state vocabulary.
+
+## Section G — References
 
 - PRD under review: [setup-time.md](../../../product/prd/features/self-host-deploy/setup-time.md)
 - Parent PRD: [self-host-deploy.md](../../../product/prd/features/self-host-deploy/self-host-deploy.md)
@@ -153,3 +330,7 @@ Applied follow-up in `setup-time.md`:
 - 2026-05-21 initial record: captured setup-time PRD narrative-form assessment, Codex four findings verbatim, owner response verbatim, and current recommendation for writer follow-up.
 - 2026-05-21 owner follow-up captured: narrative-first PRD form accepted for suitable docs, with explicit constraint that terminology must be readable and accurate for all developers. Recorded Codex interpretation and the follow-up cleanup applied to `setup-time.md`.
 - 2026-05-21 Codex takeover cleanup captured: documented the pass 3 cleanup applied to `setup-time.md`, including OAuth/M2 scope correction, config-change wording, migration failure guarantee narrowing, and readability constraints around L3/L4 terminology.
+- 2026-05-21 second-pass multi-angle review captured: documented pass 3 acceptance as an operator-lifecycle PRD form, remaining cross-document sync issues, M2 backup-warning gap, open-source readability concerns, support-matrix sharpening, and agent overbuild constraints.
+- 2026-05-21 execution note captured: owner-approved cleanup applied to setup-time, parent self-host PRD, authentication/identity PRDs, and prd-discipline.
+- 2026-05-21 follow-up review after cleanup captured: remaining issues narrowed to setup-time/runtime backup scope distinction, bootstrap-mode definition, and adapter matrix wording.
+- 2026-05-21 follow-up fixes captured: bootstrap mode definition, adapter matrix explicit-state wording, setup-time/runtime backup boundary, and prd-discipline support-matrix rule were applied.

@@ -1,7 +1,7 @@
 # PRD Discipline
 
 **Status**: living
-**Last updated**: 2026-05-16
+**Last updated**: 2026-05-21
 
 PRDs (Product Requirements Documents) 的写作规则 / 与 ADR / CONTRACT 边界 / template。
 
@@ -84,6 +84,33 @@ PRD 锁的是 **WHAT** —— user-observable behavior 与 product-shape decisio
 ## Cross-reference 风格
 
 遵 [doc-conventions.md]：in-text 用 `[bracketed identifier]` citation marker（"per [ADR-0003]" / "see [canvas-editing.md]"），markdown link 集中在 Dependencies / References / Surfaced ADR debts 段。
+
+## Operator-lifecycle PRD form
+
+对 **operator lifecycle / system-facing / migration / setup-runtime** 这类 PRD，可以使用 narrative-first + reference appendix 形式。它适合先建立时间线、操作心智模型、failure boundary，再列 milestone gate。它不是所有 PRD 的通用默认模板。
+
+推荐结构：
+
+```markdown
+## What this PRD covers
+## Why
+## The whole picture
+## User-facing experience
+## MVP — minimum shippable (M2)
+## Progressive completeness (M3 → M4)
+## Done — final horizon (Phase 2+)
+## Reference
+```
+
+使用约束：
+
+- Narrative 不能隐藏 scope。M2/M3/M4 acceptance gates 必须显式、可 grep、可机械 review。
+- Technical shorthand 第一次出现必须给 plain-language label，例如先写 "配置选项变更"，再括号标 "L4 option add"。
+- Support matrix 要区分 **roadmap option vocabulary** / **M2 selectable behavior** / **M2 verified gate**，避免把长期词汇表误读为 M2 全组合验收；M2 selectable behavior 应使用明确状态：`supported` / `unsupported with clear error` / `optional smoke, not release gate`。
+- PRD body 不写内部 review provenance（如 "per reviewer finding" / "per Codex finding"）。这些来源放 discussion record / changelog。
+- Future contract marker 必须写清楚非 M2 gate，例如 "documented only；do not implement CLI in M2"。
+
+适用例子：[self-host-deploy/setup-time.md](../../product/prd/features/self-host-deploy/setup-time.md)。
 
 ## Structure
 
@@ -282,3 +309,5 @@ Feature PRD 涉及多个 ADR；living doc 给跨 PRD 的 unifying view。
   - Dependencies 段只列 upstream PRD deps；ADRs 归 References 段（"Aligning ADRs"）
   - Template 同步更新；metadata 不列 ADRs
   - Anti-pattern + pattern 示例
+- 2026-05-21 added operator-lifecycle PRD form：narrative-first + reference appendix 只适用于 lifecycle / operator / system-facing PRD；明确 M-stage gates、plain-language terminology、support matrix split、internal provenance placement、future contract marker 约束。
+- 2026-05-21 support matrix rule sharpened：M2 selectable column 改为 behavior，并要求用 supported / unsupported with clear error / optional smoke, not release gate 三类状态表达执行范围。

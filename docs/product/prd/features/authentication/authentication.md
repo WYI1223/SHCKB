@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (pass 5 — split into pep.md + identity.md sub-PRDs) |
-| Last updated | 2026-05-18 |
+| Status | draft (setup-time sync cleanup) |
+| Last updated | 2026-05-21 |
 | Owner | W_YI |
 | Parent PRD | [project.md] |
 
@@ -126,7 +126,7 @@ Change semantics (per [self-host-deploy/setup-time.md] §3 / §5 + [plugin-syste
 - [pep.md] M2 acceptance pass（PEP middleware + declarative authz + ctx.user immutable + anonymous/private gating）
 - [identity.md] M2 acceptance pass（first admin via bootstrap + multi-user + role + signup default OFF + production security baseline + audit baseline）
 - Cross-PRD E2E：first admin login → 创建 author → author 创建 private notepage → logout → anonymous 访问 private 触发 redirect → re-login → 访问 OK
-- **Self-host onboarding < 10 min** (per [self-host-deploy.md] M2 invariant)：覆盖 first admin → author login → markdown notepage 端到端
+- **Self-host onboarding < 10 min** (per [self-host-deploy.md] M2 invariant)：覆盖 profile-seeded first admin login → author login → markdown notepage 端到端；dev-local setup screen path separately verified
 - **Mainline POC gate** (per 2026-05-17 Section E recommendation #6)：Bun + Hono + Drizzle + SQLite/Postgres + auth library + AuthAdapter wrapper + ctx.user mapping 端到端 work
 
 ### M3
@@ -214,7 +214,9 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策（pending PRD-dr
 - **Sibling PRDs**: [pep.md](./pep.md) / [identity.md](./identity.md)
 - **Cross-folder PRDs**: [notepage.md](../notepage/notepage.md) / [theme-system.md](../theme-system/theme-system.md) / [plugin-system.md](../plugin-system/plugin-system.md) / [self-host-deploy/self-host-deploy.md](../self-host-deploy/self-host-deploy.md)
 - **Audit register**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
-- **Discussion record**: [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) — reviewer findings + Claude challenges + framing reframe history（Section F AuthAdapter terminology / Section G modular pattern）
+- **Discussion records**:
+  - [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) — reviewer findings + Claude challenges + framing reframe history（Section F AuthAdapter terminology / Section G modular pattern）
+  - [self-host-setup-time-2026-05-21.md](../../../../engineering/design/discussions/self-host-setup-time-2026-05-21.md) — setup-time first-admin bootstrap mode sync
 - **Doc cross-reference convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
 
 ## Changelog
@@ -225,3 +227,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策（pending PRD-dr
 - 2026-05-17 pass 4 — AuthAdapter terminology sharpened (5 词 + 4-layer abstraction visual)；round 4 5 sharpenings：A interface surface area / B 4-layer ASCII diagram / C cross-subsystem modular pattern symmetry (discussion record Section G) / D plugin-system+new-block 反向 sync / E Non-goal L171 + L1/L2 stability
 - 2026-05-18 **pass 5 — split into sub-PRDs**（per owner 2026-05-18 catch "authentication 文档有些大"）：authentication.md 388 行 → 拆 3 PRDs（top + [pep.md] + [identity.md]）；按 domain split (**PEP enforcement** vs **Identity management**)；top 保留 4-layer abstraction + 13 cross-cutting invariants + cross-feature seams + sub-PRD 索引 + cross-cutting Non-goals/Dependencies/Surfaced debts；user stories / functional req / detailed acceptance / edge cases 分到 sub-PRDs；ADR refs 自然 distribute (PEP → ADR-0009/0011/0012/0015；Identity → ADR-0002/0006/0014/0018)；top ~200 行 / pep ~150 / identity ~210（更平衡）
 - 2026-05-18 **全 PRD ADR-pending disclaimer**（per owner 2026-05-18 framing rule）：顶部加 disclaimer block；所有 ADR refs pending PRD-driven rework；同步规则 ADR 改时 grep 全 PRD 同步
+- 2026-05-21 setup-time sync cleanup：Self-host onboarding E2E 改为 profile-seeded first admin login canonical path；dev-local setup screen 单独验证；References 增加 setup-time discussion record。

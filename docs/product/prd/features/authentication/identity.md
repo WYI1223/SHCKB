@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (split from authentication.md pass 4) |
-| Last updated | 2026-05-18 |
+| Status | draft (setup-time sync cleanup) |
+| Last updated | 2026-05-21 |
 | Owner | W_YI |
 | Parent PRD | [authentication.md] |
 
@@ -26,7 +26,7 @@
 ### Operator（self-host operator 主要 audience）
 
 - As a **first-time operator**, I want to **install bootstrap profile 提供 admin credential → deploy 后立即 login**，so that **< 10 min onboarding；不需 SSH 改 DB**
-- As a **first-time operator漏配 admin credential**, I want to **startup reject 或 force first-admin setup screen**，so that **公网部署不会出现"第一访问者成 admin"安全事故**
+- As a **first-time operator漏配 admin credential**, I want to **internet-exposed bootstrap mode startup reject，或 dev-local bootstrap mode 用 first-admin setup screen + one-time setup token**，so that **公网部署不会出现"第一访问者成 admin"安全事故，本地开发仍有便利路径**
 - As an **operator adding OAuth provider option**（如 username-password 之外加 GitHub OAuth）, I want to **改 install profile + redeploy → 现有 user 不变，可主动 link GitHub account**，so that **加 provider 不触发 user migration（per [authentication.md] L4 add coexist）**
 - As an **operator opening public signup**, I want to **在 install profile / env 显式开启 signup policy**，so that **default OFF 安全；显式 opt-in 才 ON；admin 不可 toggle**
 
@@ -47,7 +47,7 @@
 
 - **AuthAdapter L3 implementation baseline**（per [authentication.md] 4-layer + Build/Buy = Buy）：preferred baseline = Better-Auth pending ADR verification；fallback Auth.js core；自研 crypto rejected
 - **Username-password provider option** (L4 built-in)：login / logout / change password；signup endpoint **存在但 default OFF**（policy = operator config）
-- **First admin via install bootstrap** (per [ADR-0018])：install profile 含 admin credential（username + bootstrap password）；deploy 后 admin 立即可 login；**install profile 检测 admin credential 缺失 → reject startup 或 force first-admin setup screen**（per [authentication.md] invariant）
+- **First admin via install bootstrap** (per [ADR-0018])：install profile 含 admin credential（username + bootstrap password）；deploy 后 admin 立即可 login；**internet-exposed bootstrap mode 缺 admin credential → reject startup；dev-local bootstrap mode 可 force first-admin setup screen + one-time setup token**（per [authentication.md] invariant + [self-host-deploy/setup-time.md]）
 - **First-signup-becomes-admin fallback default OFF**（per [authentication.md] invariant）：漏配 admin + 公网部署不会让第一访问者成 admin；fallback 必须 operator 显式 enable
 - **Multi-user 必须 work**：M2 deploy 后能加 second user + 用 second user login + author role 隔离（具体加 user UX path 是 testing + UX implementation choice；PRD 不 mandate 具体形态）
 - **Authenticated role model + anonymous principal state**（per [authentication.md] invariant）:
@@ -107,7 +107,7 @@
 - ❌ **Admin-toggleable signup policy** —— signup policy = operator config；admin 不可 toggle
 - ❌ **First-signup-becomes-admin default ON** —— critical security incident risk
 - ❌ **Agent / API auth 混入 M2 cookie-session 承诺** —— 归 [pep.md] browser vs agent path 分离
-- ❌ **L3 replacement migration M2 ship** —— Phase 2+；M2 只 baseline export/import skeleton（per [self-host-deploy/setup-time.md]）
+- ❌ **L3 replacement migration M2 ship** —— Phase 2+；M2 只保留 future contract marker；不 ship export/import CLI skeleton，不提供 user-facing migration guarantee（per [self-host-deploy/setup-time.md]）
 - ❌ **Enterprise SSO**（SAML / LDAP / Kerberos）—— per [project.md] non-goal
 - ❌ **Federated identity across SHCKB instances** —— per [project.md] non-goal
 - ❌ **RBAC matrix** —— Day-1 simple authenticated role model；matrix Phase 2+
@@ -117,7 +117,7 @@
 ### M2
 
 - **E2E (no public signup path)**：first admin via bootstrap login → 创建 author user → author login → 创建 private notepage → logout → re-login → 访问 OK
-- **First admin detection**：install bootstrap profile 含 admin credential → 部署后立即 login OK；**漏配 → startup reject 或 force first-admin setup screen**（验证 first-signup-becomes-admin fallback default OFF）
+- **First admin detection**：install bootstrap profile 含 admin credential → 部署后立即 login OK；**internet-exposed bootstrap mode 漏配 → startup reject；dev-local bootstrap mode 漏配 → setup screen + one-time setup token**（验证 first-signup-becomes-admin fallback default OFF）
 - **Multi-user 验证**：M2 deploy 后能加 second user + 用 second user login + author role 隔离（具体加 user UX path 是 implementation choice；testing 必须 cover）
 - **Role 验证**：admin / author capability 边界（author 不能 mgmt user 等）
 - **Signup policy operator-only**：admin webapp 无 toggle UI；改 signup policy 必须 redeploy + 改 operator config
@@ -158,7 +158,7 @@
 
 | 场景 | 期望行为 |
 |---|---|
-| Install bootstrap admin credential 漏配 | **Default 行为**：startup reject 或 force first-admin setup screen；operator 可在 profile **显式 enable** fallback（罕见；如 internal sandbox） |
+| Install bootstrap admin credential 漏配 | **Internet-exposed bootstrap mode**：startup reject；**dev-local bootstrap mode**：force first-admin setup screen + one-time setup token；first-signup-becomes-admin fallback default OFF |
 | Operator 显式 enable public signup | Signup endpoint ON；新 user signup → author role；admin 不可在 webapp 内 toggle 此 policy |
 | Admin 试图在 webapp 内 toggle signup policy | 拒绝（不暴露 toggle UI 给 admin）；admin 想改 signup policy 必须 redeploy / 改 operator config |
 | Email 没配 SMTP + user 忘 password | UI 提示 "联系 admin"；admin 走 manual reset；session 不锁 user |
@@ -219,8 +219,11 @@ Identity-specific debts（cross-cutting debts 详 [authentication.md] top）:
 - **Sibling**: [pep.md](./pep.md)
 - **Cross-folder**: [self-host-deploy/setup-time.md](../self-host-deploy/setup-time.md) / [self-host-deploy/runtime.md](../self-host-deploy/runtime.md) / [notepage.md](../notepage/notepage.md) / [theme-system.md](../theme-system/theme-system.md) / [plugin-system.md](../plugin-system/plugin-system.md)
 - **Audit register**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
-- **Discussion record**: [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md)（reviewer 10 findings + Section E Better Auth investigation + Section F AuthAdapter terminology + Section G modular pattern）
+- **Discussion records**:
+  - [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md)（reviewer 10 findings + Section E Better Auth investigation + Section F AuthAdapter terminology + Section G modular pattern）
+  - [self-host-setup-time-2026-05-21.md](../../../../engineering/design/discussions/self-host-setup-time-2026-05-21.md) — setup-time first-admin bootstrap mode sync
 
 ## Changelog
 
 - 2026-05-18 initial draft (split from authentication.md pass 4)；Identity management domain；含 AuthAdapter L3 implementation + L4 provider options + signup policy operator-only + first admin via install bootstrap + role model + admin user mgmt + audit baseline + cookie/CSRF mandate；E2E user stories cover operator / admin / end-user 三 audience
+- 2026-05-21 setup-time sync cleanup：first-admin detection 改为 internet-exposed / dev-local bootstrap mode split；L3 replacement M2 scope 对齐 setup-time：future contract marker only，无 CLI skeleton / user-facing migration guarantee。

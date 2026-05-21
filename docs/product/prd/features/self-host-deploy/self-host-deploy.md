@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | draft |
-| Last updated | 2026-05-18 |
+| Status | draft (setup-time sync cleanup) |
+| Last updated | 2026-05-21 |
 | Owner | W_YI |
 | Parent PRD | [project.md] |
 
@@ -83,12 +83,12 @@
 | **Operator vs end-user 边界** | Operator config = OS-level（install profile / env / config file per [ADR-0018]）；user-role = webapp-level；二者不互通；admin 不可改 operator config（跟 [authentication.md] invariant 6 同源） |
 | **Setup-time / Run-time 时间分层** | Operator-active 改动归 setup-time（必须 redeploy）；SHCKB-autonomous 运营归 run-time；中间没有"运行时热改 config"的灰色地带（per 2026-05-17 framing） |
 | **Adapter change ladder**（per round 5 sync） | L4 option add/enable = config + redeploy + coexist；L3 replacement = export → redeploy → import migration workflow；L1/L2 = NEVER（跟 [authentication.md] 4-layer abstraction + [plugin-system.md] 切换机制 sharpen 协同） |
-| **Self-host onboarding < 10 min**（M2 mandate） | Docker compose `docker compose up -d` → 浏览器访问 → first-admin setup → 创建 author → 创建 notepage 端到端 < 10 min；per [project.md] success criterion |
+| **Self-host onboarding < 10 min**（M2 mandate） | Internet-exposed bootstrap mode: Docker compose `docker compose up -d` → 浏览器访问 → profile-seeded admin login → 创建 author → 创建 notepage 端到端 < 10 min；dev-local bootstrap mode 可用 first-admin setup screen + one-time setup token；per [project.md] success criterion |
 | **Secrets management baseline** | Signing key / admin credential / OAuth client secret 不进 image；走 secrets file / env / vault path（具体 carrier 归 [ADR-0018] / future operator runbook）|
 | **Migration workflow contract**（跨 horizontal subsystem 统一） | L3 replacement 走 3-步：export users/auth/notepage/etc. → redeploy with new L3 implementation/config → import/migrate；跨 auth / DB / storage / search / backup adapter 统一 pattern |
 | **Per-tier 资源 baseline** | Solo NAS：SQLite + local-fs default；不强制 Postgres；不默认启用 heavy plugins。Team VPS：可选 Postgres。Public Cloud：推荐 Postgres + S3 + CDN |
 | **Operator 不主动改 runtime config** | Run-time 没有 "config hot reload"；想改 config = setup-time redeploy；这条简化 SHCKB internal state management |
-| **First admin detection invariant**（跟 [authentication.md] A5 同源） | Install profile 漏配 admin credential → startup reject 或 force first-admin setup screen；不静默 fallback |
+| **First admin detection invariant**（跟 [authentication.md] A5 同源） | Internet-exposed bootstrap mode 漏配 admin credential → startup reject；dev-local bootstrap mode 可 force first-admin setup screen + one-time setup token；不静默 fallback |
 | **No PaaS dependency** | SHCKB 用 Docker / systemd / wrangler 等 standard tools；不依赖 Coolify / Dokploy / 等 self-host PaaS（兼容但不依赖） |
 | **5 deploy mode = same canonical artifact + diff config** | 不为某 mode 分叉 binary；Single-binary build 是 OCI image 的 secondary artifact，不是独立 source（per [ADR-0001]）|
 
@@ -103,7 +103,7 @@
 
 | Adjacent feature | Self-host-deploy 跟它的接触面 |
 |---|---|
-| [authentication.md] | Install bootstrap 提供 admin credential + signing key path + L4 provider option config（per [ADR-0018]）；first admin detection + reject startup 跟 auth invariant 协同 |
+| [authentication.md] | Install bootstrap 提供 admin credential + signing key path + L4 provider option config（per [ADR-0018]）；first admin detection 按 internet-exposed / dev-local bootstrap mode split，跟 auth invariant 协同 |
 | [notepage.md] | URL `/notes/:slug` 跨 5 deploy mode 稳定；SEO / SSR HTML 一致；private notepage redirect path 跨 mode 一致 |
 | [theme-system.md] | SSR theme CSS bundling 跨 mode 一致；asset path 不分叉；theme switching 跨 mode UX 同 |
 | [plugin-system.md] | Closed registry Day-1：plugin code 跟 OCI image 一起 ship；future open registry / marketplace Phase 2+ 需 deploy mechanism extension（per discussion record Section G runtime extension catalog variant） |
@@ -116,7 +116,7 @@
 
 - **Canonical OCI image + Docker compose** work 跨 3-tier profile（至少 Solo NAS + Team VPS 二者验证）
 - **Single-binary (Bun)** work（M2 ship；Workers tier 3 移 M4）
-- **Self-host onboarding < 10 min** E2E（Docker compose → first admin login → markdown notepage）
+- **Self-host onboarding < 10 min** E2E（Docker compose → profile-seeded admin login → author user → markdown notepage；dev-local setup screen path separately verified）
 - **Setup-time / Run-time 分层 work**：操作分别在两 entry 触发；不混淆
 - **Canonical OCI cross-mode consistency**：Docker compose / single-binary 跑同一份 source；不分叉
 
@@ -204,10 +204,13 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 - **Parent PRD**: [project.md](../../project.md)
 - **Sibling PRDs**: [setup-time.md](./setup-time.md) / [runtime.md](./runtime.md)
 - **Cross-folder PRDs**: [authentication.md](../authentication/authentication.md) / [notepage.md](../notepage/notepage.md) / [theme-system.md](../theme-system/theme-system.md) / [plugin-system.md](../plugin-system/plugin-system.md)
-- **Discussion record**: [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section G "Cross-subsystem modular pattern symmetry"（adapter change ladder cross-cutting reference）
+- **Discussion records**:
+  - [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section G "Cross-subsystem modular pattern symmetry"（adapter change ladder cross-cutting reference）
+  - [self-host-setup-time-2026-05-21.md](../../../../engineering/design/discussions/self-host-setup-time-2026-05-21.md) — setup-time narrative form + first-admin bootstrap mode sync
 - **Audit register**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
 - **Doc cross-reference convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
 
 ## Changelog
 
 - 2026-05-17 initial draft (Phase E Day-1 PRD #4)；framing 为 **operator-facing feature folder**（vs end-user feature / horizontal subsystem）；按 owner 2026-05-17 拍板 **setup-time vs run-time 时间维度二分**（per discussion 候选 Y）；2 sub-PRDs（[setup-time.md] / [runtime.md]）；12 cross-cutting invariants 含 canonical OCI cross-mode / operator-vs-user 边界 / setup-runtime 分层 / adapter change ladder（per round 5 sync）/ secrets baseline / migration workflow / per-tier resource baseline / no-PaaS-dependency / 5 mode = same artifact + diff config；3-tier operator profile + 5 deploy mode 表展开；M2 = Canonical OCI + single-binary；M3 = NAS / VPS templates；M4 = Workers tier 3 verify + 5 mode 全 verify；surface ADR debts (deploy mode M-stage align / install profile 5 vs 3-tier mapping / backend stack + Workers verify / runbook 归属 / migration workflow contract / no-PaaS enforce)
+- 2026-05-21 setup-time sync cleanup：first-admin detection 按 internet-exposed / dev-local bootstrap mode 明确；`<10 min` onboarding 改为 profile-seeded admin login canonical path；dev-local setup screen 作为便利路径；References 增加 setup-time discussion record。

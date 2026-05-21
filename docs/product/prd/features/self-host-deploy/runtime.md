@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | draft |
-| Last updated | 2026-05-18 |
+| Status | draft (setup-time backup scope sync) |
+| Last updated | 2026-05-21 |
 | Owner | W_YI |
 | Parent PRD | [self-host-deploy.md] |
 
@@ -20,7 +20,7 @@
 3. **Log access / audit trail**（SHCKB-emitted logs + audit events）
 4. **Anomaly detection / alerting baseline**（M3+）
 
-**关键 boundary**: operator 触发的 backup / restore / log 查看是 **runtime entry**（SHCKB 提供 endpoint；operator 调用但不 redeploy）；改 backup schedule 本身是 **setup-time**（改 config + redeploy）。
+**关键 boundary**: operator 触发的 backup / restore / log 查看是 **runtime entry**（SHCKB 提供 endpoint；operator 调用但不 redeploy）；改 backup schedule 本身是 **setup-time**（改 config + redeploy）。Setup-time M2 upgrade flow 只要求 warning + pointer 指向此 manual backup path；一键 pre-upgrade backup integration 属 M3+。
 
 不锁：
 - Setup-time 任何 operator-active 改动（→ [setup-time.md]）
@@ -61,7 +61,7 @@
 - **Backup target = backup provider adapter**（per [ADR-0017]）：local / S3 / etc.；具体选 setup-time
 - **Retention + GC**（per [ADR-0017]）：默认 retain N=14 daily backups；GC 跑在 backup 完成后；具体 N 是 operator config
 - **Backup includes**：DB dump + blob references（不含 blob 本身 if storage 跟 backup 不同 target；具体归 [ADR-0017]）+ install profile / secrets（可选；security trade-off）+ schema version metadata
-- **Manual trigger endpoint**：admin webapp 内 / CLI `skb backup now` 触发 on-demand backup；返回 archive ID + status
+- **Manual trigger endpoint**：admin webapp 内 / CLI `skb backup now` 触发 on-demand backup；返回 archive ID + status。此项是 runtime M2 capability；setup-time M2 upgrade flow 只提示 operator 使用该路径，不要求一键集成。
 - **Backup integrity check**：backup 完成后 SHCKB 验证 archive 完整性（checksum / 抽样 verify）；失败 → log + retain 旧 backup + retry policy
 - **Backup status visible**：admin 可见上次 backup time / status / archive list
 
@@ -187,7 +187,7 @@
 
 ### M2
 
-- **§1 Automated backup**：default daily backup 跑 + retention work + manual trigger endpoint
+- **§1 Automated backup**：default daily backup 跑 + retention work + manual trigger endpoint（setup-time upgrade warning points here；one-click pre-upgrade integration is M3+）
 - **§2 Health check**：`/health` returns subsystem reachability JSON；anonymous；< 50ms p95
 - **§3 Logging**：stdout JSON Lines；audit events baseline emit（admin login / user create / backup / migration）
 - **Runtime overhead baseline**：health + log + backup schedule overhead < 5% on Solo NAS profile（per cross-cutting invariant）
@@ -273,3 +273,4 @@
 ## Changelog
 
 - 2026-05-17 initial draft (Phase E Day-1 PRD #4 sub-PRD)；runtime = SHCKB-autonomous 期间 operator 不主动改的部分；4 H2 sections (automated backup / health monitoring / log + audit / anomaly detection)；7 cross-cutting runtime invariants；M2 baseline (backup + health + log) / M3 polish (metrics + audit view + anomaly alert) / M4 polish + 5 mode verify；surface 5 ADR debts (monitoring metrics ADR / audit event ADR / alert delivery ADR / backup integrity / log structured schema)
+- 2026-05-21 setup-time backup scope sync：明确 runtime M2 保留 manual backup endpoint / CLI capability；setup-time M2 upgrade flow 只做 warning + pointer，不要求一键 pre-upgrade backup integration；集成式 backup-now / dry-run / restore verification 留 M3+。

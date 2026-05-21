@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (pass 3 — Codex 4 findings scope cleanup + readability) |
+| Status | draft (pass 4 — second-pass sync cleanup) |
 | Last updated | 2026-05-21 |
 | Owner | W_YI |
 | Parent PRD | [self-host-deploy.md] |
@@ -116,14 +116,16 @@ Operator 跟 SHCKB 的全生命周期可视化（**T0 / T2 / T3 / T5 都属 setu
 
 **承诺**: step 1 到 step 6 < 10 min（per [self-host-deploy.md] M2 invariant）。
 
-**First-admin 路径按 profile 区分**（per Codex 2026-05-21 finding 2；避免歧义）：
+**First-admin 路径按 bootstrap mode 区分**：
 
-| Profile | 缺 admin 账号时的行为 | 理由 |
+Bootstrap mode 是 install-bootstrap 的安全模式，和 Solo NAS / Team VPS / Public Cloud 这类 operator profile 正交；install profile 可以显式选择，也可以根据是否公网暴露推导。
+
+| Bootstrap mode | 缺 admin 账号时的行为 | 理由 |
 |---|---|---|
-| **production / public profile** | **Reject startup**（要求 install profile 必须 seed admin 账号；启动后直接 login）| 防公网部署首访问者成 admin 的安全事故（per [identity.md] invariant） |
-| **localhost / dev profile** | **允许 force first-admin setup screen** + **one-time setup token**（防局域网他人抢注）| 本地开发便利；setup token 限制只有持 token 的人能创建 first admin |
+| **Internet-exposed bootstrap mode** | **Reject startup**（要求 install profile 必须 seed admin 账号；启动后直接 login）| 防公网部署首访问者成 admin 的安全事故（per [identity.md] invariant） |
+| **Dev-local bootstrap mode** | **允许 force first-admin setup screen** + **one-time setup token**（防局域网他人抢注）| 本地开发便利；setup token 限制只有持 token 的人能创建 first admin |
 
-也就是：M2 canonical 是 "**profile seed admin → 直接 login**"（production）；setup screen 是 dev/localhost 的便利路径，不是 production 默认。
+也就是：M2 canonical 是 "**install profile seed admin → 直接 login**"（internet-exposed bootstrap mode）；setup screen 是 dev-local 的便利路径，不是公网部署默认。
 
 ### T2 Config change (改一个配置选项 + redeploy)
 
@@ -162,9 +164,11 @@ M2 verified 的典型场景（**不含 OAuth**——OAuth provider option 在 [i
 4. operator verifies success via /health endpoint + admin login
 ```
 
-**失败 case**（per Codex 2026-05-21 finding 3；承诺收紧到可跨 SQLite/Postgres/MySQL 兑现的程度）：migration 失败 → **reject startup + 明确错误 + 不静默继续**。**"旧 schema 未改变" 的保证只限于 transactional migration 或 preflight 阶段失败的 case**（DDL 是否事务化跨 DB engine 不一；MySQL DDL 通常非事务）。一旦 migration 已部分执行才失败 → 完整 recovery **依赖 backup + runbook**，PRD 不承诺自动 rollback 到旧 schema。
+**失败 case**：migration 失败 → **reject startup + 明确错误 + 不静默继续**。**"旧 schema 未改变" 的保证只限于 transactional migration 或 preflight 阶段失败的 case**（DDL 是否事务化跨 DB engine 不一；MySQL DDL 通常非事务）。一旦 migration 已部分执行才失败 → 完整 recovery **依赖 backup + runbook**，PRD 不承诺自动 rollback 到旧 schema。
 
 **承诺**: upgrade 是 low-risk 常规操作；version skip (n-2) 支持；n-3+ 提示 step-by-step。强保证只有一条：**失败绝不静默继续运行在不一致 schema 上**。
+
+**M2 backup 提示**：upgrade 开始前必须给 operator 一个明确的 **manual backup warning + runbook pointer**。M2 不承诺自动 backup；auto-backup / backup-now shortcut 可以后移到 M3+。
 
 ### T5 底层组件替换 (替换整层 implementation，rare event)
 
@@ -182,7 +186,7 @@ M2 verified 的典型场景（**不含 OAuth**——OAuth provider option 在 [i
 5. operator 验证: admin 登录 + 抽查 notepage
 ```
 
-**承诺 + M2 scope**（per Codex 2026-05-21 finding 4；避免 M2 偷偷承诺 migration）：底层组件替换是 **导出 → redeploy → 导入** 三步 workflow（per [authentication.md] L3 replacement + [plugin-system.md] adapter variant change ladder）。**Rare** event。
+**承诺 + M2 scope**：底层组件替换是 **导出 → redeploy → 导入** 三步 workflow（per [authentication.md] L3 replacement + [plugin-system.md] adapter variant change ladder）。**Rare** event。
 
 - **M2**: 仅把此 workflow **文档化为 future contract**；**不 ship CLI skeleton；无 user-facing migration guarantee**（与 [identity.md] "L3 replacement migration M2 不 ship" 对齐）
 - **M3**: `skb export` / `skb import` CLI skeleton ship
@@ -202,16 +206,25 @@ M2 verified 的典型场景（**不含 OAuth**——OAuth provider option 在 [i
 
 - ✅ **First install via Docker compose**（Canonical OCI image；per [ADR-0001] tier 1）
 - ✅ **First install via single-binary**（Bun；per [ADR-0001] tier 2）
-- ✅ **First admin via install bootstrap**（per [identity.md] invariant）：production/public profile 缺 admin → reject startup；localhost/dev profile → force first-admin setup screen + one-time setup token
-- ✅ **Initial adapter config**（首次选底层组件）：DB (SQLite/Postgres/MySQL via Drizzle) / Storage (local-fs/S3) / Search (FTS5/tsvector/Meilisearch) / Backup (local/S3)；Solo NAS profile 有 sensible defaults（零配置 work）
+- ✅ **First admin via install bootstrap**（per [identity.md] invariant）：internet-exposed bootstrap mode 缺 admin → reject startup；dev-local bootstrap mode → force first-admin setup screen + one-time setup token
+- ✅ **Initial adapter config**（首次选底层组件）：M2 使用下方 adapter support matrix 区分 roadmap vocabulary / M2 selectable behavior / M2 verified gate；Solo NAS profile 有 sensible defaults（零配置 work）
 - ✅ **Config change baseline**（可叠加配置变更 = L4 option add）：改 config + redeploy + 与既有共存；**M2 verified 例子**：cookie domain / session TTL / signup policy / backup retention。**OAuth 不在 M2**（待 [identity.md] promote；当前 M3+）
-- ✅ **SHCKB version upgrade**：startup 时 forward schema migration；migration 失败 → reject startup + 不静默继续（"旧 schema 未变" 保证只限 transactional/preflight-safe；完整 recovery 靠 backup/runbook）
+- ✅ **SHCKB version upgrade**：startup 时 forward schema migration；upgrade 前展示 manual backup warning + runbook pointer；migration 失败 → reject startup + 不静默继续（"旧 schema 未变" 保证只限 transactional/preflight-safe；完整 recovery 靠 backup/runbook）
 - ✅ **底层组件替换 (L3 replacement)**：M2 仅 **文档化为 future contract**；不 ship CLI；无 user-facing migration guarantee（CLI skeleton M3 / verified import M4）
+
+**M2 adapter support matrix**（避免把 roadmap vocabulary 误读成全组合验收）：
+
+| Category | Roadmap option vocabulary | M2 selectable behavior | M2 verified gate |
+|---|---|---|---|
+| DB | SQLite / Postgres / MySQL via Drizzle | SQLite = supported；Postgres = supported；MySQL = unsupported with clear error in M2 | Solo NAS SQLite path + one Team VPS Postgres path |
+| Storage | local-fs / S3-compatible | local-fs = supported；S3-compatible = optional smoke, not release gate；missing / invalid S3 config = unsupported with clear error | local-fs full path；S3-compatible smoke only if explicitly included, not release gate |
+| Search | SQLite FTS5 / Postgres tsvector / external search (e.g. Meilisearch) | profile-matched default = supported；external search = unsupported with clear error in M2 | SQLite FTS5 for Solo + Postgres tsvector for Team if Postgres path verified |
+| Backup | local / S3-compatible | local = supported；S3-compatible = optional smoke, not release gate | manual backup warning + pointer to runtime manual backup path；stronger S3 verification later |
 
 **M2 demo flow** (operator zero → running notepage)：
 
 ```
-# production/public profile canonical path (profile seed admin):
+# internet-exposed bootstrap mode canonical path (profile seed admin):
 install profile 含 admin 账号
   → docker compose up -d
   → 浏览器访问
@@ -221,19 +234,20 @@ install profile 含 admin 账号
   → 创建 markdown notepage
   → 全流程 < 10 min ✓
 
-# localhost/dev profile 便利 path:
+# dev-local bootstrap mode 便利 path:
 docker compose up -d (install profile 未 seed admin)
   → 浏览器访问 → first-admin setup screen (带 one-time setup token)
   → 创建 admin → 后续同上
 ```
 
-**M2 acceptance gates**（M-stage scope 必须 explicit + mechanically reviewable per Codex form 建议）：
+**M2 acceptance gates**（M-stage scope 必须 explicit + mechanically reviewable）：
 
-- Production canonical E2E（profile seed admin → login → author → notepage）passes < 10 min
-- **First-admin by profile**：production/public profile 缺 admin → startup reject + 清晰提示；localhost/dev profile → setup screen + one-time token work
+- Internet-exposed canonical E2E（profile seed admin → login → author → notepage）passes < 10 min
+- **First-admin by bootstrap mode**：internet-exposed bootstrap mode 缺 admin → startup reject + 清晰提示；dev-local bootstrap mode → setup screen + one-time token work
 - Single-binary 跟 Docker compose 行为对齐（同 source；同 user experience）
-- Adapter config validation at startup（缺必填项 reject）
+- Adapter config validation at startup（缺必填项 reject；unsupported M2 option 给 clear unsupported error，不静默 fallback）
 - **Config change (L4) coexist**：改 cookie domain / session TTL / signup policy / backup retention 之一 + redeploy → 生效 + 现有 user 不变（**OAuth 不作 M2 gate**）
+- **Upgrade preflight warning**：upgrade 前 operator 看得到 manual backup warning + runbook pointer；M2 不要求 auto-backup
 - **Upgrade migration**：forward-only；失败 → reject startup + 不静默继续（"旧 schema 未变" 只 assert transactional/preflight cases）
 - **底层组件替换 (L3)**：M2 仅 verify "workflow documented as future contract"；**无 CLI skeleton gate，无 user-facing migration guarantee**
 
@@ -248,7 +262,7 @@ operator 体验提升点：
 - **NAS-specific templates**（Synology DSM Docker / TrueNAS apps / Unraid Community Apps；至少一个 verify）→ NAS operator 不需手写 Docker compose
 - **VPS templates**（含 systemd unit + Caddy reverse proxy）→ VPS operator 不需手写 reverse proxy + TLS
 - **Pre-deploy validation CLI**（`skb config validate`）→ operator redeploy 前 detect config 冲突，不会 redeploy 后才 startup 失败
-- **Backup-before-upgrade prompt** → upgrade 前提示 operator 跑 backup（per [runtime.md] backup integration）
+- **Pre-upgrade backup integration** → 从 M2 manual warning 升级为 backup-now shortcut / dry-run / 更强 restore verification（per [runtime.md] backup integration）
 - **底层组件替换 CLI skeleton**（`skb export` / `skb import`）→ 从 M2 的 "future contract marker" 升级为可跑的 CLI（但 verified import 校验在 M4）
 - **Audit trail webapp view**（per [identity.md] M3）→ admin 看 setup-time 历史 (install / upgrade / migration / config change) 不需 grep log
 
@@ -283,7 +297,7 @@ operator 体验提升点：
 | Invariant | 含义 |
 |---|---|
 | **All setup-time = redeploy** | 没有 runtime config hot reload；改 config = redeploy；统一 mental model |
-| **Failure-isolated** | Redeploy / migration 失败 → reject startup + 清晰错误 + 不静默继续；**"保留旧 state" 只在 transactional / preflight-failed cases 保证**；migration 已部分执行才失败 → 完整 recovery 靠 backup + runbook（per Codex 2026-05-21 finding 3）|
+| **Failure-isolated** | Redeploy / migration 失败 → reject startup + 清晰错误 + 不静默继续；**"保留旧 state" 只在 transactional / preflight-failed cases 保证**；migration 已部分执行才失败 → 完整 recovery 靠 backup + runbook |
 | **Operator-observable** | Setup-time 操作的 success / failure / progress operator-visible（log / CLI output / setup screen）|
 | **Idempotent re-run** | 同 install profile + 同 env 多次 redeploy → 结果一致；不重复 init / 不破现有 state |
 | **No silent fallback** | 缺 admin credential / 缺必填 config / unknown profile → reject startup；不静默 fallback default |
@@ -303,8 +317,8 @@ operator 体验提升点：
 | 场景 | 期望行为 |
 |---|---|
 | Docker compose up 后 DB connection 失败 | Startup reject + 清晰 error + 修复提示（"check DATABASE_URL env"）|
-| Install profile 漏配 admin credential（production/public profile）| Reject startup + 清晰提示（per [identity.md]）；不静默 fallback "首访问者成 admin" |
-| Install profile 漏配 admin credential（localhost/dev profile）| Force first-admin setup screen + one-time setup token（防局域网他人抢注）|
+| Install profile 漏配 admin credential（internet-exposed bootstrap mode）| Reject startup + 清晰提示（per [identity.md]）；不静默 fallback "首访问者成 admin" |
+| Install profile 漏配 admin credential（dev-local bootstrap mode）| Force first-admin setup screen + one-time setup token（防局域网他人抢注）|
 | Operator 改 env DOMAIN + redeploy | Cookie domain / OAuth callback / SEO meta 全 sync；现有 session 视 library policy invalidate / 保留 |
 | Upgrade migration 中途失败 (transactional / preflight) | Reject startup + 旧 schema 未变 + 清晰错误 |
 | Upgrade migration 已部分执行才失败 (e.g. 非事务 DDL) | Reject startup + 不静默继续；旧 schema 可能已部分改；完整 recovery 靠 backup + runbook |
@@ -370,3 +384,5 @@ operator 体验提升点：
   - **Finding 4**: M2 L3 replacement skeleton → future contract marker（M2 无 user-facing migration guarantee + 无 CLI gate）；CLI skeleton 移 M3；verified import + runbook 移 M4
   - **易读性 (owner 指令)**: L4/L3 术语第一次出现给平实解释（"可叠加配置变更" / "底层组件替换"）；UX scenario step 中文平实化；术语作辅助不作主语
   - **Form note (per Codex Section C)**: narrative-first form 适用 lifecycle/operator/system-facing PRD；narrow feature PRD 仍需 explicit user stories + acceptance gates visible for grep；M-stage scope 不能被 narrative 藏（M2/M3/M4 acceptance 保持 explicit + mechanically reviewable）
+- 2026-05-21 **pass 4 — second-pass sync cleanup**：按 [self-host-setup-time-2026-05-21.md] Section F 落地：first-admin 术语改为 internet-exposed / dev-local bootstrap mode；M2 增加 manual backup warning + runbook pointer；adapter config 拆成 roadmap vocabulary / M2 selectable / M2 verified gate；PRD body 移除内部 review provenance，保留在 discussion / changelog。
+- 2026-05-21 **pass 4 follow-up**：定义 bootstrap mode 为 install-bootstrap security mode，和 operator profile 正交；adapter matrix 列名改为 M2 selectable behavior，并用 supported / unsupported with clear error / optional smoke, not release gate 三类状态收紧执行范围。
