@@ -2,252 +2,352 @@
 
 | Field | Value |
 |---|---|
-| Status | draft |
-| Last updated | 2026-05-18 |
+| Status | draft (pass 3 — Codex 4 findings scope cleanup + readability) |
+| Last updated | 2026-05-21 |
 | Owner | W_YI |
 | Parent PRD | [self-host-deploy.md] |
 
 > **ADR reference status (2026-05-18 owner framing)**: 本 PRD 引用的**所有 ADR**（含 [ADR-0001] / [ADR-0002] / [ADR-0003]）均 **pending PRD-driven rework round 2**——遵循 owner framing "需求决定架构，架构决定代码与工期"：Phase E PRD 全完成后 ADR 统一 PRD-informed rework；之前标 REWORKED 的 ADR-0001/0002/0003 也需 PRD-informed 再 audit；ADR-0007/0014/0017/0018 的 partial rework 只是 cross-ADR alignment，**不算 final**。**同步规则**：ADR 改动时必须 grep 全 PRD ADR refs 同步修订，避免 PRD ↔ ADR drift。详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) 2026-05-18 entry。
 
-## Overview
+---
 
-**Setup-time** = operator-active 改动期间。Self-host operator 主动触发 + 几乎都要 **redeploy**（per [ADR-0001] canonical OCI + [self-host-deploy.md] cross-cutting invariant "no runtime config hot reload"）。
+## What this PRD covers
 
-本 PRD cover 5 类 setup-time 操作（5 H2 sections 下面）：
+Self-host operator 在 **operator-active** 时刻对 SHCKB 做的所有改动——从 zero 到 first running，到日常配置调整、SHCKB 升版、替换底层组件的整套生命周期。
 
-1. **First-time install**（T0：从 zero 部署到首次 running）
-2. **Initial adapter config**（T0 + T2：选 storage / search / backup / DB adapter）
-3. **L4 option add / config change**（T2：加 provider option / 改 secrets / 改 config）
-4. **SHCKB version upgrade**（T3：升级到新 SHCKB 版本 + schema migration）
-5. **L3 replacement migration**（T5：替换 AuthAdapter / DB engine / storage backend；export-redeploy-import）
+**核心边界**：本 PRD cover 的所有操作都要 **redeploy**（per [self-host-deploy.md] cross-cutting invariant "no runtime config hot reload"）。SHCKB 启动后自治期间的事（backup schedule / health check / monitoring / log / anomaly）归 [runtime.md]，不在本 PRD 范围。
 
-不锁：
-- Run-time SHCKB 自治期间操作（→ [runtime.md]）
-- Library 内部决策（→ future ADRs）
-- Runbook step-by-step（→ future `engineering/runbooks/`）
+---
 
-## Scope
+## Why (motivation)
 
-### 本 PRD 负责
+**为什么把 self-host-deploy 按时间维度拆 setup-time + runtime**：
 
-- 5 类 setup-time 操作的 **user-observable WHAT**（operator 看到 / 操作 / 失败提示）
-- 跨 5 类操作的 cross-cutting setup-time invariants
-- Operator-facing CLI / install bootstrap UX
-- Setup-time error handling baseline（失败可恢复；不静默 fail）
+Self-host operator 的实际心智本来就分两段——**主动改动**（要 redeploy，要 verify，要看 log，要担心 failure）跟 **运营自治**（SHCKB 跑着，operator 只关注异常）。把这两段混在一份 PRD 里 reader 抓不到 "什么时候我需要 active；什么时候 SHCKB 自己跑"。
 
-### 本 PRD 不负责
+**为什么 setup-time = redeploy**（不开 runtime config hot reload）：
 
-| 不负责 | 归 |
-|---|---|
-| Run-time monitoring / backup schedule / health | [runtime.md] |
-| Auth library internal token / hash 决策 | [authentication.md] + future auth library selection ADR |
-| Plugin sandbox / lifecycle 通用机制 | [plugin-system.md] / [ADR-0011] / [ADR-0014] |
-| Cookie / CSRF library 内部实现 | [authentication.md] + library |
-| 具体 runbook step | future `engineering/runbooks/` |
+简化 internal state management。SHCKB 不维护 "config changed mid-run" 状态；任何 config 改动 → restart → 干净起始状态。换来：
 
-## §1 First-time install
+- **可预测性**：operator 不踩 "改了 config 但没 reload 的部分组件" 这种 race
+- **failure-isolation**：每次 redeploy 都有明确停止边界；preflight / transactional failure 保留旧状态；已部分执行的 migration 失败则 reject startup，并交给 backup + runbook recovery
+- **uniform model**：first install / 配置调整 / SHCKB upgrade / replace DB engine 都走 redeploy；operator 只学一种 mental model
 
-### User stories
+**为什么本 PRD 跟 [self-host-deploy.md] top 独立**：
 
-- As a **first-time operator (Solo NAS)**, I want to **`docker compose up -d` → 浏览器访问 → first-admin setup screen → 创建 admin → 用 admin 登录**，so that **< 10 min E2E onboarding；无需 SSH 改 DB / 改 env / 复杂步骤**
-- As a **first-time operator (Team VPS)**, I want to **类似 Docker compose 流程 + 配置 Postgres / S3-compat 入口**，so that **能选择更适合 Team scale 的 adapter；不强制单一 SQLite**
-- As a **first-time operator**, I want to **install bootstrap profile 检测 admin credential 缺失 → reject startup 或 force first-admin setup screen**（per [authentication.md] A5 invariant），so that **公网部署不会出现"第一访问者成 admin"安全事故**
+Top PRD 讲 framing + 3-tier profile + 5 deploy mode + cross-feature seams（跨 setup-time 跟 runtime 通用）；本 PRD 展开 setup-time 阶段的具体行为。Top 是 framing artifact 可复用到 ADR / release notes；本 PRD 是 setup phase 的 user-experience + acceptance roadmap。
 
-### Must (M2)
+---
 
-- **Canonical OCI image + Docker compose**：`docker compose up -d` 启动 SHCKB instance
-- **Install profile selection**（per [ADR-0018] 5 profile）：profile 选 1 个；profile 决定 default deploy mode + default adapter set + default admin credential bootstrap method
-- **First-admin setup**（per [authentication.md] A5）：install profile 含 admin credential → deploy 后立即 login；漏配 → startup reject 或 force setup screen
-- **Signing key generation**（auto；不进 OCI image）：install bootstrap 时 generate；写 secrets file / env；rotation 走 future operator runbook（M2 不 ship rotation）
-- **Single-binary 备用 path**：操作 + UX 跟 Docker compose 对齐；同 source；不分叉
-- **< 10 min onboarding E2E**（per [self-host-deploy.md] M2 invariant）：Docker compose up → first admin login → 创建 author user → 创建 markdown notepage 端到端
-- **Onboarding 错误可恢复**：admin credential 错 / DB connection 失败 / port 占用 / etc. → 清晰 error message + 修复路径
+## The whole picture
 
-### Should (M3)
+Operator 跟 SHCKB 的全生命周期可视化（**T0 / T2 / T3 / T5 都属 setup-time；T1 / T4 归 [runtime.md]**）：
 
-- **NAS-specific templates**（Synology DSM Docker / TrueNAS apps / Unraid Community Apps；至少一个 verify）
-- **VPS templates**（含 systemd unit + Caddy reverse proxy template）
-- **Migration importer**（M2 没 export 来源；M3 实际启用）
+```
+ operator timeline
+ ═════════════════
 
-### Nice-to-have (M4+)
+  T0 ──────►  [first install]                          setup-time
+                  │  docker compose up + first admin
+                  ▼  setup screen + sensible defaults
+  T1 ────►   [running]                                 runtime  (→ runtime.md)
+                  │  SHCKB autonomous; backup /
+                  │  monitoring / health / log
+                  ▲
+  T2 ──────► [config change / add option]              setup-time
+                  │  改 install profile + redeploy
+                  │  可共存配置不迁移 user 数据
+                  ▼
+  T1' ───►   [running, with new config]                runtime
+                  ▲
+  T3 ──────► [SHCKB upgrade]                           setup-time
+                  │  pull new image + redeploy
+                  │  → auto schema migration
+                  ▼
+  T1'' ──►   [running, new version]                    runtime
+                  ▲
+  T5 ──────► [L3 replacement migration]                setup-time (rare)
+                  │  export → redeploy + new L3 → import
+                  ▼
+  T1'''──►   [running on new L3 backing]               runtime
 
-- **Cloudflare Workers tier 3 install path**（M4 verify；如 known constraint 文档化）
-- **PaaS templates**（Coolify / Dokploy；兼容不依赖）
-- **GUI install wizard**（替代 first-admin setup screen 的 webapp 内 UI；Phase 2+）
+ ────────────────────────────────────────────────────────────────
+ Setup-time 5 类操作：
+   T0: first install                           (Day-1 critical / M2)
+   T2: 改配置 (可叠加配置变更)                   (Day-1 critical / M2)
+   T3: SHCKB 升版                              (Day-1 critical / M2)
+   T5: 底层组件替换 (L3 replacement)            (M2 仅 future contract;
+                                                CLI M3 / verified M4)
+   + ongoing minor secrets / domain changes
+```
 
-## §2 Initial adapter config
+**关键 invariant**（所有 setup-time 操作共享）：
 
-### User stories
+- Redeploy required（不存在 runtime config hot reload）
+- Failure-isolated（失败 reject startup + 清晰错误；旧 state 保证只限 preflight / transactional cases）
+- Operator-observable（log + setup screen + CLI output 都明示 progress / failure）
+- Idempotent re-run（同 config 跑两次结果一致；不重复 init）
+- No silent fallback（缺 admin credential / 缺必填 config → reject startup，不静默 fallback default）
 
-- As a **Team VPS operator**, I want to **install 时选 Postgres + S3-compat + Postgres tsvector**（替代 default SQLite + local-fs + FTS5），so that **跟 Team scale 资源匹配**
-- As a **Solo NAS operator**, I want to **不操作 adapter config 也能 work**（用 default SQLite + local-fs），so that **零配置部署到 NAS**
+---
 
-### Must (M2)
+## User-facing experience
 
-- **4 horizontal subsystem adapter** initial config（per [ADR-0006] / [ADR-0007] / [ADR-0008] / [ADR-0017]）：
-  - DB engine（SQLite / Postgres / MySQL via Drizzle multi-dialect）
-  - Storage provider（local-fs / S3-compat）
-  - Search provider（SQLite FTS5 / Postgres tsvector / Meilisearch）
-  - Backup provider（local / S3）
-- **Default sensible**：Solo NAS profile default = SQLite + local-fs + FTS5 + local-backup；零配置 work
-- **Operator-friendly config syntax**：env var / install profile YAML / .env file；统一 schema；详 future operator runbook
-- **Config validation**：startup 时校验 config 完整性；缺失必填项 → reject startup + 清晰提示
+**Operator 视角**——每个 setup-time 事件应该是什么体验：
 
-### Should (M3)
+### T0 First install (新 operator 第一次部署)
 
-- **Adapter config UI in admin webapp**（read-only；显示当前 config；改要 redeploy）—— Phase 2+ 可能开 read-write 但有 redeploy gate
+```
+1. operator 拉取 OCI image / single-binary
+2. operator 填写 install profile（部署配置文件）:
+   - profile 选择 (Solo NAS / Team VPS / Public Cloud)
+   - admin 账号 (用户名 + 初始密码)
+   - 数据库 / 存储 / 搜索 / 备份 各选一个 adapter（默认值可零配置）
+   - (可选) email SMTP；OAuth/OIDC 等登录方式只在对应 auth milestone 支持后出现
+3. operator 运行: `docker compose up -d`
+4. SHCKB:
+   - 校验 install profile
+   - 自动生成签名密钥 (写入 secrets 文件)
+   - 跑首次数据库 schema 初始化
+   - 启动
+5. operator 打开浏览器 → 用 admin 账号登录 → 立即可用
+6. operator 创建第一个 author 用户 + 第一篇 notepage
+```
 
-### Nice-to-have (Phase 2+)
+**承诺**: step 1 到 step 6 < 10 min（per [self-host-deploy.md] M2 invariant）。
 
-- **Adapter health check at install**：连 Postgres / S3 失败 → setup-time abort + 清晰提示（不要 deploy 后 runtime 才发现）
+**First-admin 路径按 profile 区分**（per Codex 2026-05-21 finding 2；避免歧义）：
 
-## §3 L4 option add / config change
+| Profile | 缺 admin 账号时的行为 | 理由 |
+|---|---|---|
+| **production / public profile** | **Reject startup**（要求 install profile 必须 seed admin 账号；启动后直接 login）| 防公网部署首访问者成 admin 的安全事故（per [identity.md] invariant） |
+| **localhost / dev profile** | **允许 force first-admin setup screen** + **one-time setup token**（防局域网他人抢注）| 本地开发便利；setup token 限制只有持 token 的人能创建 first admin |
 
-### User stories
+也就是：M2 canonical 是 "**profile seed admin → 直接 login**"（production）；setup screen 是 dev/localhost 的便利路径，不是 production 默认。
 
-- As an **operator adding OAuth provider**（如在 username-password 之外加 GitHub OAuth），I want to **改 install profile 加 OAuth provider option config + redeploy → 现有 user 不变，可主动 link GitHub account**（per [authentication.md] AuthAdapter 4-layer L4 add），so that **加 provider 不触发 user migration**
-- As an **operator changing secrets**（如轮换 OAuth client secret），I want to **改 env secret + redeploy → session 不 invalidate**（per library default refresh），so that **secret 改不破 user session**
-- As an **operator changing notepage domain**, I want to **改 env DOMAIN + redeploy → cookie domain / OAuth callback URL / SEO meta 全部 sync**，so that **domain 改不破 auth / public read**
+### T2 Config change (改一个配置选项 + redeploy)
 
-### Must (M2)
+"配置选项变更" 指 operator 改一个**附加的、与既有共存**的配置——加一个选项 / 调一个参数，不动现有 user 数据。术语上对应 authentication 4-layer 的 **L4 option add**（详 [authentication.md]；这里指"可叠加、可共存的配置层"，跟下面 T5 的"整层替换"区别）。
 
-- **L4 add ≠ migration**（per [plugin-system.md] round 5 sync）：加 OAuth provider option / 改 backup retention / 加 storage S3 bucket 等都是 **config + redeploy + coexist**；不触发 export → reinstall → import workflow
-- **Coexist invariant**：加 provider option 后既有 login 方式（如 username-password）保留；既有 user 不变；新 provider 是 opt-in for new user / 现有 user 可主动 link
-- **Secrets rotation 路径**：admin password reset / OAuth client secret 改 / signing key 改都走 setup-time（编辑 secrets + redeploy）；具体 key rotation runbook 归 future engineering/runbooks/
-- **Domain / callback URL 改**：env DOMAIN 改 → cookie domain / OAuth callback / SEO meta 全部 sync；不需手动改多处
+M2 verified 的典型场景（**不含 OAuth**——OAuth provider option 在 [identity.md] 是 M3+，M2 不承诺）：
 
-### Should (M3)
+```
+1. operator 改 install profile / env，例如:
+   - cookie domain (改域名)
+   - session TTL (会话有效期)
+   - signup policy (是否开放注册)
+   - backup retention (备份保留份数)
+2. operator 运行: `docker compose restart` (或 redeploy)
+3. SHCKB:
+   - 检测新配置
+   - 现有 user 数据不变
+4. 结果:
+   - 新配置生效
+   - 既有 login / session 继续 work（除非该配置本身改了 session 语义）
+```
 
-- **Pre-deploy validation tool**：CLI 工具 `skb config validate` 在 redeploy 前 detect config 冲突；防 redeploy 后 startup 失败
+**承诺**: 配置选项变更 = 改配置 + redeploy + 与既有共存；**不**触发 user 数据迁移；不破现有 session（per [authentication.md] 4-layer + [plugin-system.md] L4 option add 语义）。
 
-### Nice-to-have (M3+)
+> **注**: 加 OAuth/OIDC/passkey 这类登录方式 **不在 M2**——它们是 [identity.md] 的 M3+ provider options。届时 auth PRD 把 OAuth promote 到某 M-stage 后，本 PRD 同步（per ADR-PRD 同步规则）。本 T2 scenario 的 M2 范围只验证"可共存配置变更"的通用语义，用 cookie domain / session TTL 等已 M2-ready 的配置作例子。
 
-- **Config diff preview**：redeploy 前显示 config 变化预览
+### T3 SHCKB upgrade (v1.0 → v1.1)
 
-## §4 SHCKB version upgrade
+```
+1. operator pulls new OCI image / new binary
+2. operator runs: `docker compose down && docker compose up -d`
+3. SHCKB:
+   - detect schema version (v1.0 → v1.1)
+   - run forward migration (auto)
+   - emit migration log
+4. operator verifies success via /health endpoint + admin login
+```
 
-### User stories
+**失败 case**（per Codex 2026-05-21 finding 3；承诺收紧到可跨 SQLite/Postgres/MySQL 兑现的程度）：migration 失败 → **reject startup + 明确错误 + 不静默继续**。**"旧 schema 未改变" 的保证只限于 transactional migration 或 preflight 阶段失败的 case**（DDL 是否事务化跨 DB engine 不一；MySQL DDL 通常非事务）。一旦 migration 已部分执行才失败 → 完整 recovery **依赖 backup + runbook**，PRD 不承诺自动 rollback 到旧 schema。
 
-- As an **operator on SHCKB v1.0 wanting to upgrade to v1.1**, I want to **拉新 image / 拉新 binary → redeploy → SHCKB 自动 schema migration → operator 验证 → ok**（typical case），so that **upgrade 是低风险常规操作**
-- As an **operator with version skip (v1.0 → v1.3)**, I want to **得到清晰 upgrade path 提示**（"upgrade through v1.1 / v1.2 first" 或 "direct upgrade supported per migration matrix"），so that **不会 skip 触发 unknown 数据状态**
+**承诺**: upgrade 是 low-risk 常规操作；version skip (n-2) 支持；n-3+ 提示 step-by-step。强保证只有一条：**失败绝不静默继续运行在不一致 schema 上**。
 
-### Must (M2)
+### T5 底层组件替换 (替换整层 implementation，rare event)
 
-- **Schema migration on startup**（per [ADR-0002] + library 默认 migration tool）：startup 时 detect schema version；自动 forward migration（不 backward）
-- **Migration log**：startup-time 写 migration log；operator 可见
-- **Migration failure isolation**：migration 失败 → startup reject + 保留旧 schema + 清晰错误（不 partial migration）
-- **Plugin migration**（per [ADR-0014]）：plugin semver + library 的 lazy migration；旧 row 自动升新 plugin version；失败 → 同 schema migration policy
-- **Version skip compatibility window**：support n-2 跳级 upgrade（n-3 触发警告 + 提示 step-by-step）；具体 window 归 future versioning runbook
+"底层组件替换" 指 operator 把某个底层 implementation **整层换掉**——如把认证库 Better Auth 换成 Auth.js，或把数据库引擎 SQLite 换成 Postgres。术语上对应 authentication 4-layer 的 **L3 replacement**（跟 T2 的"可叠加配置"区别：T5 是"换底座"，要迁数据）。
 
-### Should (M3)
+```
+未来形态 (M2 不 ship；详下方 scope 说明):
+1. operator 导出现有数据:
+   `skb export --include=users,auth,notepages,blocks,...`
+   → 生成标准化 archive
+2. operator 改 install profile（如 DB_TYPE = "postgres" + DATABASE_URL）
+3. operator 用新 image / 新配置 redeploy
+4. operator 导入数据: `skb import <archive>`
+   → SHCKB 校验 schema 兼容性 + 写入新 instance
+5. operator 验证: admin 登录 + 抽查 notepage
+```
 
-- **Pre-upgrade dry-run tool**：CLI `skb upgrade dry-run` 显示会 migrate 的 schema + plugin；不实际写
-- **Backup before upgrade prompt**：upgrade 前提示 operator 跑 backup；admin 可 skip 但有 warning
+**承诺 + M2 scope**（per Codex 2026-05-21 finding 4；避免 M2 偷偷承诺 migration）：底层组件替换是 **导出 → redeploy → 导入** 三步 workflow（per [authentication.md] L3 replacement + [plugin-system.md] adapter variant change ladder）。**Rare** event。
 
-### Nice-to-have (Phase 2+)
+- **M2**: 仅把此 workflow **文档化为 future contract**；**不 ship CLI skeleton；无 user-facing migration guarantee**（与 [identity.md] "L3 replacement migration M2 不 ship" 对齐）
+- **M3**: `skb export` / `skb import` CLI skeleton ship
+- **M4**: verified import (schema 兼容性校验完整) + full migration runbook
 
-- **Auto-backup before upgrade**：upgrade 前 SHCKB 自动跑 backup（per [runtime.md] backup schedule）—— Phase 2+ 因为需要 backup integration
+### 跨场景共通体验
 
-## §5 L3 replacement migration
+- **Setup screen + CLI feedback**: 任何 setup-time 操作的 progress / failure / next-step operator 立即可见，不需 grep deep logs
+- **Failure recovery**: 失败 → reject startup + 清晰 error message + 修复指引；preflight / transactional failure 保留旧 state；已部分执行的 migration 失败则按 backup + runbook recovery
+- **Documentation pointer**: setup screen / CLI output 含 link to relevant runbook section（future engineering/runbooks/）
 
-### User stories
+---
 
-- As an **operator switching DB from SQLite (Solo) → Postgres (Team scale grew)**, I want to **走 export → redeploy with Postgres config → import workflow**（per [self-host-deploy.md] adapter change ladder），so that **数据完整迁移到新 DB engine**
-- As an **operator switching AuthAdapter implementation**（per [authentication.md] 4-layer L3 replacement；如 Better Auth adapter → Auth.js adapter），I want to **走同 export-redeploy-import workflow**，so that **user pool 不丢；session 重 issue OK**
+## MVP — minimum shippable (M2)
 
-### Must (M4 — migration workflow Phase 2+ aspiration；M4 baseline)
+**操作能力** (operator 在 M2 可以做的):
 
-- **Export tool**：`skb export --include=users,auth,notepages,blocks,sessions,blob-refs,etc.` → 输出 standardized archive（format 归 future ADR）
-- **Import tool**：`skb import <archive>` → write 新 instance；schema 校验 + 兼容性 check
-- **Migration runbook**：step-by-step operator 操作（归 future `engineering/runbooks/`；本 PRD mandate 存在）
-- **L1 / L2 永远不换**（per [authentication.md] invariant 同源）：本 migration workflow 只 cover L3 replacement / 完整 provider model 替换；L1 / L2（SHCKB auth subsystem / AuthAdapter interface / 等）不在 migration scope
+- ✅ **First install via Docker compose**（Canonical OCI image；per [ADR-0001] tier 1）
+- ✅ **First install via single-binary**（Bun；per [ADR-0001] tier 2）
+- ✅ **First admin via install bootstrap**（per [identity.md] invariant）：production/public profile 缺 admin → reject startup；localhost/dev profile → force first-admin setup screen + one-time setup token
+- ✅ **Initial adapter config**（首次选底层组件）：DB (SQLite/Postgres/MySQL via Drizzle) / Storage (local-fs/S3) / Search (FTS5/tsvector/Meilisearch) / Backup (local/S3)；Solo NAS profile 有 sensible defaults（零配置 work）
+- ✅ **Config change baseline**（可叠加配置变更 = L4 option add）：改 config + redeploy + 与既有共存；**M2 verified 例子**：cookie domain / session TTL / signup policy / backup retention。**OAuth 不在 M2**（待 [identity.md] promote；当前 M3+）
+- ✅ **SHCKB version upgrade**：startup 时 forward schema migration；migration 失败 → reject startup + 不静默继续（"旧 schema 未变" 保证只限 transactional/preflight-safe；完整 recovery 靠 backup/runbook）
+- ✅ **底层组件替换 (L3 replacement)**：M2 仅 **文档化为 future contract**；不 ship CLI；无 user-facing migration guarantee（CLI skeleton M3 / verified import M4）
 
-### Should (Phase 2+)
+**M2 demo flow** (operator zero → running notepage)：
 
-- **Partial migration**：只 migrate 部分 user / 部分 notepage
-- **Cross-instance migration**：从另一 SHCKB instance import（per [project.md] "operator pool 独立" 限制：不算 federated identity；是 explicit operator-initiated copy）
+```
+# production/public profile canonical path (profile seed admin):
+install profile 含 admin 账号
+  → docker compose up -d
+  → 浏览器访问
+  → 用 admin 账号登录 (无需 setup screen)
+  → 创建 author 用户
+  → author 登录
+  → 创建 markdown notepage
+  → 全流程 < 10 min ✓
 
-### Nice-to-have (Phase 2+)
+# localhost/dev profile 便利 path:
+docker compose up -d (install profile 未 seed admin)
+  → 浏览器访问 → first-admin setup screen (带 one-time setup token)
+  → 创建 admin → 后续同上
+```
 
-- **Bi-directional migration**：rollback to old L3 implementation（需 dual-import；rare）
+**M2 acceptance gates**（M-stage scope 必须 explicit + mechanically reviewable per Codex form 建议）：
 
-## Cross-cutting setup-time invariants
+- Production canonical E2E（profile seed admin → login → author → notepage）passes < 10 min
+- **First-admin by profile**：production/public profile 缺 admin → startup reject + 清晰提示；localhost/dev profile → setup screen + one-time token work
+- Single-binary 跟 Docker compose 行为对齐（同 source；同 user experience）
+- Adapter config validation at startup（缺必填项 reject）
+- **Config change (L4) coexist**：改 cookie domain / session TTL / signup policy / backup retention 之一 + redeploy → 生效 + 现有 user 不变（**OAuth 不作 M2 gate**）
+- **Upgrade migration**：forward-only；失败 → reject startup + 不静默继续（"旧 schema 未变" 只 assert transactional/preflight cases）
+- **底层组件替换 (L3)**：M2 仅 verify "workflow documented as future contract"；**无 CLI skeleton gate，无 user-facing migration guarantee**
+
+---
+
+## Progressive completeness (M3 → M4)
+
+### M3 — deploy breadth + tooling
+
+operator 体验提升点：
+
+- **NAS-specific templates**（Synology DSM Docker / TrueNAS apps / Unraid Community Apps；至少一个 verify）→ NAS operator 不需手写 Docker compose
+- **VPS templates**（含 systemd unit + Caddy reverse proxy）→ VPS operator 不需手写 reverse proxy + TLS
+- **Pre-deploy validation CLI**（`skb config validate`）→ operator redeploy 前 detect config 冲突，不会 redeploy 后才 startup 失败
+- **Backup-before-upgrade prompt** → upgrade 前提示 operator 跑 backup（per [runtime.md] backup integration）
+- **底层组件替换 CLI skeleton**（`skb export` / `skb import`）→ 从 M2 的 "future contract marker" 升级为可跑的 CLI（但 verified import 校验在 M4）
+- **Audit trail webapp view**（per [identity.md] M3）→ admin 看 setup-time 历史 (install / upgrade / migration / config change) 不需 grep log
+
+### M4 — production polish + 5-mode verify
+
+- **Cloudflare Workers tier 3** verify（per [ADR-0001] tier 3）→ Workers operator 知道哪些 feature 在 Workers runtime 不可用（如 long-running migration timeout）；known constraint 文档化不静默失败
+- **5 deploy mode 全 verify**：Docker compose / single-binary / NAS / VPS / Workers 各跑 M2 acceptance E2E
+- **底层组件替换 complete workflow**：M3 CLI skeleton 升级为 **verified import**（schema 兼容性校验完整）+ migration runbook (归 future engineering/runbooks/；PRD mandate 存在) → operator 能完整执行 L3 replacement
+- **Operator runbook baseline**：key rotation / DR / scaling baseline 文档化（per [self-host-deploy.md] M4）
+
+---
+
+## Done — final horizon (Phase 2+)
+
+"什么情况算 setup-time 这块完成了"：
+
+- **Pre-upgrade auto-backup**：upgrade 前 SHCKB 自动跑 backup（依赖 [runtime.md] backup integration M3+）
+- **Cross-instance migration**：从另一 SHCKB instance import（不是 federated identity；是 explicit operator-initiated copy；per [project.md] non-goal 限制）
+- **Bi-directional rollback**：rollback to old L3 implementation（需 dual-import + 数据兼容窗口；rare event）
+- **Partial migration**：只 migrate 部分 user / 部分 notepage（rare；归 future）
+- **Auto rollback on migration failure**：当前 M2 mandate 只到 "reject startup + 不静默继续"（旧 schema 保证限 transactional/preflight）；未来可加完整 auto-rollback（含已部分执行的 migration 回滚 + OCI image 回退）；rare value vs cross-DB-engine complexity
+- **K8s / enterprise orchestration**：per [project.md] non-goal until owner override；Phase 2+ 才考虑
+
+---
+
+## Reference
+
+> 以下 section 是 lookup 用；不是 narrative arc 一部分。Implementation team / reviewer 需要 specific 信息时来这里查。
+
+### Cross-cutting setup-time invariants
 
 | Invariant | 含义 |
 |---|---|
-| **All setup-time operations require redeploy** | 没有 runtime config hot reload；改 config = redeploy；统一 mental model |
-| **Failure-isolated** | Setup-time 失败 → startup reject + 保留旧状态 + 清晰错误；不 partial state |
-| **Operator-observable** | Setup-time 操作的 success / failure / progress 都 operator-visible（log / CLI output / setup screen）|
+| **All setup-time = redeploy** | 没有 runtime config hot reload；改 config = redeploy；统一 mental model |
+| **Failure-isolated** | Redeploy / migration 失败 → reject startup + 清晰错误 + 不静默继续；**"保留旧 state" 只在 transactional / preflight-failed cases 保证**；migration 已部分执行才失败 → 完整 recovery 靠 backup + runbook（per Codex 2026-05-21 finding 3）|
+| **Operator-observable** | Setup-time 操作的 success / failure / progress operator-visible（log / CLI output / setup screen）|
 | **Idempotent re-run** | 同 install profile + 同 env 多次 redeploy → 结果一致；不重复 init / 不破现有 state |
 | **No silent fallback** | 缺 admin credential / 缺必填 config / unknown profile → reject startup；不静默 fallback default |
-| **Adapter change ladder**（per round 5）| L4 option add = config + redeploy + coexist；L3 replacement = export → redeploy → import；L1/L2 = NEVER |
+| **Adapter change ladder** | L4 option add = config + redeploy + coexist；L3 replacement = export → redeploy → import；L1/L2 = NEVER（per [authentication.md] 4-layer + [plugin-system.md] round 5 sync）|
 
-## Acceptance criteria
+### Non-goals
 
-### M2
+- ❌ **Runtime config hot reload** —— 想改 config = redeploy；简化 internal state mgmt
+- ❌ **K8s / enterprise orchestration** —— per [project.md] non-goal
+- ❌ **Multi-region active-active migration** —— Phase 2+
+- ❌ **Library 内部 token / schema / migration tooling 决策** —— 归 library + future ADRs
+- ❌ **Specific runbook step-by-step** —— 归 future `engineering/runbooks/`
+- ❌ **Plugin marketplace deploy** —— Phase 2+
 
-- **§1 First-time install**：Docker compose + single-binary 都 < 10 min E2E onboarding；first-admin detect + reject startup if 漏配
-- **§2 Initial adapter config**：Solo NAS default 零配置 work；Team VPS 可选 Postgres + S3
-- **§3 L4 option add**：加 1 个 provider option（如新 OAuth）+ redeploy → coexist 验证；secrets 改 + redeploy → session 不破
-- **§4 Upgrade**：schema migration on startup work；failure → reject startup 保旧 schema
-- **§5 L3 replacement**：baseline export tool（出 archive）；import tool 接受 archive（M4 完整 verify）
-
-### M3
-
-- NAS / VPS templates ship
-- Pre-deploy validation tool
-- Migration importer 完整 verify
-- Backup-before-upgrade prompt
-
-### M4
-
-- 5 deploy mode 跨 setup-time 全 verify
-- L3 replacement migration workflow 完整（runbook + tooling）
-- Workers tier 3 setup path verify（或 known constraint 文档化）
-
-## Edge cases
+### Edge cases
 
 | 场景 | 期望行为 |
 |---|---|
 | Docker compose up 后 DB connection 失败 | Startup reject + 清晰 error + 修复提示（"check DATABASE_URL env"）|
-| Install profile 漏配 admin credential | Reject startup OR force first-admin setup screen（per A5）；不静默 fallback "第一访问者成 admin" |
+| Install profile 漏配 admin credential（production/public profile）| Reject startup + 清晰提示（per [identity.md]）；不静默 fallback "首访问者成 admin" |
+| Install profile 漏配 admin credential（localhost/dev profile）| Force first-admin setup screen + one-time setup token（防局域网他人抢注）|
 | Operator 改 env DOMAIN + redeploy | Cookie domain / OAuth callback / SEO meta 全 sync；现有 session 视 library policy invalidate / 保留 |
-| Upgrade migration 中途失败 | Reject + 保留旧 schema + 清晰错误；operator 走 runbook recovery |
+| Upgrade migration 中途失败 (transactional / preflight) | Reject startup + 旧 schema 未变 + 清晰错误 |
+| Upgrade migration 已部分执行才失败 (e.g. 非事务 DDL) | Reject startup + 不静默继续；旧 schema 可能已部分改；完整 recovery 靠 backup + runbook |
 | Operator export archive 后改 schema 又 import | Import 校验 schema 兼容；不兼容 → reject import + 提示版本 mismatch |
 | 漏配 storage S3 但选 S3 provider | Startup reject + 提示 "S3_BUCKET / S3_ACCESS_KEY 缺失" |
 | Concurrent redeploy (rare race) | 第二个 redeploy 等第一个完成 OR reject；具体归 implementation |
-| L3 replacement 中 import 失败 | Restore 到 redeploy 前 state（rollback OCI image + 旧 archive）；归 future migration runbook |
+| 底层组件替换 (L3) 中 import 失败 | Operator 持有 export archive（migration 前导出）；可 rollback OCI image + 重新 import 旧 archive；具体 recovery 步骤归 future migration runbook（M4）|
+| Plugin 内 schema 跟 SHCKB version 不兼容 | Upgrade migration reject + 提示 plugin version requirement；不静默丢 plugin data |
 
-## Dependencies
+### Dependencies
 
 - **Parent PRD**: [self-host-deploy.md](./self-host-deploy.md)
 - **Sibling PRDs**: [runtime.md](./runtime.md)
 - **Cross-folder PRDs**:
-  - [authentication.md](../authentication/authentication.md) — install bootstrap 提供 admin credential + signing key + L4 provider option config
-  - [notepage.md](../notepage/notepage.md) — URL / SSR 跨 mode 一致（cross-feature seam）
+  - [authentication.md](../authentication/authentication.md) — 4-layer abstraction + AuthAdapter (top)
+  - [authentication/identity.md](../authentication/identity.md) — first admin + L4 provider config + signup policy
+  - [authentication/pep.md](../authentication/pep.md) — PEP middleware behavior cross-deploy-mode 一致
+  - [notepage.md](../notepage/notepage.md) — URL / SSR / SEO 跨 mode 一致（cross-feature seam）
   - [theme-system.md](../theme-system/theme-system.md) — SSR theme bundling 一致
   - [plugin-system.md](../plugin-system/plugin-system.md) — plugin closed registry deploy
 - **External services**: Container runtime / Optional reverse proxy / Optional SMTP / Optional S3-compat
 
-## Open questions
+### Open questions
 
 1. **Migration archive format**：JSON / SQLite dump / 自定 binary？归 future migration workflow ADR
-2. **Plugin migration data ownership during L3 DB engine replacement**：plugin sidecar tables（[ADR-0002] deferred）怎么 export-import；归 future ADR
+2. **Plugin migration data ownership during L3 DB engine replacement**：plugin sidecar tables export-import semantics；归 future ADR
 3. **Workers tier 3 setup-time gap**：Workers 不支持 long-running process（migration 可能 timeout）；setup-time 在 Workers 走什么 path；归 M4 verify
-4. **Auto rollback on migration failure**：当前 mandate "reject + 保旧 schema"；是否要 auto rollback OCI image 到旧 version？倾向 not auto（operator-active 决策）；归 future runbook
+4. **Auto rollback on migration failure**：当前 M2 mandate 只到 "reject startup + 不静默继续"；是否要 auto rollback OCI image 到旧 version（含已部分执行 migration 的回滚）？倾向 not auto（operator-active 决策；跨 DB engine 复杂）；归 future runbook
+5. **Pre-deploy validation tool 范围**：纯 config schema validate / 还是含 DB connection probe / S3 reachability check？trade-off 复杂度 vs setup confidence
 
-## Surfaced ADR debts
+### Surfaced ADR debts
 
 - **Migration archive format (new)**：归 future migration workflow ADR；含 schema version metadata / partial migration support / 跨 deploy mode 兼容
 - **Install profile schema validation timing**：startup pre-check vs lazy check；归 [ADR-0018] follow-up
 - **Plugin migration 跟 L3 DB replacement 协同**：plugin sidecar tables export-import semantics；归 future ADR + [ADR-0014] cross-ref
 - **Versioning compatibility window**：n-2 跳级 support；具体 window definition 归 future versioning ADR
+- **Workers setup-time path**：long-running migration 在 Workers runtime constraint；归 [ADR-0001] Workers tier 3 follow-up
 
-详 [AUDIT-2026-05.md] PRD-surfaced debts log。
+详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) PRD-surfaced debts log。
 
-## References
+### References
 
-- **Aligning ADRs**:
+- **Aligning ADRs**（pending PRD-driven rework；详顶部 disclaimer）:
   - [ADR-0001](../../../../engineering/decisions/ADR-0001-deployment-canonical-artifact.md) — Canonical OCI + 3-tier support
   - [ADR-0018](../../../../engineering/decisions/ADR-0018-install-bootstrap.md) — install profile + first admin
   - [ADR-0002](../../../../engineering/decisions/ADR-0002-substrate-db-backed.md) — schema migration baseline
@@ -256,9 +356,17 @@
   - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — plugin migration
 - **Parent**: [self-host-deploy.md](./self-host-deploy.md)
 - **Sibling**: [runtime.md](./runtime.md)
-- **Discussion record**: [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section G follow-up — adapter change ladder cross-cutting
+- **Discussion record**: [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section G follow-up — adapter change ladder cross-cutting；[self-host-setup-time-2026-05-21.md](../../../../engineering/design/discussions/self-host-setup-time-2026-05-21.md) — narrative form review + Codex 4 findings
 - **Audit register**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
 
-## Changelog
+### Changelog
 
-- 2026-05-17 initial draft (Phase E Day-1 PRD #4 sub-PRD)；setup-time = operator-active redeploy 期间；5 H2 sections (first install / initial adapter config / L4 option add / upgrade / L3 replacement migration)；6 cross-cutting setup-time invariants；M2 / M3 / M4 acceptance；surface 4 ADR debts (migration archive format / install profile validation timing / plugin migration during L3 replacement / versioning compatibility window)
+- 2026-05-17 initial draft (Phase E Day-1 PRD #4 sub-PRD)；setup-time = operator-active redeploy 期间；5 H2 sections (first install / initial adapter config / L4 option add / upgrade / L3 replacement migration)；6 cross-cutting setup-time invariants；M2 / M3 / M4 acceptance；surface 4 ADR debts
+- 2026-05-18 **pass 2 — 总分总 narrative 重写**（per owner 2026-05-18 framing "PRD 应该总分总；whole picture + UX 是关键部分能复用到 ADR / release / PR"）：结构重组为 What / Why / Whole picture (timeline diagram) / User-facing experience (4 typical operator events 详细 walk-through) + MVP / Progressive / Done milestone narrative + Reference sections 尾部。删除原来 5 H2 sections 平铺 + 各段 Must/Should/Nice-to-have 列表方式；改为 narrative arc。Whole picture + UX section 写为 self-contained reusable artifact（可复用到 ADR / release notes / PR description）
+- 2026-05-21 **pass 3 — Codex 4 findings scope cleanup + 易读性**（per [self-host-setup-time-2026-05-21.md] discussion record + owner 易读性指令）：
+  - **Finding 1**: M2 不再承诺 OAuth provider add（identity.md OAuth 是 M3+）；T2 scenario reframe 为通用"配置选项变更"，M2 example 用 cookie domain / session TTL / signup policy / backup retention；OAuth 标待 auth PRD promote
+  - **Finding 2**: First-admin 路径按 profile 区分（production/public 缺 admin → reject startup；localhost/dev → setup screen + one-time setup token）；M2 canonical = profile seed admin 直接 login；demo flow / acceptance / edge case 全 sync
+  - **Finding 3**: Migration failure 承诺收紧——"保留旧 schema" → "reject startup + 不静默继续；旧 schema 保证只限 transactional/preflight-safe；完整 recovery 靠 backup/runbook"（跨 SQLite/Postgres/MySQL DDL 事务化不一）
+  - **Finding 4**: M2 L3 replacement skeleton → future contract marker（M2 无 user-facing migration guarantee + 无 CLI gate）；CLI skeleton 移 M3；verified import + runbook 移 M4
+  - **易读性 (owner 指令)**: L4/L3 术语第一次出现给平实解释（"可叠加配置变更" / "底层组件替换"）；UX scenario step 中文平实化；术语作辅助不作主语
+  - **Form note (per Codex Section C)**: narrative-first form 适用 lifecycle/operator/system-facing PRD；narrow feature PRD 仍需 explicit user stories + acceptance gates visible for grep；M-stage scope 不能被 narrative 藏（M2/M3/M4 acceptance 保持 explicit + mechanically reviewable）
