@@ -21,7 +21,7 @@ Concrete block behavior belongs in sub-PRDs:
 
 | Sub-PRD | Status | Scope |
 |---|---|---|
-| [block-markdown.md](./block-markdown.md) | draft | M2 product-complete markdown block and markdown editor runway |
+| [block-markdown.md](./block-markdown.md) | draft | M2 product-complete markdown block and editor replacement boundary |
 | [block-image.md](./block-image.md) | skeleton | image/media block candidate |
 | [block-code.md](./block-code.md) | skeleton | code block candidate |
 | [block-drawing.md](./block-drawing.md) | skeleton | bounded drawing/sketch/diagram block candidate |
@@ -47,15 +47,29 @@ For M2 this mainly applies to markdown. For later milestones it means image, cod
 ```text
 notepage = page identity / visibility / routes / public state / layout workflow
 grid state = geometry / placement / collision / gravity
-block = content model / edit surface / render surface / fallback / extraction
+block instance = one concrete content carrier inside a notepage
+block kind = content capability type such as markdown / image / code / drawing
 plugin system = registration / extension authoring / sandbox / versioning
 ```
 
-A block is consumed by notepage but not owned by notepage. A block may be implemented through plugin-system mechanics, but the product contract exists even for built-in blocks.
+A block instance is consumed and hosted by notepage, but its content semantics are owned by its block kind. A block kind may be implemented through plugin-system mechanics, but the product contract exists even for built-in block kinds.
 
 ---
 
 ## Product Decisions
+
+### Core Terminology
+
+| Term | Meaning |
+|---|---|
+| **Block kind** | A content capability type, such as markdown, image, code, or drawing. It defines content model, edit surface, render surface, fallback, extraction, accessibility, and responsive behavior. |
+| **Block instance** | One concrete block hosted inside one notepage. It has identity, kind, durable content, and instance-local transient editing state. Its placement is associated by the notepage/GridState host rather than owned by block content semantics. |
+| **Block content** | The durable user-authored payload owned by one block instance. Its shape is defined by the block kind. |
+| **Block surface** | The edit/render/extract/fallback behavior that a block kind exposes to host surfaces such as notepage edit, notepage view, search, export, and future AI. |
+
+A notepage can contain multiple block instances of the same kind and multiple block instances of different kinds. Two markdown block instances share the markdown kind contract, but their content and transient editor state are separate.
+
+Block instance identity is the join point between notepage layout and block content. Notepage/GridState can place and order an instance; the block kind interprets the instance content. Editing content must not imply geometry ownership.
 
 ### Block Is A Top-Level Abstract
 
@@ -76,9 +90,9 @@ Examples:
 
 ### Block vs Plugin-System
 
-Plugin-system is the extension framework. Blocks are product content kinds.
+Plugin-system is the extension framework. Blocks are product content carriers and content-kind capabilities.
 
-The built-in block kinds must satisfy this PRD even if third-party plugin installation is not available. `plugin-system/new-block.md` should eventually narrow to extension-author concerns: how a developer creates a new block kind, declares capabilities, handles versioning, and registers with the framework.
+The built-in block kinds and their instances must satisfy this PRD even if third-party plugin installation is not available. `plugin-system/new-block.md` should eventually narrow to extension-author concerns: how a developer creates a new block kind, declares capabilities, handles versioning, and registers with the framework.
 
 ### Naming: Drawing, Not Canvas
 
@@ -108,7 +122,7 @@ Discussion as a block-like surface remains owned by future `discussion/` until t
 
 ## Shared Block Contract
 
-Each concrete block PRD must define these surfaces when applicable:
+Each concrete block-kind PRD must define these surfaces when applicable:
 
 | Surface | Product responsibility |
 |---|---|
@@ -121,6 +135,8 @@ Each concrete block PRD must define these surfaces when applicable:
 | Accessibility | How non-visual users can understand or operate the block. |
 | Responsive baseline | How content remains usable under notepage viewport projection. |
 | Future semantic operations | What later AI/API operations may act on, without requiring M2 AI features. |
+
+The intended implementation shape is a deep block-kind module: notepage, search, export, and future AI should consume the same block surface instead of learning each block kind's internal representation. Exact TypeScript interfaces remain downstream, but the product interface is stable enough to prevent repeated special-casing.
 
 ---
 
@@ -195,11 +211,6 @@ Scenario: Block exposes extraction behavior
 PRD-layer upstream dependencies:
 
 - **Parent PRD**: [project.md](../../project.md)
-- **Concrete block PRDs**:
-  - [block-markdown.md](./block-markdown.md)
-  - [block-image.md](./block-image.md)
-  - [block-code.md](./block-code.md)
-  - [block-drawing.md](./block-drawing.md)
 - **Cross-folder PRDs**:
   - [notepage.md](../notepage/notepage.md)
   - [notepage-editing.md](../notepage/notepage-editing.md)
@@ -224,7 +235,7 @@ PRD-layer upstream dependencies:
 
 ## Surfaced ADR Debts
 
-- **[ADR-0013] markdown editor runway**: see [block-markdown.md](./block-markdown.md).
+- **[ADR-0013] markdown editor framing**: see [block-markdown.md](./block-markdown.md) for the replacement-boundary framing that should supersede legacy rich-editor assumptions.
 - **[ADR-0004] block plugin model naming/scope**: ADR title and scope may still imply plugin = block. Blocks PRD separates product content kind from plugin extension mechanics.
 - **[ADR-0014] plugin contract granularity**: contract fields should align to block product obligations without forcing product PRD to own TypeScript details.
 - **[ADR-0005] agent semantic API**: block semantic operations should consume this block contract later; M2 does not require user-visible AI.
@@ -250,4 +261,5 @@ See [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) for P
 ## Changelog
 
 - 2026-05-23 initial draft: created separate `blocks/` feature PRD for block content-kind capability; separated block product contract from notepage workflow and plugin-system extension-author lifecycle.
-- 2026-05-23 parent/sub-PRD split: narrowed `blocks.md` to the top-level block abstraction; moved markdown-specific M2/runway detail to [block-markdown.md](./block-markdown.md); added skeleton sub-PRDs for image, code, and drawing; removed callout and standalone math from the current candidate list.
+- 2026-05-23 parent/sub-PRD split: narrowed `blocks.md` to the top-level block abstraction; moved markdown-specific M2/editor detail to [block-markdown.md](./block-markdown.md); added skeleton sub-PRDs for image, code, and drawing; removed callout and standalone math from the current candidate list.
+- 2026-05-23 closeout pass: clarified block instance placement ownership, removed concrete sub-PRDs from upstream dependencies, replaced legacy markdown editor wording with editor replacement framing, and captured the block-kind module as the stable product interface.
