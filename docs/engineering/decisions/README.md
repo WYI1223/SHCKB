@@ -2,6 +2,8 @@
 
 **Append-only** decision records。锁定后内容不改；变更走 supersede 机制。
 
+> **GLOBAL DEPRECATION NOTICE (2026-05-23)**: ADR-0001 through ADR-0018 are deprecated legacy drafts. They are retained for historical trace only and MUST NOT be used as authoritative sources for product behavior, architecture, implementation planning, or technology-stack selection. All future technology choices must be derived from current PRDs and product shape, then captured in new PRD-informed ADRs.
+
 ## 规则
 
 详见 [adr-discipline.md]（footer 含 link）。摘要：
@@ -35,9 +37,9 @@
 
 ## ADR Index
 
-**Review status (2026-05-16)**: ADR-0001..0016 由 Phase B 批量起草，初始误标 `accepted`；现已全部改回 `proposed` 等 owner review-gate。Owner 逐个 / 逐批确认后改 `accepted`。
+**Global status (2026-05-23)**: ADR-0001..0018 全部标记为 `deprecated (legacy draft; PRD-rework required)`。旧 ADR 只作为 history / discussion trace；不得作为技术栈选择依据。后续 ADR 必须在 PRD 完成后，从当前产品形态重新推导并重新 ratify。
 
-Owner review findings 已处理：
+Historical owner review findings（仅作 trace，不构成当前决策依据）：
 
 - [ADR-0017] 是 owner review [ADR-0002] 时新增（backup 从 substrate 剥离成独立 pluggable concern）
 - [ADR-0001] owner review pass 1 (2026-05-14) 指出原稿是 product vision 不是 decision → product 定义剥离到 [project.md]；[ADR-0001] reframe 为真正决策 "canonical deployment artifact"
@@ -50,24 +52,24 @@ Audit register 详 [AUDIT-2026-05.md]（footer 含 link）。
 
 | ADR | 主题 | Status | Source frozen DI § |
 |---|---|---|---|
-| [ADR-0001](./ADR-0001-deployment-canonical-artifact.md) | Deployment — multi-arch OCI container image as canonical artifact | proposed | architecture-rebuild §0.6（product 定义剥离 project.md；installer 剥离 ADR-0018）|
-| [ADR-0002](./ADR-0002-substrate-db-backed.md) | Substrate: DB-backed + plugin serializer | proposed | architecture-rebuild §3 + §6 L1 |
-| [ADR-0003](./ADR-0003-grid-engine-contract.md) | Grid-engine layer — constrained canvas 的架构 induction（pass 2 reframe） | proposed | grid-redesign + architecture-rebuild §2（contract 下沉至 grid-engine CONTRACT.md）|
-| [ADR-0004](./ADR-0004-block-plugin-model.md) | Block plugin extension model | proposed | architecture-rebuild §4 |
-| [ADR-0005](./ADR-0005-agent-semantic-api.md) | AI agent semantic API（agentOps = block-scoped tool use）| proposed | architecture-rebuild §5 + §11.3 |
-| [ADR-0006](./ADR-0006-backend-stack.md) | Backend stack（TS + Bun + Hono + Drizzle multi-dialect）| proposed | architecture-rebuild §11.7 + §11.8 |
-| [ADR-0007](./ADR-0007-storage-abstraction.md) | Storage provider abstraction（local FS + S3-compatible）| proposed | architecture-rebuild §11.13 |
-| [ADR-0008](./ADR-0008-search-abstraction.md) | Search provider abstraction（SQLite FTS5 + Postgres tsvector + external）| proposed | architecture-rebuild §11.14 |
-| [ADR-0009](./ADR-0009-api-style.md) | API style: GET + POST collapsed | proposed | architecture-rebuild §11.12 |
-| [ADR-0010](./ADR-0010-performance-budget.md) | Performance + Lighthouse acceptance（90+ + backend SLO）| proposed | architecture-rebuild §11.10 |
-| [ADR-0011](./ADR-0011-sandboxing-evolution.md) | Plugin sandboxing evolution（inline → worker → WASM）| proposed | architecture-rebuild §11.15 |
-| [ADR-0012](./ADR-0012-openapi-gen.md) | OpenAPI gen 链路（zod-first + REST + agent registry split）| proposed | architecture-rebuild §5.5 + §11.12 |
-| [ADR-0013](./ADR-0013-markdown-tile-editor.md) | Markdown tile editor（Lexical WYSIWYG + DB markdown source）| proposed | architecture-rebuild §11.1 |
-| [ADR-0014](./ADR-0014-plugin-contract.md) | Plugin contract details（agentOps signature / capability ctx / versioning）| proposed | architecture-rebuild §11.3 |
-| [ADR-0015](./ADR-0015-agent-wire-protocol.md) | Agent wire protocol（MCP + SKILL.md 双层 + REST + SSE）| proposed | architecture-rebuild §11.4 |
-| [ADR-0016](./ADR-0016-css-framework.md) | CSS framework（Tailwind 4 + cva + shadcn ui + grid-themes）| proposed | architecture-rebuild §11.16 |
-| [ADR-0017](./ADR-0017-backup-strategy.md) | Backup strategy（pluggable BackupProvider）| proposed | — (owner review of ADR-0002, 2026-05-14) |
-| [ADR-0018](./ADR-0018-install-bootstrap.md) | Install bootstrap（single-entry installer + profile selection + config generation）| proposed | architecture-rebuild §0.6 + §11.11（external review of ADR-0001, 2026-05-16） |
+| [ADR-0001](./ADR-0001-deployment-canonical-artifact.md) | Deployment — multi-arch OCI container image as canonical artifact | deprecated (legacy draft) | architecture-rebuild §0.6（product 定义剥离 project.md；installer 剥离 ADR-0018）|
+| [ADR-0002](./ADR-0002-substrate-db-backed.md) | Substrate: DB-backed + plugin serializer | deprecated (legacy draft) | architecture-rebuild §3 + §6 L1 |
+| [ADR-0003](./ADR-0003-grid-engine-contract.md) | Grid-engine layer — constrained canvas 的架构 induction（pass 2 reframe） | deprecated (legacy draft) | grid-redesign + architecture-rebuild §2（contract 下沉至 grid-engine CONTRACT.md）|
+| [ADR-0004](./ADR-0004-block-plugin-model.md) | Block plugin extension model | deprecated (legacy draft) | architecture-rebuild §4 |
+| [ADR-0005](./ADR-0005-agent-semantic-api.md) | AI agent semantic API（agentOps = block-scoped tool use）| deprecated (legacy draft) | architecture-rebuild §5 + §11.3 |
+| [ADR-0006](./ADR-0006-backend-stack.md) | Backend stack（TS + Bun + Hono + Drizzle multi-dialect）| deprecated (legacy draft) | architecture-rebuild §11.7 + §11.8 |
+| [ADR-0007](./ADR-0007-storage-abstraction.md) | Storage provider abstraction（local FS + S3-compatible）| deprecated (legacy draft) | architecture-rebuild §11.13 |
+| [ADR-0008](./ADR-0008-search-abstraction.md) | Search provider abstraction（SQLite FTS5 + Postgres tsvector + external）| deprecated (legacy draft) | architecture-rebuild §11.14 |
+| [ADR-0009](./ADR-0009-api-style.md) | API style: GET + POST collapsed | deprecated (legacy draft) | architecture-rebuild §11.12 |
+| [ADR-0010](./ADR-0010-performance-budget.md) | Performance + Lighthouse acceptance（90+ + backend SLO）| deprecated (legacy draft) | architecture-rebuild §11.10 |
+| [ADR-0011](./ADR-0011-sandboxing-evolution.md) | Plugin sandboxing evolution（inline → worker → WASM）| deprecated (legacy draft) | architecture-rebuild §11.15 |
+| [ADR-0012](./ADR-0012-openapi-gen.md) | OpenAPI gen 链路（zod-first + REST + agent registry split）| deprecated (legacy draft) | architecture-rebuild §5.5 + §11.12 |
+| [ADR-0013](./ADR-0013-markdown-tile-editor.md) | Markdown tile editor（Lexical WYSIWYG + DB markdown source）| deprecated (legacy draft) | architecture-rebuild §11.1 |
+| [ADR-0014](./ADR-0014-plugin-contract.md) | Plugin contract details（agentOps signature / capability ctx / versioning）| deprecated (legacy draft) | architecture-rebuild §11.3 |
+| [ADR-0015](./ADR-0015-agent-wire-protocol.md) | Agent wire protocol（MCP + SKILL.md 双层 + REST + SSE）| deprecated (legacy draft) | architecture-rebuild §11.4 |
+| [ADR-0016](./ADR-0016-css-framework.md) | CSS framework（Tailwind 4 + cva + shadcn ui + grid-themes）| deprecated (legacy draft) | architecture-rebuild §11.16 |
+| [ADR-0017](./ADR-0017-backup-strategy.md) | Backup strategy（pluggable BackupProvider）| deprecated (legacy draft) | — (owner review of ADR-0002, 2026-05-14) |
+| [ADR-0018](./ADR-0018-install-bootstrap.md) | Install bootstrap（single-entry installer + profile selection + config generation）| deprecated (legacy draft) | architecture-rebuild §0.6 + §11.11（external review of ADR-0001, 2026-05-16） |
 
 ## 编号约定
 

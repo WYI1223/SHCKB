@@ -1,8 +1,10 @@
 # ADR-0014: Plugin contract details — agentOps signature + serializer + versioning
 
+> **DEPRECATED / LEGACY DRAFT (2026-05-23)**: This ADR is retained only as historical carryover. It MUST NOT be used as an authoritative source for product behavior, architecture, implementation plan, or technology-stack choice. Technology choices must be derived from current PRDs and product shape, then captured in new PRD-informed ADRs. Treat any Decision/Consequences/technology names below as suspect until re-ratified.
+
 | Field | Value |
 |---|---|
-| Status | proposed |
+| Status | deprecated (legacy draft; PRD-rework required) |
 | Date | 2026-05-13 |
 | Authors | W_YI + gatekeeper Claude Opus 4.7 |
 | Supersedes | — |
