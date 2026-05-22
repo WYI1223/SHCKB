@@ -173,7 +173,7 @@ PRD 层 upstream 依赖（ADRs 是 downstream，归 References 段）：
 2. **VPS template 推荐 reverse proxy**：nginx / Caddy / Traefik？倾向 Caddy（自动 TLS；简单）；归 implementation phase
 3. **Single-binary build artifact 怎么 ship**：GitHub Releases / 自建 mirror / 兼容容器 image registry？归 [ADR-0001] follow-up
 4. **Workers tier 3 features 降级文档**：哪些 feature 在 Workers runtime 不可用 → user 看到 clear constraint；归 M4 verify gate
-5. **Backup / restore 跨 deploy mode 一致性**：Docker compose backup 出来的 archive 能 restore 到 single-binary instance 吗？倾向 yes（同 schema + same canonical image）；归 setup-time + runtime sub-PRDs verify
+5. **Backup / restore 跨 deploy mode 一致性**：Docker compose backup 出来的 archive 能 restore 到 single-binary instance 吗？倾向 yes（同 schema + same canonical image），但 **cross-deploy restore verification 不是 M2**；具体 milestone follows [runtime.md] restore decision（M3 archive validation / dry-run；M4 canonical local restore smoke；Phase 2+ cross-deploy restore）
 
 ## Surfaced ADR debts
 
@@ -214,3 +214,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 
 - 2026-05-17 initial draft (Phase E Day-1 PRD #4)；framing 为 **operator-facing feature folder**（vs end-user feature / horizontal subsystem）；按 owner 2026-05-17 拍板 **setup-time vs run-time 时间维度二分**（per discussion 候选 Y）；2 sub-PRDs（[setup-time.md] / [runtime.md]）；12 cross-cutting invariants 含 canonical OCI cross-mode / operator-vs-user 边界 / setup-runtime 分层 / adapter change ladder（per round 5 sync）/ secrets baseline / migration workflow / per-tier resource baseline / no-PaaS-dependency / 5 mode = same artifact + diff config；3-tier operator profile + 5 deploy mode 表展开；M2 = Canonical OCI + single-binary；M3 = NAS / VPS templates；M4 = Workers tier 3 verify + 5 mode 全 verify；surface ADR debts (deploy mode M-stage align / install profile 5 vs 3-tier mapping / backend stack + Workers verify / runbook 归属 / migration workflow contract / no-PaaS enforce)
 - 2026-05-21 setup-time sync cleanup：first-admin detection 按 internet-exposed / dev-local bootstrap mode 明确；`<10 min` onboarding 改为 profile-seeded admin login canonical path；dev-local setup screen 作为便利路径；References 增加 setup-time discussion record。
+- 2026-05-22 runtime restore milestone sync：backup/restore cross-deploy open question 明确不是 M2；restore milestone follows [runtime.md]（M3 validation/dry-run；M4 canonical local smoke；Phase 2+ cross-deploy restore）。

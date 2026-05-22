@@ -262,7 +262,7 @@ operator 体验提升点：
 - **NAS-specific templates**（Synology DSM Docker / TrueNAS apps / Unraid Community Apps；至少一个 verify）→ NAS operator 不需手写 Docker compose
 - **VPS templates**（含 systemd unit + Caddy reverse proxy）→ VPS operator 不需手写 reverse proxy + TLS
 - **Pre-deploy validation CLI**（`skb config validate`）→ operator redeploy 前 detect config 冲突，不会 redeploy 后才 startup 失败
-- **Pre-upgrade backup integration** → 从 M2 manual warning 升级为 backup-now shortcut / dry-run / 更强 restore verification（per [runtime.md] backup integration）
+- **Pre-upgrade backup integration** → 从 M2 manual warning 升级为 backup-now shortcut / archive validation / dry-run；canonical restore smoke follows [runtime.md] M4
 - **底层组件替换 CLI skeleton**（`skb export` / `skb import`）→ 从 M2 的 "future contract marker" 升级为可跑的 CLI（但 verified import 校验在 M4）
 - **Audit trail webapp view**（per [identity.md] M3）→ admin 看 setup-time 历史 (install / upgrade / migration / config change) 不需 grep log
 
