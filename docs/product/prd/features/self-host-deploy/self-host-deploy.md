@@ -2,216 +2,323 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (setup-time sync cleanup) |
-| Last updated | 2026-05-21 |
+| Status | draft (pass 2 — operator-lifecycle framing rewrite) |
+| Last updated | 2026-05-22 |
 | Owner | W_YI |
-| Parent PRD | [project.md] |
+| Parent PRD | [project.md](../../project.md) |
 
 > **ADR reference status (2026-05-18 owner framing)**: 本 PRD 引用的**所有 ADR**（含 [ADR-0001] / [ADR-0002] / [ADR-0003]）均 **pending PRD-driven rework round 2**——遵循 owner framing "需求决定架构，架构决定代码与工期"：Phase E PRD 全完成后 ADR 统一 PRD-informed rework；之前标 REWORKED 的 ADR-0001/0002/0003 也需 PRD-informed 再 audit；ADR-0007/0014/0017/0018 的 partial rework 只是 cross-ADR alignment，**不算 final**。**同步规则**：ADR 改动时必须 grep 全 PRD ADR refs 同步修订，避免 PRD ↔ ADR drift。详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) 2026-05-18 entry。
 
-## Overview
+---
 
-**Self-host deployment** 是 SHCKB 的 **operator-facing feature folder**——定义 operator 从 zero 到 running SHCKB instance 的完整生命周期。**Audience = operator**（self-host party），跟其他 feature PRD（notepage / theme-system / plugin-system 的 end-user 或 extension author audience）不同。
+## What this PRD covers
 
-**跟 horizontal subsystem 的关键区别**：
-- Horizontal subsystem (auth / theme / plugin) 影响每个 user request / render / extension
-- Self-host-deploy **不**是 cross-feature horizontal subsystem；是 operator deployment / lifecycle 的产品定义
+Self-host deployment 是 SHCKB 的 **operator-facing feature folder**：定义 self-host operator 如何从 zero 到 running SHCKB instance，并在后续升级、配置、备份、监控、异常处理时维持同一套操作心智。
 
-**关键 framing 二分（per 2026-05-17 owner ratify）**：Self-host operator 的活动按时间维度切两段——**setup-time vs run-time**：
+本 top-level PRD 锁的是 self-host-deploy 的共同产品模型：
 
-| 维度 | Setup-time | Run-time |
-|---|---|---|
-| **Operator 角色** | active；几乎都要 redeploy | passive；SHCKB-autonomous |
-| **触发事件** | First install / config change / option add / upgrade / L3 replacement | 24/7 self-running |
-| **典型操作** | redeploy / migration / secrets change | backup schedule / health check / log / monitoring |
-| **Sub-PRD** | [setup-time.md] | [runtime.md] |
+- **3-tier operator profile**：Solo NAS / Team VPS / Public Cloud。
+- **5 deploy mode**：Canonical OCI / single-binary / NAS template / VPS template / Workers tier 3。
+- **Lifecycle split**：setup-time vs runtime。
+- **Bootstrap security mode**：internet-exposed vs dev-local，正交于 operator profile。
+- **Cross-feature seams**：authentication / notepage / theme / plugin 等 feature 如何受 self-host deploy 约束。
 
-本 PRD top 锁的是 **self-host-deploy 整体 framing + 3-tier operator profile + 5 deploy mode + cross-cutting invariants + cross-feature seams + sub-PRD 索引**。具体阶段细节归各 sub-PRD。
+具体阶段细节不在本 top-level 展开：
 
-## Scope
+- Operator-active 的 first install / config change / upgrade / L3 replacement 归 [setup-time.md]。
+- SHCKB-autonomous 的 backup / health / logs / audit / alerting 归 [runtime.md]。
 
-### 本 PRD 子系统负责（SHCKB-own）
+---
 
-- **3-tier operator profile coverage**（Solo NAS / Team VPS / Public Cloud；per [project.md]）
-- **5 deploy mode** 的 user-observable behavior 一致（per [ADR-0001]）
-- **Canonical OCI image cross-mode consistency**（同 image + diff config；不为每 mode 分叉 build）
-- **Operator vs end-user 边界** invariants（跟 [authentication.md] invariant 6 同源）
-- **Setup-time vs Run-time 时间维度分层**（per 2026-05-17 framing）
-- **Cross-feature seams**：跟 authentication / notepage / theme-system / plugin-system 协同
-- **Build vs Buy = Build SHCKB own + standard tools**（Docker / systemd / wrangler；不依赖 PaaS 如 Coolify / Dokploy）
+## Why
 
-### 本 PRD 子系统不负责（边界另一边谁负责）
+**为什么 self-host deployment 是产品能力，不只是打包方式**：
 
-| 不负责 | 归 | 类型 |
-|---|---|---|
-| AuthAdapter implementation 细节 / library 内部 token | [authentication.md] + future auth library selection ADR | feature + ADR |
-| Notepage URL / SSR / SEO behavior | [notepage.md] | feature PRD |
-| Theme SSR bundling / asset path | [theme-system.md] | feature PRD |
-| Plugin lifecycle / register / version | [plugin-system.md] | feature PRD |
-| Library 内部决策（DB driver / search engine / etc.）| [ADR-0006] / [ADR-0008] / library | library / ADR |
-| Runbook step-by-step（key rotation / DR / scaling 具体操作）| future `engineering/runbooks/` | runbook |
-| K8s / enterprise orchestration | per [project.md] non-goal | out-of-scope |
-| Plugin marketplace / 第三方 plugin discovery | per [project.md] Phase 2+ | future |
-| Real-time collaborative editing | per [project.md] non-goal | out-of-scope |
-| Multi-region / 跨地域 deploy | per [project.md] non-goal "enterprise on-call 栈" | out-of-scope |
+SHCKB 的目标 operator 包括 Solo NAS 用户、Team VPS 管理者、以及未来 Public Cloud / Workers 场景。对这些 operator 来说，"能跑起来"只是起点；产品还必须定义 first admin 安全边界、升级失败语义、备份恢复路径、运行时可观测性、以及不同部署方式之间的行为一致性。
 
-## 3-tier Operator Profile
+**为什么它不是 horizontal subsystem**：
 
-复用 [project.md] target operators 表，加 deploy mode + adapter 推荐：
+Authentication / theme / plugin 这类 subsystem 会影响每个 user request 或 render path。Self-host-deploy 不直接定义 end-user 内容体验；它定义 operator 如何部署和运营同一个 SHCKB 产品。它是 operator lifecycle feature folder，而不是横切业务能力。
+
+**为什么坚持 standard tools 而不是 PaaS 依赖**：
+
+SHCKB 可以兼容 Coolify / Dokploy / NAS app store / cloud platform，但不能依赖它们。M2 必须用 Docker / Podman / single-binary 等 standard tools 自洽运行。这样 Solo operator 不被某个 PaaS 绑定，Team operator 也能接入自己的 reverse proxy、monitoring、backup target。
+
+**为什么先写两个 sub-PRD**：
+
+Operator 的生命周期天然分两段：
+
+- setup-time：operator 主动改变系统，通常需要 redeploy。
+- runtime：SHCKB 已经 running，operator 只观察或调用 runtime entry，不改配置。
+
+如果这两段混在一份 PRD 里，reader 会混淆 "我要 redeploy 才能改" 与 "我可以在 running instance 上查看/触发"。Top-level PRD 只锁共同模型，细节由两个 sub-PRD 承接。
+
+---
+
+## The whole picture
+
+Self-host deployment 由四个正交维度组成：
+
+```text
+ self-host deployment model
+ ══════════════════════════
+
+  operator profile
+      Solo NAS / Team VPS / Public Cloud
+      = who runs it, at what scale, with what resource assumptions
+
+  deploy mode
+      OCI / single-binary / NAS template / VPS template / Workers
+      = how the same product artifact is packaged and launched
+
+  bootstrap mode
+      internet-exposed / dev-local
+      = first-admin security posture, orthogonal to profile
+
+  lifecycle phase
+      setup-time  -> operator-active, config + redeploy
+      runtime     -> SHCKB-autonomous, no config mutation
+
+  sub-PRDs
+      setup-time.md = active changes
+      runtime.md    = autonomous operations
+```
+
+**Core mental model**：
+
+- Operator chooses an operator profile and deploy mode.
+- Install profile / env / secrets express deploy-specific config.
+- Bootstrap mode controls first-admin safety.
+- First install and every later config mutation go through setup-time.
+- A running instance exposes runtime signals and runtime entries.
+- Same source and canonical artifact family must behave consistently across supported deploy modes.
+
+---
+
+## Operator-facing experience
+
+### Choosing a Profile
+
+Operator profile describes the operator's environment and scale, not a build target.
+
+- **Solo NAS** should work with low-resource defaults: SQLite, local-fs, SQLite FTS5, minimal moving parts.
+- **Team VPS** should support a more durable shared instance: Postgres path, local or S3-compatible storage, structured logs, runtime visibility.
+- **Public Cloud** is a future-facing profile for edge/CDN/cloud constraints; Workers is supported-with-constraints and not a Day-1 parity promise.
+
+Profile choice should help docs, defaults, and validation explain what is supported. It must not fork application behavior.
+
+### Choosing a Deploy Mode
+
+Deploy mode describes how the same product is launched. M2 ships two real outputs:
+
+- Canonical OCI image / Docker compose path.
+- Single-binary path built from the same source and expected to be feature-equivalent where the runtime supports it.
+
+NAS templates and VPS templates are M3 packaging affordances around the canonical artifact. Workers is M4 supported-with-constraints, because runtime/background capability differs materially from OCI/single-binary environments.
+
+### Choosing a Bootstrap Mode
+
+Bootstrap mode is an install-bootstrap security mode, not an operator profile:
+
+- **Internet-exposed bootstrap mode** requires install-profile-seeded admin credential; missing admin rejects startup.
+- **Dev-local bootstrap mode** may allow first-admin setup screen with one-time setup token.
+
+This prevents "first public visitor becomes admin" while preserving local-dev convenience.
+
+### Living With the Instance
+
+After first install, operator should use one lifecycle rule:
+
+- If the operator changes config, secrets, provider options, deploy mode, app version, or underlying implementation, it is setup-time and must redeploy.
+- If the operator views health/logs/audit state or triggers backup, it is runtime and does not mutate config.
+
+This rule is the core product simplification for self-host operations.
+
+---
+
+## MVP — minimum shippable (M2)
+
+M2 proves that self-host SHCKB is runnable, safe to bootstrap, observable enough to operate, and consistent across the two Day-1 artifacts.
+
+**Top-level M2 gates**：
+
+- **Canonical OCI + Docker compose** works for at least Solo NAS and Team VPS verified paths.
+- **Single-binary** works from the same source and matches Docker compose user-observable behavior for M2 scope.
+- **Self-host onboarding < 10 min**: internet-exposed bootstrap mode with profile-seeded admin login → create author → author creates markdown notepage.
+- **Dev-local bootstrap path** separately verifies setup screen + one-time setup token.
+- **Setup-time M2 passes** per [setup-time.md]: first install, initial adapter config validation, safe config redeploy, SHCKB upgrade warning/migration, L3 replacement future marker.
+- **Runtime M2 passes** per [runtime.md]: backup artifact contract, manual backup trigger, `/health`, structured stdout logs, audit baseline.
+- **No runtime config hot reload**: config mutation always goes through setup-time redeploy.
+- **No custom build per deploy mode**: deploy modes use same source and canonical artifact family; differences are install profile / env / launch wrapper.
+- **No PaaS dependency**: standard tools path works without Coolify / Dokploy / proprietary platform.
+
+---
+
+## Progressive completeness (M3 → M4)
+
+### M3 — Deploy Breadth + Operator Visibility
+
+- **NAS-specific template**: at least one NAS family verified, likely Synology first unless owner changes priority.
+- **Self-managed VPS template**: reverse proxy + TLS template; Caddy preferred unless implementation constraints change.
+- **Pre-deploy validation**: config validation before redeploy, reducing startup-time failure surprises.
+- **Runtime visibility**: metrics endpoint, audit trail webapp view, anomaly alert baseline.
+- **Pre-upgrade backup integration**: backup-now shortcut + archive validation / dry-run; canonical restore smoke follows runtime M4.
+- **Second operator self-host trial**: another operator can deploy by following docs without private context.
+
+### M4 — Production Polish + Deploy-Mode Verification
+
+- **Cloudflare Workers tier 3 verify**: known runtime constraints documented; unsupported features fail clearly.
+- **5 deploy mode full verify**: Docker compose / single-binary / NAS template / VPS template / Workers tier 3 each run their relevant acceptance path.
+- **Canonical local restore smoke** per [runtime.md]: proves the minimal restore path on canonical local profile; cross-deploy restore remains Phase 2+.
+- **Operator runbook baseline**: key rotation / DR / scaling / recovery procedures exist at the engineering/runbook layer.
+
+---
+
+## Done — final horizon (Phase 2+)
+
+- **Cross-deploy restore**: restore across deploy modes, such as Docker compose backup to single-binary or NAS/VPS target.
+- **Plugin marketplace deploy mechanism**: third-party plugin discovery / installation / upgrade path.
+- **K8s / enterprise orchestration**: only if owner later overrides current non-goal.
+- **Multi-region / active-active deployment**: out of M2-M4; enterprise/on-call stack territory.
+- **Cross-instance data migration**: explicit copy/import between SHCKB instances, not federation.
+
+---
+
+## Reference
+
+### Operator Profiles
 
 | Profile | 部署环境 | 用户数 | 性能瓶颈 | 推荐 deploy mode | 推荐 DB / storage / search |
 |---|---|---|---|---|---|
 | **Solo NAS** | NAS (Synology/QNAP/TrueNAS/Unraid) / RPi / 低配 VPS | 1-5 | RAM / CPU 吃紧；要节能 | Docker compose / single-binary | SQLite / local-fs / SQLite FTS5 |
-| **Team VPS** | VPS (Tencent/Aliyun/AWS Lightsail/Hetzner) / 内部服务器 / 轻量 K8s | 100-2000 | Concurrent WS / 全文搜索 / 备份 | Docker compose | Postgres / local-fs 或 S3-compat / Postgres tsvector |
-| **Public Cloud** | Cloud platform (Fly/Render/Vercel/Cloudflare) / 自建 VPS 集群 / CDN | 10k-100k | Edge cache / 横向 scale / 防 DDoS / 媒体 CDN | Docker compose / Workers tier 3 | Postgres / S3-compat + CDN / Postgres tsvector 或 Meilisearch |
+| **Team VPS** | VPS (Tencent/Aliyun/AWS Lightsail/Hetzner) / 内部服务器 | 100-2000 | Concurrent WS / 全文搜索 / 备份 | Docker compose | Postgres / local-fs 或 S3-compatible / Postgres tsvector |
+| **Public Cloud** | Cloud platform / 自建 VPS 集群 / CDN / Workers | 10k-100k | Edge cache / 横向 scale / 防 DDoS / 媒体 CDN | Docker compose / Workers tier 3 | Postgres / S3-compatible + CDN / Postgres tsvector 或 external search |
 
-## 5 Deploy Modes (per [ADR-0001])
+### Deploy Modes
 
-| Mode | Support tier | M-stage | 适用 profile |
-|---|---|---|---|
-| **Canonical OCI image** (Docker compose) | Canonical (tier 1) | **M2** | 全部 3 tier |
-| **Single-binary (Bun)** | Full-parity secondary (tier 2) | **M2** | Solo NAS / Team VPS |
-| **NAS-specific templates** (Synology / TrueNAS / Unraid) | Canonical OCI variant | M3 | Solo NAS |
-| **Self-managed VPS** (Coolify / Dokploy 兼容；非依赖) | Canonical OCI variant | M3 | Team VPS / Public Cloud |
-| **Cloudflare Workers** | Supported-with-constraints (tier 3) | M4 | Public Cloud (subset features) |
+| Mode | Support tier | M-stage | 适用 / verification scope | Notes |
+|---|---|---|---|---|
+| **Canonical OCI image** (Docker compose) | Canonical (tier 1) | M2 | Targets all 3 profiles; M2 verifies Solo NAS + Team VPS | Default release artifact |
+| **Single-binary (Bun)** | Full-parity secondary (tier 2) | M2 | M2 verifies Solo NAS + Team VPS | Same source; no separate behavior fork |
+| **NAS-specific templates** | Canonical OCI variant | M3 | Solo NAS | Packaging / docs wrapper around canonical path |
+| **Self-managed VPS templates** | Canonical OCI variant | M3 | Team VPS / Public Cloud | Reverse proxy / TLS / service template |
+| **Cloudflare Workers** | Supported-with-constraints (tier 3) | M4 | Public Cloud subset | Runtime constraints documented; not parity by default |
 
-## Cross-cutting invariants
+### Bootstrap Modes
+
+| Bootstrap mode | Missing admin credential behavior | Scope |
+|---|---|---|
+| **Internet-exposed bootstrap mode** | Reject startup | Default for public / production-facing deploys |
+| **Dev-local bootstrap mode** | First-admin setup screen allowed with one-time setup token | Local/dev convenience path |
+
+### Cross-Cutting Invariants
 
 | Invariant | 含义 |
 |---|---|
-| **Canonical OCI image cross-mode consistency** | 同 OCI image 跨 5 deploy mode；不为某 mode 分叉 build；配置差异通过 env / install profile 表达（per [ADR-0001]） |
-| **Operator vs end-user 边界** | Operator config = OS-level（install profile / env / config file per [ADR-0018]）；user-role = webapp-level；二者不互通；admin 不可改 operator config（跟 [authentication.md] invariant 6 同源） |
-| **Setup-time / Run-time 时间分层** | Operator-active 改动归 setup-time（必须 redeploy）；SHCKB-autonomous 运营归 run-time；中间没有"运行时热改 config"的灰色地带（per 2026-05-17 framing） |
-| **Adapter change ladder**（per round 5 sync） | L4 option add/enable = config + redeploy + coexist；L3 replacement = export → redeploy → import migration workflow；L1/L2 = NEVER（跟 [authentication.md] 4-layer abstraction + [plugin-system.md] 切换机制 sharpen 协同） |
-| **Self-host onboarding < 10 min**（M2 mandate） | Internet-exposed bootstrap mode: Docker compose `docker compose up -d` → 浏览器访问 → profile-seeded admin login → 创建 author → 创建 notepage 端到端 < 10 min；dev-local bootstrap mode 可用 first-admin setup screen + one-time setup token；per [project.md] success criterion |
-| **Secrets management baseline** | Signing key / admin credential / OAuth client secret 不进 image；走 secrets file / env / vault path（具体 carrier 归 [ADR-0018] / future operator runbook）|
-| **Migration workflow contract**（跨 horizontal subsystem 统一） | L3 replacement 走 3-步：export users/auth/notepage/etc. → redeploy with new L3 implementation/config → import/migrate；跨 auth / DB / storage / search / backup adapter 统一 pattern |
-| **Per-tier 资源 baseline** | Solo NAS：SQLite + local-fs default；不强制 Postgres；不默认启用 heavy plugins。Team VPS：可选 Postgres。Public Cloud：推荐 Postgres + S3 + CDN |
-| **Operator 不主动改 runtime config** | Run-time 没有 "config hot reload"；想改 config = setup-time redeploy；这条简化 SHCKB internal state management |
-| **First admin detection invariant**（跟 [authentication.md] A5 同源） | Internet-exposed bootstrap mode 漏配 admin credential → startup reject；dev-local bootstrap mode 可 force first-admin setup screen + one-time setup token；不静默 fallback |
-| **No PaaS dependency** | SHCKB 用 Docker / systemd / wrangler 等 standard tools；不依赖 Coolify / Dokploy / 等 self-host PaaS（兼容但不依赖） |
-| **5 deploy mode = same canonical artifact + diff config** | 不为某 mode 分叉 binary；Single-binary build 是 OCI image 的 secondary artifact，不是独立 source（per [ADR-0001]）|
+| **Canonical artifact family** | Same source and canonical artifact family across deploy modes; no custom source fork per mode |
+| **Operator vs end-user boundary** | Operator config = install profile / env / secrets; admin/user roles live inside webapp and cannot mutate operator config |
+| **Setup-time / runtime split** | Operator-active changes require redeploy; SHCKB-autonomous operations do not mutate config |
+| **Bootstrap mode is orthogonal** | Internet-exposed/dev-local mode is a security posture, not a fourth operator profile |
+| **Adapter change ladder** | L4 option add = config + redeploy + coexist; L3 replacement = export → redeploy → import; L1/L2 = never |
+| **Self-host onboarding < 10 min** | M2 canonical path must reach profile-seeded admin login → author → markdown notepage within 10 minutes |
+| **Secrets management baseline** | Signing key / admin credential / provider secrets are never baked into image |
+| **No PaaS dependency** | SHCKB may be compatible with self-host PaaS tools but must not require them |
+| **Runtime signals exposed, stack chosen by operator** | SHCKB exposes health/log/audit/metrics/alert signals; operator chooses Prometheus/Grafana/Loki/ELK/etc. |
 
-## Sub-PRDs
+### Sub-PRDs
 
 | Sub-PRD | Audience trigger | Scope |
 |---|---|---|
-| [setup-time.md](./setup-time.md) | Operator-active redeploy 任意时刻 | First install / initial adapter config / L4 option add / SHCKB version upgrade / L3 replacement migration |
-| [runtime.md](./runtime.md) | SHCKB-autonomous 运营期间 | Automated backup schedule / health check / monitoring baseline / log access / anomaly detection |
+| [setup-time.md](./setup-time.md) | Operator-active changes | First install / initial adapter config / config change / SHCKB upgrade / L3 replacement marker |
+| [runtime.md](./runtime.md) | SHCKB-autonomous running instance | Backup / manual backup / health / logs / audit / metrics / alerting / restore milestone |
 
-## Cross-feature seams
+### Cross-Feature Seams
 
 | Adjacent feature | Self-host-deploy 跟它的接触面 |
 |---|---|
-| [authentication.md] | Install bootstrap 提供 admin credential + signing key path + L4 provider option config（per [ADR-0018]）；first admin detection 按 internet-exposed / dev-local bootstrap mode split，跟 auth invariant 协同 |
-| [notepage.md] | URL `/notes/:slug` 跨 5 deploy mode 稳定；SEO / SSR HTML 一致；private notepage redirect path 跨 mode 一致 |
-| [theme-system.md] | SSR theme CSS bundling 跨 mode 一致；asset path 不分叉；theme switching 跨 mode UX 同 |
-| [plugin-system.md] | Closed registry Day-1：plugin code 跟 OCI image 一起 ship；future open registry / marketplace Phase 2+ 需 deploy mechanism extension（per discussion record Section G runtime extension catalog variant） |
-| [ai-integration/]（Phase 2+） | Agent / MCP wire path 跨 deploy mode 一致；secrets / API key 走 same secrets baseline |
-| [discussion/]（Phase 2+） | Sidecar plugin pattern；deploy mode 不影响 discussion 数据 schema |
+| [authentication.md](../authentication/authentication.md) | Install bootstrap admin credential / signing key / provider config；first-admin safety must align with bootstrap mode |
+| [identity.md](../authentication/identity.md) | Auth-domain audit vocabulary and first-admin behavior |
+| [notepage.md](../notepage/notepage.md) | URL / SSR / SEO behavior must stay stable across deploy modes |
+| [theme-system.md](../theme-system/theme-system.md) | SSR theme CSS / asset path must not fork by deploy mode |
+| [plugin-system.md](../plugin-system/plugin-system.md) | Closed registry Day-1 ships with app artifact; future marketplace requires deploy mechanism extension |
+| [ai-integration](../ai-integration/README.md)（Phase 2+） | Agent / MCP wire path and API secrets must follow same operator config / secrets boundary |
+| [discussion](../discussion/README.md)（Phase 2+） | Discussion data schema must not depend on deploy mode |
 
-## Acceptance criteria (top-level；具体阶段 acceptance 见各 sub-PRD)
+### Non-Goals
 
-### M2 — minimum shippable
+- ❌ **Runtime config hot reload** —— 想改 config = setup-time redeploy。
+- ❌ **K8s / enterprise orchestration / multi-region active-active** —— current [project.md] non-goal until owner override。
+- ❌ **PaaS dependency** —— Coolify / Dokploy compatibility OK; dependency not OK。
+- ❌ **Custom source fork per deploy mode** —— deploy mode cannot change product behavior by forking code。
+- ❌ **Plugin marketplace deploy** —— Phase 2+。
+- ❌ **Cross-SHCKB federation / sync** —— explicit import/copy may exist later; federation is not M2-M4。
+- ❌ **Library-internal implementation decisions** —— DB driver / auth library internals / monitoring stack specifics belong to ADR/library/runbook layers。
 
-- **Canonical OCI image + Docker compose** work 跨 3-tier profile（至少 Solo NAS + Team VPS 二者验证）
-- **Single-binary (Bun)** work（M2 ship；Workers tier 3 移 M4）
-- **Self-host onboarding < 10 min** E2E（Docker compose → profile-seeded admin login → author user → markdown notepage；dev-local setup screen path separately verified）
-- **Setup-time / Run-time 分层 work**：操作分别在两 entry 触发；不混淆
-- **Canonical OCI cross-mode consistency**：Docker compose / single-binary 跑同一份 source；不分叉
+### Dependencies
 
-### M3 — deploy mode breadth
-
-- **NAS-specific templates** ship（Synology / TrueNAS / Unraid 至少一个 verify）
-- **Self-managed VPS templates** ship（含 systemd unit / nginx reverse proxy template）
-- **第二 operator** 能按文档自部署到他的 NAS / VPS（per [project.md] M4 success criterion 提前到 M3 verify）
-
-### M4 — production polish
-
-- **Cloudflare Workers tier 3** verify（如 library 不支持 → 文档化为 known constraint；不静默失败；per [authentication.md] M4 constraint POC gate）
-- **5 deploy mode 全 verify**
-- **Operator runbook baseline** ship（key rotation / DR / scaling；归 future `engineering/runbooks/`，本 PRD mandate 存在）
-
-### Phase 2+
-
-- K8s / 复杂 cloud orchestration（如 owner 拍 enable；当前 [project.md] non-goal）
-- Plugin marketplace deploy mechanism
-- Multi-region / 跨地域 deploy
-
-## Non-goals
-
-- ❌ **K8s / enterprise orchestration / 多 region** —— per [project.md] non-goal
-- ❌ **PaaS 强依赖**（Coolify / Dokploy 等）—— 兼容但不依赖
-- ❌ **运行时 config hot reload** —— 想改 config = redeploy；简化 internal state mgmt
-- ❌ **Plugin marketplace deploy** —— Phase 2+
-- ❌ **跨 SHCKB instance 数据 federation / sync** —— per [project.md] "operator pool 独立"
-- ❌ **Multi-region active-active** —— Phase 2+
-- ❌ **Custom binary per deploy mode** —— canonical OCI cross-mode consistency invariant
-- ❌ **Library 内部决策** —— 归 library + future ADRs
-
-## Dependencies
-
-PRD 层 upstream 依赖（ADRs 是 downstream，归 References 段）：
+PRD 层 upstream 依赖：
 
 - **Parent PRD**: [project.md](../../project.md)
-- **Sibling PRDs (intra-folder)**:
-  - [setup-time.md](./setup-time.md)
-  - [runtime.md](./runtime.md)
-- **Cross-folder PRDs（self-host-deploy 跟其他 feature 协同）**:
-  - [authentication.md](../authentication/authentication.md) — install bootstrap admin / signing key / L4 provider option config
-  - [notepage.md](../notepage/notepage.md) — URL / SSR / SEO 跨 mode 一致
-  - [theme-system.md](../theme-system/theme-system.md) — SSR theme bundling 跨 mode 一致
-  - [plugin-system.md](../plugin-system/plugin-system.md) — plugin closed registry deploy；future open registry deploy mechanism
+- **Sibling PRDs**: [setup-time.md](./setup-time.md) / [runtime.md](./runtime.md)
+- **Cross-folder PRDs**:
+  - [authentication.md](../authentication/authentication.md)
+  - [identity.md](../authentication/identity.md)
+  - [notepage.md](../notepage/notepage.md)
+  - [theme-system.md](../theme-system/theme-system.md)
+  - [plugin-system.md](../plugin-system/plugin-system.md)
 - **External services**:
-  - Container runtime (Docker / Podman) for Canonical OCI mode
-  - Optional reverse proxy (nginx / Caddy) for production
-  - Optional Cloudflare Workers for tier 3 mode
+  - Container runtime (Docker / Podman)
+  - Optional reverse proxy / TLS automation
+  - Optional SMTP
+  - Optional S3-compatible storage / backup target
+  - Optional metrics / logging / alerting stack chosen by operator
 
-## Open questions
+### Open Questions
 
-1. **NAS-specific template 优先级**：M3 ship 哪个 NAS 平台？（Synology DSM Docker / TrueNAS apps / Unraid Community Apps）—— 倾向 Synology 先（用户群最大）；归 owner decision
-2. **VPS template 推荐 reverse proxy**：nginx / Caddy / Traefik？倾向 Caddy（自动 TLS；简单）；归 implementation phase
-3. **Single-binary build artifact 怎么 ship**：GitHub Releases / 自建 mirror / 兼容容器 image registry？归 [ADR-0001] follow-up
-4. **Workers tier 3 features 降级文档**：哪些 feature 在 Workers runtime 不可用 → user 看到 clear constraint；归 M4 verify gate
-5. **Backup / restore 跨 deploy mode 一致性**：Docker compose backup 出来的 archive 能 restore 到 single-binary instance 吗？倾向 yes（同 schema + same canonical image），但 **cross-deploy restore verification 不是 M2**；具体 milestone follows [runtime.md] restore decision（M3 archive validation / dry-run；M4 canonical local restore smoke；Phase 2+ cross-deploy restore）
+1. **NAS-specific template priority**：M3 先 Synology / TrueNAS / Unraid 哪个？倾向 Synology first。
+2. **VPS reverse proxy default**：Caddy / nginx / Traefik？倾向 Caddy for automatic TLS。
+3. **Single-binary distribution**：GitHub Releases / registry-attached artifact / mirror？归 [ADR-0001] follow-up。
+4. **Workers runtime constraints**：backup schedule / background jobs / migration path 怎么表达；归 [runtime.md] M4 constraint POC。
+5. **Cross-deploy restore**：Docker compose backup restore 到 single-binary/NAS/VPS/Workers 的 compatibility；not M2；follows [runtime.md] Phase 2+ restore scope。
 
-## Surfaced ADR debts
+### Surfaced ADR Debts
 
-本 PRD 触发的 ADR 层 framing 问题（reframe round 2 candidates，等本批 PRD 全完成后做 ADR round）：
+- **[ADR-0001] deploy mode tier vs M-stage**：M2 Canonical OCI + single-binary；M3 NAS/VPS templates；M4 Workers tier 3 constraints。
+- **[ADR-0018] install profile mapping**：5 install profiles vs 3 operator profiles vs bootstrap mode orthogonality must be explicit。
+- **[ADR-0006] backend stack deploy-mode compatibility**：Bun + Hono + Drizzle + Workers constraint POC。
+- **[ADR-0017] backup/restore artifact semantics**：runtime backup artifact contract, validation, canonical restore smoke, cross-deploy restore future scope。
+- **Migration workflow cross-subsystem ADR (new)**：auth / DB / storage / search / backup L3 replacement share export → redeploy → import shape。
+- **Operator runbook ownership**：key rotation / DR / scaling / restore procedure belongs in future `engineering/runbooks/`。
+- **No-PaaS-dependency enforcement**：templates can be compatible with PaaS tools without making them dependencies。
 
-- **[ADR-0001] deploy mode tier 跟 M-stage align verify**：M2 ship Canonical + single-binary；M3 加 NAS / VPS templates；M4 Workers tier 3 verify；ADR 应 align 此 M-stage 分配
-- **[ADR-0018] install profile 5 profile 跟 3-tier operator profile 映射 verify**：install profile 5 个（Solo Docker / Solo binary / Team Docker / Public Docker / Public Workers）跟 operator profile 3 tier 是否 1-to-many / many-to-1 mapping；需 ADR-0018 显式
-- **[ADR-0006] backend stack 跟 5 deploy mode 兼容 verify**：Bun + Hono + Drizzle 跟 Workers tier 3 实际兼容（per [authentication.md] constraint POC gate cross-ref）
-- **Operator runbook 归属**：key rotation / DR / scaling 具体 step 归 future `engineering/runbooks/`；本 PRD mandate 存在但不展开；归 future engineering layer
-- **Migration workflow 跨 subsystem 统一 contract**（cross-cutting；per discussion record Section G follow-up）：auth / storage / search / backup / DB 都有 L3 replacement migration；具体 contract（export format / import 校验 / partial migration）归 future migration workflow ADR
-- **No-PaaS-dependency 怎么 enforce**：本 PRD mandate 不依赖 Coolify / Dokploy；但 deploy templates 兼容它们；boundary 怎么写进 acceptance；归 implementation phase
+详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) PRD-surfaced debts log。
 
-详 [AUDIT-2026-05.md] PRD-surfaced debts log。
+### References
 
-## References
-
-PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。
-
-- **Aligning ADRs**:
+- **Aligning ADRs**（pending PRD-driven rework；详顶部 disclaimer）:
   - [ADR-0001](../../../../engineering/decisions/ADR-0001-deployment-canonical-artifact.md) — Canonical OCI artifact + 3-tier support model
   - [ADR-0006](../../../../engineering/decisions/ADR-0006-backend-stack.md) — Bun + Hono + Drizzle backend stack
   - [ADR-0007](../../../../engineering/decisions/ADR-0007-storage-provider.md) — StorageProvider abstraction
   - [ADR-0008](../../../../engineering/decisions/ADR-0008-search-provider.md) — SearchProvider abstraction
-  - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse 90 + backend SLO
+  - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — backend SLO + runtime visibility
   - [ADR-0017](../../../../engineering/decisions/ADR-0017-backup-strategy.md) — BackupProvider + retention/GC
   - [ADR-0018](../../../../engineering/decisions/ADR-0018-install-bootstrap.md) — install profile + first admin bootstrap
   - [ADR-0002](../../../../engineering/decisions/ADR-0002-substrate-db-backed.md) — DB schema 跨 deploy mode 兼容
-- **Parent PRD**: [project.md](../../project.md)
-- **Sibling PRDs**: [setup-time.md](./setup-time.md) / [runtime.md](./runtime.md)
-- **Cross-folder PRDs**: [authentication.md](../authentication/authentication.md) / [notepage.md](../notepage/notepage.md) / [theme-system.md](../theme-system/theme-system.md) / [plugin-system.md](../plugin-system/plugin-system.md)
+- **Parent**: [project.md](../../project.md)
+- **Sibling**: [setup-time.md](./setup-time.md) / [runtime.md](./runtime.md)
+- **Cross-folder**: [authentication.md](../authentication/authentication.md) / [identity.md](../authentication/identity.md) / [notepage.md](../notepage/notepage.md) / [theme-system.md](../theme-system/theme-system.md) / [plugin-system.md](../plugin-system/plugin-system.md)
 - **Discussion records**:
-  - [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section G "Cross-subsystem modular pattern symmetry"（adapter change ladder cross-cutting reference）
-  - [self-host-setup-time-2026-05-21.md](../../../../engineering/design/discussions/self-host-setup-time-2026-05-21.md) — setup-time narrative form + first-admin bootstrap mode sync
+  - [auth-setup-2026-05-17.md](../../../../engineering/design/discussions/auth-setup-2026-05-17.md)
+  - [self-host-setup-time-2026-05-21.md](../../../../engineering/design/discussions/self-host-setup-time-2026-05-21.md)
+  - [self-host-runtime-2026-05-22.md](../../../../engineering/design/discussions/self-host-runtime-2026-05-22.md)
+  - [self-host-deploy-2026-05-22.md](../../../../engineering/design/discussions/self-host-deploy-2026-05-22.md)
 - **Audit register**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
 - **Doc cross-reference convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
+- **PRD form**: [prd-discipline.md](../../../../process/methods/prd-discipline.md) — operator-lifecycle PRD form
 
-## Changelog
+### Changelog
 
-- 2026-05-17 initial draft (Phase E Day-1 PRD #4)；framing 为 **operator-facing feature folder**（vs end-user feature / horizontal subsystem）；按 owner 2026-05-17 拍板 **setup-time vs run-time 时间维度二分**（per discussion 候选 Y）；2 sub-PRDs（[setup-time.md] / [runtime.md]）；12 cross-cutting invariants 含 canonical OCI cross-mode / operator-vs-user 边界 / setup-runtime 分层 / adapter change ladder（per round 5 sync）/ secrets baseline / migration workflow / per-tier resource baseline / no-PaaS-dependency / 5 mode = same artifact + diff config；3-tier operator profile + 5 deploy mode 表展开；M2 = Canonical OCI + single-binary；M3 = NAS / VPS templates；M4 = Workers tier 3 verify + 5 mode 全 verify；surface ADR debts (deploy mode M-stage align / install profile 5 vs 3-tier mapping / backend stack + Workers verify / runbook 归属 / migration workflow contract / no-PaaS enforce)
+- 2026-05-17 initial draft (Phase E Day-1 PRD #4)；framing 为 operator-facing feature folder；setup-time vs runtime 时间维度二分；2 sub-PRDs；3-tier operator profile + 5 deploy mode；M2 = Canonical OCI + single-binary；M3 = NAS/VPS templates；M4 = Workers tier 3 verify。
 - 2026-05-21 setup-time sync cleanup：first-admin detection 按 internet-exposed / dev-local bootstrap mode 明确；`<10 min` onboarding 改为 profile-seeded admin login canonical path；dev-local setup screen 作为便利路径；References 增加 setup-time discussion record。
 - 2026-05-22 runtime restore milestone sync：backup/restore cross-deploy open question 明确不是 M2；restore milestone follows [runtime.md]（M3 validation/dry-run；M4 canonical local smoke；Phase 2+ cross-deploy restore）。
+- 2026-05-22 pass 2 — operator-lifecycle framing rewrite：改为 What / Why / Whole picture / Operator-facing experience / MVP / Progressive / Done / Reference；top-level 只锁共同模型，setup-time/runtime 细节归 sub-PRD；新增 bootstrap mode 正交维度、runtime signals stack-choice invariant、restore M-stage summary。
