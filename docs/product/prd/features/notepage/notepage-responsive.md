@@ -2,158 +2,301 @@
 
 | Field | Value |
 |---|---|
-| Status | draft |
-| Last updated | 2026-05-18 |
+| Status | draft (pass 4 — viewport projection + BDD rewrite) |
+| Last updated | 2026-05-22 |
 | Owner | W_YI |
-| Parent | [notepage.md] |
+| Parent PRD | [notepage.md](./notepage.md) |
 
 > **ADR reference status (2026-05-18 owner framing)**: 本 PRD 引用的**所有 ADR**（含 [ADR-0001] / [ADR-0002] / [ADR-0003]）均 **pending PRD-driven rework round 2**——遵循 owner framing "需求决定架构，架构决定代码与工期"：Phase E PRD 全完成后 ADR 统一 PRD-informed rework；之前标 REWORKED 的 ADR-0001/0002/0003 也需 PRD-informed 再 audit；ADR-0007/0014/0017/0018 的 partial rework 只是 cross-ADR alignment，**不算 final**。**同步规则**：ADR 改动时必须 grep 全 PRD ADR refs 同步修订，避免 PRD ↔ ADR drift。详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) 2026-05-18 entry。
 
-## Overview
+---
 
-Notepage 跨 viewport（desktop / tablet / mobile）的**布局投影行为** —— canvas logical coord 永远 12-col（不动 GridState），responsive 12/6/1 col 是**纯 render projection**。
+## What this PRD covers
 
-本 PRD 锁的是 **viewport projection 的 user-observable 行为**：3 个 breakpoint 投影规则、mobile 编辑能力限制、touch UX baseline、reader / author 跨 viewport 一致性。
+Notepage responsive 定义同一 notepage 在 desktop/tablet/mobile viewport 下如何投影为可阅读、可编辑的网页体验。
 
-不锁：CSS Grid 实现细节（→ [ADR-0016]）、虚拟化算法（Phase 2+）、引擎 GridState 形态（→ [ADR-0003]）。
+本 sub-PRD 拥有：
 
-## User stories
+- logical 12-col GridState 到 desktop/tablet/mobile 的 render projection。
+- viewport-width breakpoint rules。
+- mobile/tablet touch affordance baseline。
+- mobile authoring constraints。
+- responsive typography readability rule。
+- responsive BDD acceptance scenarios。
 
-- As a **reader on mobile**, I want to **notepage 1-col 流式呈现**，so that **手机屏幕能看清内容**
-- As a **reader on tablet**, I want to **notepage 6-col 半宽呈现**，so that **平板既看得清也利用空间**
-- As a **author on desktop**, I want to **notepage 12-col native 编辑**，so that **有完整的 grid 操作空间**
-- As a **author switching desktop ↔ mobile**, I want to **同一 notepage 看到不同投影**，so that **不需为 mobile 单独排版**
-- As a **mobile reader**, I want to **block 内容自适应宽度**，so that **不被压缩到看不清**
+不拥有：
 
-## Functional requirements
+- Public/private route and SSR behavior → [notepage-view.md](./notepage-view.md)。
+- Desktop authoring algorithm contract → [notepage-editing.md](./notepage-editing.md)。
+- Parent data boundary / visibility model → [notepage.md](./notepage.md)。
+- CSS framework implementation → [ADR-0016]。
 
-### Must (Day-1, M2)
+---
 
-- **3 viewport breakpoints**:
-  - **Desktop** (≥ 1024px): 12-col native；canvas 完整 grid 视觉
-  - **Tablet** (640 - 1023px): 6-col projection；每 2 logical cols 合并为 1 render col（colspan ≤ 6）
-  - **Mobile** (< 640px): 1-col 流式；block 按 row 顺序竖排
-- **GridState 跨 viewport 不变**:
-  - Engine 永远 logical 12-col（per [ADR-0003] induction 3 + Trade-offs）
-  - Mobile 1-col 视图不是另一 engine state；是同一 GridState 的 render projection
-  - Resize browser 跨 breakpoint 不动 data
-- **Edit 能力跨 viewport 限制**:
-  - Desktop: 完整 edit affordance（per [notepage-editing.md]）
-  - Tablet: 完整 edit affordance（同 desktop）
-  - Mobile: 编辑能力**限制**（read-mostly mode）；具体：
-    - 不能 resize block（mobile 1-col 投影下 resize 无意义）
-    - 移动 block 限制为 row-level reorder（拖到不同 row 间）
-    - Insert / delete 仍可用
-    - 显式提示 "完整 grid 编辑请用 desktop / tablet"
-- **Touch baseline**（mobile / tablet）:
-  - Tap to focus block
-  - Long-press to enter EditView
-  - Swipe to scroll（浏览器原生，不接管）
-  - Pinch zoom 允许（浏览器原生）
-- **Reader / author 同视图**:
-  - 同一 viewport size 下 reader 和 author 看到的 layout 一致（只 affordance 不同）
+## Why
 
-### Should (Day-1 if scope allows)
+Notepage uses a constrained canvas model, but readers and authors will use it across small phones, tablets, laptops, desktops, and mixed touch/mouse devices. Responsive behavior must preserve the same notepage identity and GridState while making the page usable at each viewport.
 
-- **Smooth breakpoint transition**: resize browser 跨 breakpoint 时不闪烁
-- **Orientation change handling**: mobile 横屏 → 投影到 tablet 6-col
-- **Print CSS**: print 时回退到 1-col 流式（per [notepage-view.md] Should）
+The key product rule is:
 
-### Nice-to-have (Phase 2+)
+> **Viewport projection is render-only. It never changes the canonical GridState.**
 
-- **Touch gestures advanced**（pinch resize / two-finger drag / 等手机原生手势）
-- **Custom breakpoint**（operator 配置 / per-notepage 配置）
-- **Mobile-native edit affordance**（不再是 "limited edit"，是 mobile-first 重设计的 edit UX）
-- **Tablet pen support**（Apple Pencil / Surface Pen 优化）
+This lets authors create one notepage instead of maintaining separate mobile/desktop layouts.
 
-## Non-functional requirements
+---
 
-- **Performance**:
-  - Lighthouse mobile score ≥ 90（per [ADR-0010]）
-  - Mobile FCP < 1.5s on 3G
-  - Tablet / desktop 切换流畅，无 visible reflow
-- **Accessibility**:
-  - Touch target ≥ 44×44 px（per WCAG）
-  - 字体大小响应 viewport（不固定 px）
-- **Compatibility**:
-  - 320px 最小 viewport 支持
-  - 4K 最大 viewport 支持
-  - 主流 mobile / tablet browser（Safari iOS / Chrome Android / iPad Safari）
+## The whole picture
 
-## Non-goals
+```text
+ notepage responsive model
+ ═════════════════════════
 
-- ❌ **Mobile-native edit UX rewrite** —— Phase 2+；Day-1 mobile 编辑能力受限是 accepted trade-off
-- ❌ **GridState 改 column 数** —— per [ADR-0003] induction 3；breakpoint 不动 engine
-- ❌ **Per-block responsive override**（如某 block 在 mobile 上隐藏）—— Phase 2+
-- ❌ **Native app responsive**（iOS / Android app）—— per [project.md] non-goals
+  canonical layout state
+      logical 12-col GridState
+      never rewritten by viewport changes
 
-## Acceptance criteria
+  viewport projection
+      desktop -> 12-col full projection
+      tablet  -> 12-col compact projection
+      mobile  -> 1-col flow
 
-### M2 acceptance
+  input modality
+      touch / mouse / pen affect affordances
+      input modality does not pick the projection
 
-- 3 breakpoint 投影 work：desktop 12-col / tablet 6-col / mobile 1-col
-- Mobile reader Lighthouse 90+
-- Mobile edit affordance 限制正确（resize disabled / move 简化）
-- Resize browser 跨 breakpoint 不丢 GridState
+  authoring capability
+      desktop/tablet: full grid editing path
+      mobile: read-first, limited authoring
 
-### M3 acceptance
+  typography
+      readable per breakpoint/theme tokens
+      no mandate for continuous viewport-fluid font sizing
+```
 
-- Touch baseline polish（tap / long-press / 滚动平滑）
-- Smooth breakpoint transition
+---
 
-### M4 acceptance
+## User-Facing Experience
 
-- Orientation change 平滑处理
-- Print CSS shipped
+### Desktop Projection
 
-## Edge cases
+Desktop viewport uses the native 12-col projection. Authors get the full editing affordance set owned by [notepage-editing.md](./notepage-editing.md). Readers see the same layout without authoring controls.
 
-| 场景 | 期望行为 |
+### Tablet Projection
+
+Tablet viewport keeps the 12-col projection, but renders it as a compact projection with narrower container constraints and touch-adjusted affordances where needed. Tablet should preserve author layout intent instead of collapsing to an intermediate 6-col grid. If a tablet viewport becomes too narrow to keep content readable, the page should use readability safeguards such as overflow, zoom, min-width, or mobile flow at the mobile breakpoint rather than rewriting GridState.
+
+### Mobile Projection
+
+Mobile viewport uses 1-col flow. Blocks are ordered by canonical reading/layout order. Mobile reader experience is M2 critical.
+
+Mobile authoring is intentionally limited in M2:
+
+- full grid resize is not available on mobile;
+- freeform desktop-like layout editing is not required on mobile;
+- content editing for supported block kinds may be available;
+- simple insert/delete may be available where safe;
+- row-level reorder or mobile-first editing polish can move to M3+ unless explicitly promoted.
+
+Mobile must provide a clear path back to full editing on tablet/desktop when an operation is unsupported.
+
+### Input Modality
+
+Viewport width determines projection. Touch/mouse/pen only change affordances.
+
+Examples:
+
+- A wide touch laptop can still use desktop projection.
+- A narrow desktop browser window uses compact or mobile projection according to viewport width.
+- iPad width determines tablet/desktop projection; touch changes handles/targets, not layout semantics.
+
+### Typography And Readability
+
+Text must be readable at each breakpoint. The product requires responsive typography tokens or breakpoint-specific readable styles, not continuous font-size scaling with viewport width.
+
+Long words, code, tables, media, and plugin-rendered content must avoid breaking the whole page. Individual block RenderView may own its own overflow behavior, but the notepage shell must not make content unreadable by shrinking it below usable bounds.
+
+---
+
+## BDD Acceptance Scenarios
+
+These scenarios define product behavior.
+
+### M2 — Minimum Shippable Responsive Behavior
+
+```gherkin
+Scenario: Desktop uses 12-column projection
+  Given a notepage has logical 12-column GridState
+  When a reader opens it in a viewport at least 1024px wide
+  Then the notepage renders in the desktop 12-column projection
+  And the underlying GridState is unchanged
+```
+
+```gherkin
+Scenario: Tablet preserves 12-column compact projection
+  Given a notepage has logical 12-column GridState
+  When a reader opens it on a tablet-width viewport
+  Then the notepage renders in a compact 12-column projection
+  And layout proportions such as 2/3 + 1/3 remain representable
+  And the projection is based on viewport width, not touch detection
+  And the underlying GridState is unchanged
+```
+
+```gherkin
+Scenario: Mobile uses 1-column flow at the M2 default mobile breakpoint
+  Given a notepage has multiple blocks in logical grid order
+  When a reader opens it in a viewport narrower than 640px
+  Then the blocks render in a one-column readable flow
+  And block order follows canonical reading/layout order
+  And the underlying GridState is unchanged
+```
+
+```gherkin
+Scenario: Resizing viewport does not mutate data
+  Given an author is viewing a notepage on desktop
+  When the viewport is resized across desktop, tablet, and mobile breakpoints
+  Then the rendered projection changes
+  And the notepage GridState does not change
+  And visibility/public-read state does not change
+```
+
+```gherkin
+Scenario: Mobile reader can read without layout-specific editing controls
+  Given a public notepage is opened on mobile
+  When a reader scrolls through the page
+  Then the content remains readable
+  And mobile view does not expose desktop grid resize controls
+  And native scroll and zoom are not hijacked
+```
+
+```gherkin
+Scenario: Mobile author sees clear limitation for unsupported grid editing
+  Given an authenticated author opens a notepage on mobile
+  When the author attempts a desktop-only grid operation such as freeform resize
+  Then the operation is unavailable or rejected clearly
+  And the author is told that full grid editing requires tablet or desktop
+  And the GridState remains unchanged
+```
+
+```gherkin
+Scenario: Typography remains readable at each breakpoint
+  Given a public notepage contains normal text content
+  When the reader opens it on mobile, tablet, and desktop
+  Then text uses readable sizing for that breakpoint
+  And the product does not require continuous viewport-based font scaling
+```
+
+### M3 — Responsive Polish
+
+- Mobile authoring may add safer row reorder or stronger insert/delete flows.
+- Breakpoint transitions should reduce visible jumps where feasible.
+- Touch affordances should be clearer and easier to use.
+- Print layout may be introduced as a separate projection if prioritized.
+
+### M4 — Production Responsive Behavior
+
+- All built-in blocks are verified across desktop/tablet/mobile view projections.
+- Orientation changes are polished.
+- Large/complex notepages have explicit responsive performance behavior.
+
+---
+
+## Reference
+
+### Projection Rules
+
+| Viewport | Projection | M2 author capability |
+|---|---|---|
+| Desktop | 12-col full projection | Full grid editing path |
+| Tablet | 12-col compact projection | Full grid editing path, touch-adjusted affordances if needed |
+| Mobile (< 640px M2 default) | 1-col flow | Read-first; limited authoring; no full grid resize |
+
+### Responsive Invariants
+
+| Invariant | Meaning |
 |---|---|
-| User resize browser 跨 breakpoint mid-edit | 视觉 reflow；GridState 不变；edit 状态 preserve |
-| Mobile 1-col 投影下 user 想 resize block | Resize handle disabled；显式提示 "请用 desktop / tablet 编辑 block 大小" |
-| Mobile 投影下 block 内容超长 | Block 内容自适应宽度；如有溢出 → 横向 scroll 或 wrap（plugin RenderView 责任）|
-| Tablet 横屏 → 6-col；竖屏 → 1-col？还是都 6-col？ | 倾向 viewport width 决定（不是 orientation）；竖屏 tablet 通常 600-800px → 6-col |
-| Touch + mouse 同设备（touch laptop）| 同时支持；不强制选一种 |
-| 4K 显示器 | 仍 12-col；canvas 整体 max-width 防止拉得太宽（如 1440px）|
-| 用户禁用 JS（mobile）| SSR HTML 1-col 仍可读；交互降级 |
+| **Logical 12-col GridState** | Canonical layout state remains 12-col regardless of viewport. |
+| **Projection is render-only** | Breakpoint changes never rewrite persisted layout state. |
+| **Viewport width decides projection** | Touch/mouse/pen affects affordance, not projection choice. |
+| **Tablet preserves layout fidelity** | Tablet does not collapse to 6-col by default; it keeps 12-col compact projection unless future testing proves otherwise. |
+| **Mobile is read-first** | Mobile must prioritize readable public/private viewing over full layout editing. |
+| **Typography is readable by token/breakpoint** | Readability is required; continuous viewport-scaling font size is not. |
+| **Reader/author layout match** | Same viewport sees same projection; authoring controls are the difference. |
 
-## Dependencies
+### Non-Goals
 
-PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
+- ❌ Changing GridState column count per viewport.
+- ❌ Separate mobile layout state.
+- ❌ Full mobile-native grid editor in M2.
+- ❌ Per-block responsive override in M2.
+- ❌ Continuous viewport-based font scaling requirement.
+- ❌ Native iOS/Android app responsive behavior.
+
+### Edge Cases
+
+| Scenario | Expected behavior |
+|---|---|
+| Narrow tablet viewport below mobile breakpoint | Mobile 1-col projection can apply, because viewport width decides. |
+| iPad landscape / wide tablet viewport | 12-col projection applies; touch affordances may still adjust. |
+| Touch laptop at desktop width | Desktop projection with touch-capable targets where needed. |
+| Browser resized mid-edit | Projection changes; GridState and accepted author working state remain unchanged. |
+| Long code/text in mobile block | Block may wrap or scroll internally; page shell remains readable. |
+| Very wide desktop / 4K | Still 12-col; page may use max-width/readability constraints. |
+| JS disabled for public read | Public SSR HTML remains readable for supported block kinds; authoring unavailable. |
+
+### Dependencies
+
+PRD-layer upstream dependencies:
 
 - **Parent PRD**: [notepage.md](./notepage.md)
-- **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-editing.md](./notepage-editing.md)（都消费 responsive 投影）
-- **Cross-folder PRDs**: [theme-system.md](../theme-system/theme-system.md) — theme 跨 viewport 一致（cross-cutting invariant）
-- **External services**: 无 Day-1 外部依赖
+- **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-editing.md](./notepage-editing.md)
+- **Cross-folder PRDs**:
+  - [theme-system.md](../theme-system/theme-system.md)
+  - [theme-system-user-view.md](../theme-system/theme-system-user-view.md)
+  - [theme-system-author-view.md](../theme-system/theme-system-author-view.md)
+  - [plugin-system.md](../plugin-system/plugin-system.md)
+- **External services**: none for M2.
 
-## Open questions
+### Open Questions
 
-1. **Mobile 编辑能力范围 Day-1**: 完全 read-only（不能 insert/delete/move）vs limited edit（可 insert/delete + row reorder，no resize）vs full edit？倾向 limited
-2. **Tablet 是当 desktop 还是 mobile**：6-col 投影是 tablet 专属还是 mobile 平滑过渡？影响 breakpoint 定义
-3. **触屏 detect 还是 viewport detect**：iPad pro 横屏 1024px+ 但是 touch；当 desktop 还是 tablet？倾向 viewport
-4. **Print 算 viewport mode 还是单独 mode**：A4 portrait 770px → tablet projection？还是单独 print mode 强制 1-col？
+1. **Mobile content editing extent**: M2 allows limited authoring but exact insert/delete/content-edit affordance remains implementation-shaped.
+2. **Mobile row reorder**: may be M3 unless owner promotes it.
+3. **Print projection**: likely separate from viewport mode; not M2.
+4. **Per-block responsive override**: Phase 2+ only.
 
-## Surfaced ADR debts
+### Resolved Scope Notes
 
-- **Mobile resize disabled 决策位置**: 本 PRD 列为 Must 但 [ADR-0003] Trade-offs 没显式。**Action**: 决定 PRD-only（user-observable，归 PRD）还是要 [ADR-0003] 加 Trade-off 一行。倾向 PRD-only
-- **Touch baseline 决策**: tap / long-press / swipe 三个手势是 PRD level user-observable 决策，但 implement detail 可能影响 [ADR-0014] EditView 触发机制。**Action**: 写 plugin contract / [ADR-0014] audit 时 verify EditView 触发能 cover touch path
+- **M2 mobile breakpoint default**: mobile projection starts below `640px`; future design/testing may revise this through PRD update.
 
-详 [AUDIT-2026-05.md] PRD-surfaced debts log。
+### Surfaced ADR Debts
 
-## References
+- **[ADR-0003] render projection wording**: clarify logical 12-col state, desktop/tablet 12-col projection, and mobile 1-col flow.
+- **[ADR-0010] responsive performance budget**: projection changes and mobile rendering need measurable budgets.
+- **[ADR-0016] CSS framework / responsive utilities**: ensure CSS strategy can express projection rules without mutating GridState.
+- **[ADR-0014] plugin RenderView overflow behavior**: plugin content must not break responsive shell readability.
+- **Tablet compact projection**: ADR/design follow-up should verify compact 12-col rendering constraints, min-width behavior, and overflow/zoom safeguards.
 
-PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
+详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) PRD-surfaced debts log。
 
-- **Aligning ADRs**:
-  - [ADR-0003](../../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — logical 12-col + Trade-offs（"logical coord vs render projection" 精确化）
-  - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse mobile 90+
-  - [ADR-0016](../../../../engineering/decisions/ADR-0016-css-framework.md) — Tailwind responsive utilities
-- **Audit**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
+### References
+
+- **Aligning ADRs**（pending PRD-driven rework; see top disclaimer）:
+  - [ADR-0003](../../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — logical 12-col + render projection
+  - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — responsive performance
+  - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — RenderView/EditView behavior across projection
+  - [ADR-0016](../../../../engineering/decisions/ADR-0016-css-framework.md) — CSS framework + responsive utilities
+- **Parent**: [notepage.md](./notepage.md)
+- **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-editing.md](./notepage-editing.md)
+- **Cross-folder PRDs**: [theme-system.md](../theme-system/theme-system.md) / [theme-system-user-view.md](../theme-system/theme-system-user-view.md) / [theme-system-author-view.md](../theme-system/theme-system-author-view.md) / [plugin-system.md](../plugin-system/plugin-system.md)
+- **Discussion record**: [notepage-prd-alignment-2026-05-22.md](../../../../engineering/design/discussions/notepage-prd-alignment-2026-05-22.md)
+- **Audit register**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
 - **Doc convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
+- **PRD form**: [prd-discipline.md](../../../../process/methods/prd-discipline.md)
 
-## Changelog
+### Changelog
 
-- 2026-05-16 initial draft；从 features/canvas-editing.md mobile responsive 段拆出 + 扩展（3 breakpoint / touch baseline / 跨 viewport 一致 / mobile 编辑限制）
-- 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段
-- 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正
+- 2026-05-16 initial draft；从 features/canvas-editing.md mobile responsive 段拆出 + 扩展（3 breakpoint / touch baseline / 跨 viewport 一致 / mobile 编辑限制）。
+- 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段。
+- 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正。
+- 2026-05-22 pass 4 — viewport projection + BDD rewrite：改为 What / Why / Whole picture / User-facing experience / BDD Acceptance / Reference；收口 viewport-width projection、mobile 1-col、touch as affordance only、mobile limited authoring、readable typography without continuous viewport font scaling。
+- 2026-05-22 pass 4 follow-up：owner rejected tablet 6-col as too lossy for layout fidelity；tablet now preserves 12-col compact projection, while mobile remains 1-col flow。
+- 2026-05-22 pass 4 cleanup：set `< 640px` as the M2 default mobile breakpoint and aligned ADR debt wording with desktop/tablet 12-col plus mobile 1-col projection.

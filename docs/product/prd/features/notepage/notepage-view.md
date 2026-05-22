@@ -2,169 +2,303 @@
 
 | Field | Value |
 |---|---|
-| Status | draft |
-| Last updated | 2026-05-18 |
+| Status | draft (pass 4 — route/visibility + BDD rewrite) |
+| Last updated | 2026-05-22 |
 | Owner | W_YI |
-| Parent | [notepage.md] |
+| Parent PRD | [notepage.md](./notepage.md) |
 
 > **ADR reference status (2026-05-18 owner framing)**: 本 PRD 引用的**所有 ADR**（含 [ADR-0001] / [ADR-0002] / [ADR-0003]）均 **pending PRD-driven rework round 2**——遵循 owner framing "需求决定架构，架构决定代码与工期"：Phase E PRD 全完成后 ADR 统一 PRD-informed rework；之前标 REWORKED 的 ADR-0001/0002/0003 也需 PRD-informed 再 audit；ADR-0007/0014/0017/0018 的 partial rework 只是 cross-ADR alignment，**不算 final**。**同步规则**：ADR 改动时必须 grep 全 PRD ADR refs 同步修订，避免 PRD ↔ ADR drift。详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) 2026-05-18 entry。
 
-## Overview
+---
 
-Reader 在 notepage 上的**阅读体验** —— 看到 author 编辑好的内容，无编辑控件干扰，跨 desktop / mobile 都清晰可读。**Author 自己进入预览模式**也走同一 view path。
+## What this PRD covers
 
-本 PRD 锁的是 **view mode 下的 user-observable 行为**：block 渲染、SSR、anonymous access、private note 鉴权、阅读 keyboard navigation、reader-specific edge cases。
+Notepage viewing 定义 reader 如何访问、阅读、分享一个 notepage，以及 author 如何用 reader-like preview 验证公开效果。
 
-不锁：edit affordance（→ [notepage-editing.md]）、theme system / cascade（→ [theme-system.md] / [theme-system-user-view.md]）、responsive 投影（→ [notepage-responsive.md]）。
+本 sub-PRD 只拥有 view/read path：
 
-## User stories（reader-focused）
+- public notepage 的 canonical read route。
+- private/deleted/nonexistent notepage 的 read response behavior。
+- author preview 的 reader-like rendering。
+- SSR/SEO/noindex/canonical metadata。
+- reader keyboard/focus/scroll behavior。
+- view-mode BDD acceptance scenarios。
 
-- As a **reader**, I want to **打开 author 公开的 URL → 立刻看到内容布局**，so that **不被加载 / 编辑控件干扰**
-- As a **reader**, I want to **滚动浏览长 notepage**，so that **看完整内容不费力**
-- As a **reader using screen reader**, I want to **block 内容按 reading order 朗读**，so that **结构化阅读**
-- As a **reader on mobile**, I want to **canvas 1-column 流式呈现**，so that **手机屏幕能看清内容**（详 [notepage-responsive.md]）
-- As a **reader browsing similar topics**, I want to **看到 author 的标题 / 元数据**，so that **快速判断 notepage 内容**
-- As an **author previewing**, I want to **从 edit 切到 view 即时预览**，so that **不需 save / publish 就能验证 reader 视角**
+不拥有：
 
-## Functional requirements
+- Author insert/move/resize/delete/edit controls → [notepage-editing.md](./notepage-editing.md)。
+- Viewport projection / mobile layout → [notepage-responsive.md](./notepage-responsive.md)。
+- Parent route class / visibility / data boundary decisions → [notepage.md](./notepage.md)。
+- Theme cascade internals → [theme-system.md](../theme-system/theme-system.md)。
 
-### Must (Day-1, M2)
+---
 
-- **View mode rendering**:
-  - 每个 block 调 plugin 的 `RenderView`（不是 `EditView`）渲染（per [ADR-0014]）
-  - 无 drag handles / resize handles / palette / selection 控件
-  - Block 位置由 GridState 决定（per [ADR-0003] induction 6）
-- **URL routing**:
-  - 公开 notepage: `/notes/:slug` 直接访问
-  - 私有 notepage: `/notes/:slug` 触发登录；登录后看；未授权 user 403
-  - Author 预览：同 URL `/notes/:slug` 加 query `?preview=1` 或 mode toggle；同一 GridState
-- **SSR for SEO**:
-  - 公开 notepage server-side render；HTML 包含完整内容 + meta tags（title / description / og:image）
-  - 首屏内容在 first server response 内
-- **Anonymous access for public**:
-  - 公开 notepage 无需 cookie / session
-  - 私有 notepage 需 session cookie
-- **Author preview mode**:
-  - 同一 GridState；切换 edit ↔ view 不动 data（per [notepage.md] cross-cutting invariant）
-  - 切换 UI 位置：toolbar toggle / keyboard shortcut（TBD：Open question）
-- **Reader keyboard navigation**:
-  - Tab / Shift+Tab 在 block 间移焦点（accessibility）
-  - 方向键在邻居 block 间移焦点（geometric）
-  - Enter / Space 在 focused block 上触发 plugin RenderView 的 click action（如有；如 link / button）
-  - `/` 触发浏览器内 find-in-page（不接管）
-- **Reading state preservation**:
-  - 滚动位置在 URL fragment / sessionStorage 保留；refresh 不丢
-  - Author 切 edit→view 时滚动位置保留
+## Why
 
-### Should (Day-1 if scope allows)
+Reader view is not "editing minus controls". It has its own product responsibilities:
 
-- **Reader focus mode**: hide 其他 UI（toolbar / sidebar）专注阅读
-- **Print-friendly CSS**: ctrl+P 输出干净布局
-- **Copy block content**: select text in block + copy；保留 markdown 源（如 plugin 支持）
+- Public readers need a stable canonical read identity.
+- Private and deleted content must not leak through public routes.
+- Public pages need SSR and metadata for sharing/SEO.
+- Author preview must be reader-like without becoming canonical or indexed.
+- Reader interactions must stay clean and free of authoring affordances.
 
-### Nice-to-have (Phase 2+)
+This sub-PRD consumes the parent notepage model: private by default, private/public only, public readers see last completed public state, and route classes matter more than exact path strings.
 
-- **Reader annotation / highlight**: 私有标注（不修改 author 原 notepage）
-- **Reading time estimation**: top 显示 "5 min read"
-- **Outline / TOC**: 长 notepage 显示侧栏 outline
-- **Dark mode reader pref**（独立于 author theme）
+---
 
-## Non-functional requirements
+## The whole picture
 
-- **Performance**:
-  - Lighthouse mobile score ≥ 90 on public view（CI gate；per [ADR-0010]）
-  - First Contentful Paint (FCP) < 1.5s on 3G
-  - Largest Contentful Paint (LCP) < 2.5s on 3G
-  - SSR HTML 大小 ≤ 200KB initial
-- **SEO**:
-  - 标题 / description / og:image meta 正确
-  - Public notepage canonical URL；sitemap.xml 列入
-- **Accessibility**:
-  - WCAG AA 颜色对比度
-  - Block 内 RenderView 输出符合 a11y（plugin 责任，notepage 不重定义）
-- **Privacy**:
-  - 私有 notepage 不被 search engine 索引（`noindex` meta）
-  - Anonymous reader 不留 session
+```text
+ notepage view model
+ ═══════════════════
 
-## Non-goals
+  public read route
+      canonical for public notepages
+      SSR + SEO metadata
+      renders last completed public state
 
-- ❌ **Edit affordance** —— 归 [notepage-editing.md]
-- ❌ **Theme system / SSR theme CSS bundling** —— 归 [theme-system.md] / [theme-system-user-view.md]
-- ❌ **Responsive projection 细节** —— 归 [notepage-responsive.md]
-- ❌ **Reader 修改 author 原内容** —— Day-1 不做；annotation Phase 2+
-- ❌ **Reader 评论 / discussion** —— 归 [discussion.md]（Phase 2+）
+  private/inaccessible read
+      anonymous readers cannot see content
+      response must not leak more than policy allows
 
-## Acceptance criteria
+  deleted read
+      public route does not expose content
+      M2 does not require 410 Gone
+      internal tombstone belongs to data/ADR layer
 
-### M2 acceptance
+  author preview
+      authenticated only
+      reader-like rendering of author working state
+      non-canonical + noindex
 
-- 公开 notepage 通过 URL 访问，SSR HTML 包含完整内容
-- Lighthouse mobile 90+ on view
-- 私有 notepage 触发登录；未授权 user 403
-- Author edit ↔ view toggle work；不丢 GridState 不丢滚动
+  reader interaction
+      no authoring controls
+      keyboard/focus/scroll behavior
+      RenderView per block kind
+```
 
-### M3 acceptance
+---
 
-- 9 个 block kind 的 RenderView 全 work
-- 全键盘 a11y baseline
-- Print CSS shipped
+## User-Facing Experience
 
-### M4 acceptance
+### Public Reading
 
-- Reader focus mode shipped
-- Outline / TOC（如 Should 落地）shipped
+A public notepage opens through its canonical public read route. The reader sees rendered block content in the notepage layout, with no drag handles, resize handles, palette, selection controls, or authoring chrome.
 
-## Edge cases
+The public read route renders the **last completed public state**. If the author is currently editing, those unfinished edits are not visible to anonymous readers until the author completes/updates the public state.
 
-| 场景 | 期望行为 |
+### Private And Inaccessible Reading
+
+New notepages are private by default. Anonymous readers must not see private content. For M2, private/deleted/nonexistent public-route requests should use a privacy-preserving response shape; a generic not-found response is preferred over revealing resource history or private existence.
+
+Authenticated but unauthorized users may receive a clearer forbidden response where the product deliberately knows the user identity and can safely explain access denial.
+
+### Author Preview
+
+Author preview renders a reader-like view of the author working state. It is useful for checking content before updating the public state, but it is not the public canonical read route.
+
+Preview must be:
+
+- authenticated;
+- non-canonical;
+- `noindex`;
+- visually close enough to public read mode to validate reader experience.
+
+### SSR And Metadata
+
+Public read routes must support SSR. Public HTML should include complete initial content and metadata needed for title, description, canonical URL, and share previews.
+
+Private, preview, deleted, and inaccessible responses must not be indexable as public canonical content.
+
+### Reader Interaction
+
+Reader interaction should stay simple:
+
+- readers can scroll and select/copy readable content;
+- block `RenderView` provides block-specific interaction;
+- keyboard navigation supports basic focus movement across blocks;
+- browser-native find, scroll, and zoom should not be hijacked.
+
+---
+
+## BDD Acceptance Scenarios
+
+These scenarios define product behavior.
+
+### M2 — Minimum Shippable Viewing
+
+```gherkin
+Scenario: Public reader opens a public notepage
+  Given a notepage is public
+  And it has a completed public state with title and markdown content
+  When an anonymous reader opens the canonical public read route
+  Then the reader sees the rendered title and markdown content
+  And the page does not show authoring controls
+  And the route is canonical for that public notepage
+```
+
+```gherkin
+Scenario: Public reader sees last completed public state
+  Given a public notepage has a completed public state
+  And the author has unsent or unfinished working edits
+  When an anonymous reader opens the canonical public read route
+  Then the reader sees the last completed public state
+  And the reader does not see the author's unfinished working edits
+```
+
+```gherkin
+Scenario: Private notepage does not leak to anonymous reader
+  Given a notepage is private
+  When an anonymous reader requests its public read route
+  Then the response does not include private content
+  And the response does not need to reveal that the notepage exists
+```
+
+```gherkin
+Scenario: Unauthorized authenticated reader cannot read private content
+  Given a notepage is private
+  And an authenticated user is not allowed to read it
+  When that user requests the notepage read path
+  Then the response denies access
+  And the response does not include private content
+```
+
+```gherkin
+Scenario: Deleted notepage does not expose content
+  Given a notepage has been deleted
+  When an anonymous reader requests its old public read route
+  Then the response does not include deleted content
+  And M2 does not require a public 410 tombstone page
+```
+
+```gherkin
+Scenario: Author preview is reader-like but not canonical
+  Given an authenticated author is editing a notepage
+  When the author opens preview
+  Then the preview renders the author working state with reader-like rendering
+  And the preview route is not canonical
+  And the preview response is noindex
+```
+
+```gherkin
+Scenario: Public read route is server-rendered
+  Given a public notepage with supported block kinds
+  When a reader requests the public read route
+  Then the first server response includes readable HTML content
+  And the response includes title and description metadata
+  And the response can be shared without requiring editor JavaScript first
+```
+
+### M3 — Reading Polish
+
+- Full keyboard accessibility baseline across public reading.
+- Print-friendly rendering if prioritized.
+- Reader focus mode may hide non-content chrome.
+- More block kinds have RenderView coverage.
+
+### M4 — Production Viewing
+
+- All built-in block RenderViews work in public read mode.
+- Route/view behavior is verified across supported deploy modes.
+- Larger notepages have an explicit performance and rendering strategy.
+
+---
+
+## Reference
+
+### View Invariants
+
+| Invariant | Meaning |
 |---|---|
-| Notepage slug 不存在 | 404 page + "搜相关 notepage" CTA |
-| Private notepage anonymous 访问 | 302 redirect to login（保留 return URL） |
-| Author 删除自己已发布 notepage | 旧 URL → 410 Gone（不是 404；告诉 reader 资源曾在） |
-| Notepage 渲染超大（>1000 block） | Lazy render + virtualization（Phase 2+；M2 可能直接报"too large to render"）|
-| Reader 浏览器禁用 JS | SSR HTML 仍可读；交互降级（无 mode toggle / 无 plugin 交互） |
-| Reader 网络断 | SSR cache + service worker 维持已访问 notepage 离线可读（Phase 2+；M2 不要求）|
-| Author 在 view 中点 block 想编辑 | 切回 edit mode 自动选中该 block（如 author own this notepage） |
-| Mobile reader pinch zoom | 不阻；浏览器原生处理（不接管） |
+| **No authoring controls in public view** | Public readers never see drag/resize/palette/selection UI. |
+| **Public read state is completed state** | Reader route renders last completed public state, not unfinished author working edits. |
+| **Preview is non-canonical** | Preview may render working state but must not become public canonical content. |
+| **Private/deleted content does not leak** | Inaccessible routes must not include private/deleted content in body, metadata, or SSR output. |
+| **RenderView per block** | View mode calls each supported block kind's RenderView, not EditView. |
+| **SSR public content** | Public notepages have server-rendered initial content and metadata. |
 
-## Dependencies
+### Response Behavior Matrix
 
-PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
+| Request | M2 behavior |
+|---|---|
+| Anonymous -> public notepage public read route | Render public state, canonical, indexable. |
+| Anonymous -> private notepage public read route | No content leak; generic not-found preferred for privacy. |
+| Anonymous -> deleted public route | No content leak; 410 tombstone not required in M2. |
+| Authenticated unauthorized -> private notepage | Deny access; may use clearer forbidden response. |
+| Author -> preview route | Render working state; non-canonical; noindex. |
+
+### Non-Goals
+
+- ❌ Authoring affordances and edit controls.
+- ❌ Responsive projection rules.
+- ❌ Theme cascade internals.
+- ❌ Reader annotations/highlights.
+- ❌ Public `410 Gone` tombstone page in M2.
+- ❌ Route path syntax finalization beyond route-class behavior.
+
+### Edge Cases
+
+| Scenario | Expected behavior |
+|---|---|
+| Public notepage has no title | Use a fallback title from metadata policy; do not infer canonical title from arbitrary block content. |
+| Public notepage contains unsupported block kind | Render safe fallback for that block; do not break the full page. |
+| Reader disables JavaScript | Public SSR HTML remains readable for supported block kinds. |
+| Author opens public route while authenticated | Public route still behaves as public read route; authoring route is separate. |
+| Private -> public transition | Public route starts serving completed public state after explicit visibility/state update. |
+| Public -> private transition | Public route stops serving content; search/index behavior must not keep stale public content as canonical. |
+
+### Dependencies
+
+PRD-layer upstream dependencies:
 
 - **Parent PRD**: [notepage.md](./notepage.md)
 - **Sibling PRDs**: [notepage-editing.md](./notepage-editing.md) / [notepage-responsive.md](./notepage-responsive.md)
-- **Other feature PRDs**: [theme-system.md](../theme-system/theme-system.md)（presentation layer + SSR theme bundling）/ [authentication.md](../authentication/authentication.md)（private notepage session 验证；system-level PEP）
-- **External services**: 无 Day-1 外部依赖
+- **Cross-folder PRDs**:
+  - [authentication.md](../authentication/authentication.md)
+  - [identity.md](../authentication/identity.md)
+  - [theme-system.md](../theme-system/theme-system.md)
+  - [plugin-system.md](../plugin-system/plugin-system.md)
+  - [self-host-deploy.md](../self-host-deploy/self-host-deploy.md)
+- **External services**: none for M2.
 
-## Open questions
+### Open Questions
 
-1. **Edit ↔ view toggle UI**: toolbar / floating button / keyboard shortcut（如 `e`）？影响 author 切换流畅度
-2. **Author preview URL form**: query `?preview=1` / route `/preview/:slug` / mode state only-client-side？影响 SEO（preview 不应被索引）
-3. **404 vs 410 vs 403 区分**: 删除 / 私有 / 不存在 三种情况 user-observable 差异该多明显？
-4. **滚动位置 persist 颗粒度**: 跨 session 还是同 session？影响 user expectation
+1. **Exact public route path**: M2 may use `/notes/:slug`, but final product URL syntax remains open per parent PRD.
+2. **Exact author preview route shape**: query / app route / route segment are implementation choices as long as preview remains authenticated, non-canonical, and noindex.
+3. **403 vs generic not-found details**: privacy-preserving default is preferred; exact response differentiation should align with authentication/identity PRDs.
+4. **Future 410 tombstone**: not M2; may be revisited if public SEO transparency is prioritized.
+5. **Large notepage rendering limit**: M2 can cap or degrade; M4 should define production strategy.
 
-## Surfaced ADR debts
+### Surfaced ADR Debts
 
-- **Notepage 标题归属**: parent [notepage.md] open question #4 "标题在 GridState 内还是外" 影响本 PRD SEO meta / SSR 渲染。**Action**: 拍 parent question 后回填 this PRD
-- **Edit ↔ view 切换 UI 决策位置**: PRD-only or ADR？倾向 PRD-only
+- **[ADR-0009] route class semantics**: distinguish canonical public read, authoring, and preview route classes.
+- **[ADR-0002] visibility/public-read state**: schema must represent private/public, public completed state, and deletion/tombstone metadata.
+- **[ADR-0014] RenderView fallback**: unsupported block behavior in public view needs a safe rendering contract.
+- **[ADR-0010] SSR/performance budget**: public read route performance and SSR size need alignment with notepage view acceptance.
 
-详 [AUDIT-2026-05.md] PRD-surfaced debts log。
+详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) PRD-surfaced debts log。
 
-## References
+### References
 
-PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
-
-- **Aligning ADRs**:
+- **Aligning ADRs**（pending PRD-driven rework; see top disclaimer）:
+  - [ADR-0002](../../../../engineering/decisions/ADR-0002-substrate-db-backed.md) — visibility/public state and tombstone schema
   - [ADR-0003](../../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — GridState rendering
-  - [ADR-0009](../../../../engineering/decisions/ADR-0009-api-style.md) — GET /notes/:slug endpoint
+  - [ADR-0009](../../../../engineering/decisions/ADR-0009-api-style.md) — API/route shape
   - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse / FCP / LCP
   - [ADR-0013](../../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — RenderView for markdown
   - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — RenderView contract
-- **Audit**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
+- **Parent**: [notepage.md](./notepage.md)
+- **Sibling PRDs**: [notepage-editing.md](./notepage-editing.md) / [notepage-responsive.md](./notepage-responsive.md)
+- **Cross-folder PRDs**: [authentication.md](../authentication/authentication.md) / [identity.md](../authentication/identity.md) / [theme-system.md](../theme-system/theme-system.md) / [plugin-system.md](../plugin-system/plugin-system.md)
+- **Discussion record**: [notepage-prd-alignment-2026-05-22.md](../../../../engineering/design/discussions/notepage-prd-alignment-2026-05-22.md)
+- **Audit register**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
 - **Doc convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
+- **PRD form**: [prd-discipline.md](../../../../process/methods/prd-discipline.md)
 
-## Changelog
+### Changelog
 
-- 2026-05-16 initial draft；reader view 单独成 sub-PRD（Q1 reframe：view 不是 "edit mode minus controls"，有 reader-centric 独立 concerns —— SSR / SEO / private auth / 404-410-403 / etc.）
-- 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段
-- 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正
+- 2026-05-16 initial draft；reader view 单独成 sub-PRD（Q1 reframe：view 不是 "edit mode minus controls"，有 reader-centric 独立 concerns —— SSR / SEO / private auth / 404-410-403 / etc.）。
+- 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段。
+- 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正。
+- 2026-05-22 pass 4 — route/visibility + BDD rewrite：改为 What / Why / Whole picture / User-facing experience / BDD Acceptance / Reference；同步 parent private/public、last completed public state、route-class framing、preview noindex、privacy-preserving delete/default response、BDD acceptance discipline。

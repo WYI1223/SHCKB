@@ -26,7 +26,7 @@ features/
 
 | Feature | Folder | Status |
 |---|---|---|
-| Notepage（user-facing notepage 整体） | [notepage/](./notepage/) | draft（top + 3 sub-PRDs） |
+| Notepage（core user-facing object） | [notepage/](./notepage/) | draft（top pass 4 + 3 sub-PRD BDD rewrite） |
 | Theme system（presentation layer + 4-layer cascade） | [theme-system/](./theme-system/) | draft（top + user-view + author-view） |
 | Plugin system（generic extension framework） | [plugin-system/](./plugin-system/) | draft（top + new-block sub-PRD） |
 | Authentication（system-level PEP + 4-layer abstraction）| [authentication/](./authentication/) | draft（top + pep + identity；pass 5 split）|
@@ -46,10 +46,10 @@ features/
 
 | Sub-PRD | Scope |
 |---|---|
-| [notepage/notepage.md](./notepage/notepage.md) | top-level framing + cross-cutting invariants + cross-feature seams |
-| [notepage/notepage-view.md](./notepage/notepage-view.md) | Reader 阅读流（view mode + SSR + private auth） |
-| [notepage/notepage-editing.md](./notepage/notepage-editing.md) | Author 编辑流（insert/move/resize/delete + affordance + keyboard） |
-| [notepage/notepage-responsive.md](./notepage/notepage-responsive.md) | Viewport projection（mobile 1-col / tablet 6-col / desktop 12-col） |
+| [notepage/notepage.md](./notepage/notepage.md) | parent model：data boundary + private/public visibility + author working state vs public read state + route classes + delete semantics + BDD acceptance |
+| [notepage/notepage-view.md](./notepage/notepage-view.md) | Reader/read path：canonical public read route + private/deleted no-leak behavior + preview noindex + SSR/SEO + view BDD |
+| [notepage/notepage-editing.md](./notepage/notepage-editing.md) | Authoring path：author working state + insert/move/resize/delete + update-public action + algorithm contract + editing BDD |
+| [notepage/notepage-responsive.md](./notepage/notepage-responsive.md) | Viewport projection：desktop 12-col / tablet 12-col compact / mobile 1-col + touch as affordance + mobile limited authoring + responsive BDD |
 
 ### Theme system（presentation layer 子系统；horizontal subsystem）
 
@@ -113,3 +113,4 @@ features/
 - 2026-05-16 **Day-1 PRD #3 authentication 起草**：reframe auth 为 **system-level PEP**（vs horizontal feature）；8 cross-cutting invariants；Build vs Buy = Buy（Better-Auth baseline，M2 ship 前 verify）；3-layer abstraction（AuthProvider plugin / TokenStrategy operator-config / TokenCarrier library-internal）；AuthProvider 跟 BlockPlugin / ThemePlugin 平级 plugin extension type；Day-1 M2 = UsernamePassword + admin via install bootstrap + 3-role + anonymous public read；OAuth / WebAuthn / 2FA / PAT Phase 2+ as AuthProvider plugin
 - 2026-05-17 **Day-1 PRD #4 self-host-deploy 起草**：operator-facing feature folder（非 horizontal subsystem）；owner ratify **setup-time vs runtime 时间维度二分**（per discussion 候选 Y）；3 PRDs（top + setup-time + runtime）；top 含 3-tier operator profile + 5 deploy mode + 12 cross-cutting invariants；setup-time 5 sections（first install / adapter config / L4 option add / upgrade / L3 replacement migration）；runtime 4 sections（backup schedule / health / log + audit / anomaly detection）；M2 ship Canonical OCI + single-binary + < 10 min onboarding；M3 NAS/VPS templates；M4 Workers tier 3 verify + 5 mode 全 verify；surface 多条 ADR debts（migration archive format / metrics ADR / audit event ADR / alert delivery / install profile validation / etc.）
 - 2026-05-22 **self-host-deploy top pass 2 sync**：top-level PRD 改为 operator-lifecycle shared model（What / Why / Whole picture / Operator-facing experience / MVP / Progressive / Done / Reference）；features index 同步 setup-time/runtime narrative form、bootstrap mode、M-stage restore/deploy-mode口径；新增 self-host top-level discussion record。
+- 2026-05-22 **notepage PRD BDD rewrite**：notepage top + view/editing/responsive 改为 parent model + route/visibility/data-boundary + BDD acceptance；M2 create 默认 private；visibility 简化为 private/public；public readers see last completed public state；route locks class not exact path；delete 默认 privacy-preserving；responsive 收口 viewport-width projection / touch affordance / readable typography。

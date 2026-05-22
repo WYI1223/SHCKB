@@ -2,201 +2,328 @@
 
 | Field | Value |
 |---|---|
-| Status | draft |
-| Last updated | 2026-05-18 |
+| Status | draft (pass 5 — authoring state + BDD rewrite) |
+| Last updated | 2026-05-22 |
 | Owner | W_YI |
-| Parent | [notepage.md] |
+| Parent PRD | [notepage.md](./notepage.md) |
 
 > **ADR reference status (2026-05-18 owner framing)**: 本 PRD 引用的**所有 ADR**（含 [ADR-0001] / [ADR-0002] / [ADR-0003]）均 **pending PRD-driven rework round 2**——遵循 owner framing "需求决定架构，架构决定代码与工期"：Phase E PRD 全完成后 ADR 统一 PRD-informed rework；之前标 REWORKED 的 ADR-0001/0002/0003 也需 PRD-informed 再 audit；ADR-0007/0014/0017/0018 的 partial rework 只是 cross-ADR alignment，**不算 final**。**同步规则**：ADR 改动时必须 grep 全 PRD ADR refs 同步修订，避免 PRD ↔ ADR drift。详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) 2026-05-18 entry。
 
-## Overview
+---
 
-Author 在 notepage 上的**编辑体验** —— 把 block 放上去、调位置、改大小、删除。Notepage 的核心生产力 surface。
+## What this PRD covers
 
-本 PRD 锁的是 **edit mode 下 user-observable 的 WHAT**：insert / move / resize / delete intent 的用户行为期望、算法层 invariants（per prototype 验证）、可访问性 baseline、author-side edge cases。
+Notepage editing 定义 author 如何在 authenticated authoring surface 中创建内容、调整布局、编辑 block、删除 block，并把完成后的状态更新为 public-reader 可见状态。
 
-**不锁** UI HOW（selection 用 outline / toast 还是 inline / drag 半透明 / 等具体视觉选择都是 dev/theme 层决策）。
+本 sub-PRD 拥有：
 
-不锁：reader 行为（→ [notepage-view.md]）、theme system / cascade / 切换（→ [theme-system.md] / [theme-system-user-view.md]）、mobile / tablet 投影（→ [notepage-responsive.md]）、单 block 内部编辑细节（→ [ADR-0013]）、agent 操作（→ [ai-integration.md]）。
+- author working state 的编辑体验。
+- block insert / move / resize / delete 的 user-observable behavior。
+- grid algorithm contract 的 product-facing obligations。
+- editor feedback, failure feedback, and accessibility baseline。
+- editing BDD acceptance scenarios。
+- complete/update-public action 的 editing-side product expectation, while exact UI remains open。
 
-## User stories（author-focused）
+不拥有：
 
-- As a **note author**, I want to **拖一个新 block 到 notepage 空区域**，so that **我可以快速搭起一篇笔记的骨架**
-- As a **note author**, I want to **看到拖动时的视觉 snap preview**，so that **我知道松手后 block 会落在哪**
-- As a **note author**, I want to **block 落到太小的 hole 时自动缩到 hole size**，so that **我不必先精确测量 hole 再决定 block size**
-- As a **note author**, I want to **拖已有 block 重新摆位，size 保持不变**，so that **调整结构不被自动缩 size 干扰**
-- As a **note author**, I want to **拉边缘 / 角改 block 大小**，so that **我可以让重要内容更大、辅助内容更小**
-- As a **note author**, I want to **删除一个 block 后，下方 block 自动上移**，so that **canvas 不留意外空隙；视觉一致**
-- As a **note author**, I want to **键盘也能完成 insert / move / resize / delete**，so that **不依赖鼠标也能用**
-- As a **note author**, I want to **操作失败时知道为什么**（如 "无法放置：与 X 重叠"），so that **我能调整 / 重试**
+- Public/private read route and SSR behavior → [notepage-view.md](./notepage-view.md)。
+- Viewport projection / mobile edit limitations → [notepage-responsive.md](./notepage-responsive.md)。
+- Parent visibility/data boundary decisions → [notepage.md](./notepage.md)。
+- Single block editor internals → [ADR-0013] / block plugin contract。
+- Exact visual form factor chosen by theme/dev layer。
 
-## Functional requirements
+---
 
-### Must (Day-1, M2) — Algorithm contract（prototype-validated）
+## Why
 
-这些是 [ADR-0003] grid-engine + prototype（[grid-engine CONTRACT.md] / `useGridInteraction.ts`）已 validated 的算法层 invariants。PRD 不重定义，**实现必须 match**：
+Editing is the author productivity surface. It must make notepage composition feel immediate without exposing unfinished work to readers.
 
-- **Insert hole-fill（kind-opaque）**: caller 先从 plugin registry 取 proposed size（per [ADR-0014] `BlockPlugin.defaultSize`），然后 engine 只做 geometry clamp —— 把 proposed size clamp 到 `min(proposed, hole_max)`；hole 太小不可放 → intent === 'reject'。**Engine 不知道 kind 含义**（per [ADR-0003] induction 3 kind-opaque）
-- **Move 保 size**: 拖已有 block，新位置 probe **不**走 hole-fill clamp；保 source block 原 colSpan/rowSpan
-- **Resize 6 axes**: 4 边（right / left / top / bottom）+ 2 角（corner = 右下 / top-left = 左上）；left / top / top-left 走 **atomic transform**（col + colSpan 或 row + rowSpan 一起改）
-- **Gravity Option A**: 每个 mutating op 后 state 永远 gravity-stable（per [ADR-0003] induction 4）
-- **Invalid op = state no-op + mutation rejected + UI must surface failure**: 任何 invariant 破坏（overlap / out-of-bounds / 等）→ engine 返回 rejection，state 不动（state-level 是 no-op）；**但 UI 必须 surface 失败**（form factor / 具体 UI 是 dev/theme 层；本 PRD mandate "用户 must 知道操作失败 + 至少能理解为什么"）
+The key product split from parent PRD is:
 
-### Must (Day-1, M2) — User behavior expectations
+- Author edits operate on **author working state**.
+- Public readers see **last completed public state**.
+- Author can preview working state in a reader-like form.
+- Author must explicitly complete/update public state before reader-visible content changes.
 
-PRD 层 user-observable 期望；HOW 是 dev/theme 决定：
+This lets the product avoid a user-facing "draft version" lifecycle while still protecting public readers from half-finished edits.
 
-- **Insert 入口**: 至少一种通过 palette 添加 block 的方式（form factor / 交互方式 dev/theme 决定）
-- **拖动反馈**: drag 进行中 user 看到 snap preview（target region + valid/reject 区分；具体视觉 dev/theme 决定）
-- **Move 完成性**: 拖到合法位置 → 松手后 block 在新位置；拖到非法位置 → block 留在原位 + user 知道为什么
-- **Resize 完成性**: 拉边角 → 松手后 size 变；非法 → 不变 + user 知道为什么
-- **Delete affordance**: 选中或聚焦某 block 后能触发删除；删除立即生效；下方 block gravity 上移可见
-- **Reject feedback**: 任何 invariant 破坏的操作 → user 必须感知到失败 + 至少有一种途径理解为什么（toast / inline / banner / etc. dev/theme 决定）
-- **Mode 切换不丢 state**: edit ↔ view 切换 / theme 切换 / viewport resize 不丢编辑中的 GridState、不丢 focus / scroll position（per [notepage.md] cross-cutting invariant）
+---
 
-### Must (Day-1, M2) — Accessibility baseline
+## The whole picture
 
-- 全 keyboard 可操作：无 mouse 也能完成 insert / move / resize / delete（具体 key bindings dev/theme 决定，**应遵循 OS + Web 标准约定**——Enter / Esc / Tab / 方向键 / Delete 等惯例）
-- 可被 screen reader 识别：block 有 ARIA label（包含 kind / 位置 / size 信息）；mutation 结果应可被 screen reader announce（具体 announcement 文本 dev 决定）
-- 颜色对比度满足 WCAG AA（应用于所有 visual affordance；具体颜色 theme 决定）
-- Touch target 大小满足 WCAG AAA（≥ 44×44 px on touch device）
+```text
+ notepage editing model
+ ══════════════════════
 
-### Should (Day-1 if scope allows)
+  authoring surface
+      authenticated
+      works on author working state
+      can preview reader-like result
 
-- **Undo / redo**: scope TBD（详 Open questions）
-- **Drop preview 显示具体 reject 原因**: 不只是颜色区分，文字 / icon 等辅助识别（form dev/theme 决定）
+  grid operations
+      insert / move / resize / delete
+      engine validates layout invariants
+      invalid mutation = no state change + visible failure feedback
 
-### Nice-to-have (Phase 2+)
+  block editing
+      block EditView owns internal editing behavior
+      author should see local feedback quickly
+      block content becomes part of author working state
 
-- **Multi-select**（多 block 同时拖 / 删 / resize 同步）
-- **Block alignment guides**（拖时显示与邻居对齐的辅助线）
-- **Snap to other block edges**（除 grid snap 外的对齐）
-- **Block group / nesting** —— [ADR-0003] induction 3 当前不支持
+  public update
+      explicit complete/update-public action
+      promotes completed working state to public-read state
+      exact UI label/placement TBD
 
-## Out of PRD scope (dev / theme decisions)
+  UI freedom
+      palette / handles / selection / feedback form are theme/dev decisions
+      product locks behavior, not form factor
+```
 
-以下属于实现层决策，**本 PRD 不规定**；不同 theme / 不同 implementation 可以选不同形态：
+---
 
-| Concern | 例子（不是规定）|
+## Author-Facing Experience
+
+### Starting From An Empty Private Notepage
+
+New notepages start private. An author can open the authoring surface, add a first markdown block, write content, and keep editing without exposing the page to anonymous readers.
+
+The authoring surface should make the empty state actionable, but the exact form factor is not fixed by this PRD.
+
+### Editing Block Content
+
+When the author edits markdown or another supported block kind, the editor should show author-side feedback immediately where feasible. This is local/author feedback; it does not imply public readers see the change.
+
+Author working state must persist reliably enough that refresh/navigation does not lose normal edits once they have been accepted by the editor.
+
+### Layout Operations
+
+The author can:
+
+- insert a block;
+- move an existing block;
+- resize a block where supported by viewport/editor mode;
+- delete a block.
+
+Layout operations must preserve grid invariants and surface failures. The user must be able to understand that an operation failed and broadly why.
+
+### Completing Public State
+
+For public notepages, author working edits do not automatically change reader-visible content. The author must have an explicit complete/update-public action that makes the completed state visible to public readers.
+
+The exact label is open. Product examples include "Update public page", "Publish changes", or "Done editing", but this PRD only requires the behavior.
+
+### Accessibility
+
+M2 must not require a mouse-only editing model. Keyboard and assistive technology support are part of the editing product baseline, even if exact keybindings remain dev/theme decisions.
+
+---
+
+## BDD Acceptance Scenarios
+
+These scenarios define product behavior.
+
+### M2 — Minimum Shippable Editing
+
+```gherkin
+Scenario: Author creates first content in a private notepage
+  Given an authenticated author has created a new private notepage
+  When the author adds a markdown block
+  And writes markdown content
+  Then the author sees the edited content in the authoring surface
+  And anonymous readers cannot access the private notepage content
+```
+
+```gherkin
+Scenario: Insert fits a new block into available space
+  Given an author is editing a notepage with available grid space
+  When the author inserts a block from the available block types
+  Then the block appears in a valid grid position
+  And the layout remains valid
+  And the engine does not need to know the block kind's semantic meaning
+```
+
+```gherkin
+Scenario: Move preserves existing block size
+  Given an author is editing a notepage with an existing block
+  When the author moves the block to a valid empty position
+  Then the block moves to the new position
+  And the block keeps its previous size
+  And the layout remains valid
+```
+
+```gherkin
+Scenario: Resize changes size only when valid
+  Given an author is editing a notepage with a selected block
+  When the author resizes the block to a valid size
+  Then the block size changes
+  And the layout remains valid
+  When the author attempts an invalid resize
+  Then the block state does not change
+  And the author receives failure feedback
+```
+
+```gherkin
+Scenario: Delete removes block and stabilizes layout
+  Given an author is editing a notepage with multiple blocks
+  When the author deletes one block
+  Then the block is removed
+  And remaining blocks settle according to the grid gravity rule
+  And the layout remains valid
+```
+
+```gherkin
+Scenario: Public readers do not see unfinished edits
+  Given a notepage is public
+  And public readers can see its completed public state
+  When the author changes content in the authoring surface
+  Then the author sees the working change
+  And public readers still see the previous completed public state
+```
+
+```gherkin
+Scenario: Author updates public state after editing
+  Given a public notepage has author working changes
+  When the author completes or updates the public state
+  Then public readers can see the updated content
+  And the public read route still has no authoring controls
+```
+
+```gherkin
+Scenario: Editing can be completed without a mouse
+  Given an author is using keyboard navigation
+  When the author focuses blocks and performs supported editing operations
+  Then the author can complete the M2 editing path without requiring pointer-only actions
+```
+
+### M3 — Editing Breadth
+
+- At least 5 block kinds can be inserted and edited.
+- Failure feedback has non-color affordance where possible.
+- Keyboard accessibility receives deeper validation across editing operations.
+- Author update-public action has a polished, discoverable UI.
+
+### M4 — Editing Polish
+
+- All 9 built-in block kinds can be edited.
+- Undo/redo ships only after scope across block editor state and GridState is ratified.
+- Multi-select remains future unless explicitly promoted.
+
+---
+
+## Reference
+
+### Algorithm Contract
+
+These are product-facing obligations of the grid engine behavior validated by the existing prototype and ADR direction. Exact implementation remains ADR/code-level.
+
+| Contract | Product meaning |
 |---|---|
-| Palette form factor | toolbar 一行 / floating chip / sidebar drawer / context menu / slash command / etc. |
-| Selection visual | outline / glow / background tint / shadow / etc. |
-| Reject feedback UI | toast / inline error banner / status line / 仅颜色区分 / etc. |
-| Drag in-flight visual | 半透明 / 自定 drag image / 默认浏览器 image / etc. |
-| Resize handle visibility | always-visible / hover-only / focus-only / etc. |
-| Resize handle 视觉 | bar / dot / 角块 / etc.（prototype 用 bar + 角块）|
-| Specific keyboard bindings | "Tab 选下个 block" / "j/k 上下移动" / 等具体 keymap |
-| Block focus visual | border / shadow / arrow indicator / etc. |
-| Palette block kind 排序 | alphabetical / usage-frequency / category-grouped / etc. |
-| Drag handle 位置（block 上哪一块区域可拖）| 整 block / top bar / 角点 / etc. |
+| **Insert hole-fill** | New block proposed size may be clamped to available hole; too-small holes reject. |
+| **Kind-opaque layout** | Grid engine handles geometry; block semantic meaning belongs to plugin/block layer. |
+| **Move preserves size** | Moving an existing block does not auto-shrink it to fit like insert. |
+| **Resize axes** | Resize supports the agreed axes where mode/viewport allows; invalid transforms reject. |
+| **Atomic resize transform** | Top/left resize changes position and span together so state never enters broken intermediate form. |
+| **Gravity-stable state** | Mutating operations settle into the chosen gravity-stable layout. |
+| **Invalid op = state no-op + user feedback** | Rejected operations do not mutate state and must be visible to the author. |
 
-**Theme extensibility**: 第三方 theme（详 [theme-system-author-view.md] L3 cascade override + fork/compose paths）可以选择以上任意形态；PRD 只保证 user behavior 在所有 theme 下一致（per [theme-system.md] L0 hard invariants）。
+### UI Freedom
 
-**Cascade 层定位**：本 PRD "Out of PRD scope" 这 10 项 form-factor 决策属 [theme-system.md] cascade 的 **L1 framework default + L2 theme default + L3 plugin theme** 三层 freedom；具体每条 attribute 哪层 override 由 theme author 选择（详 [theme-system-author-view.md]）。
+This PRD intentionally does not prescribe the visual/control form:
 
-## Non-functional requirements
-
-- **Performance**:
-  - Drag feedback < 16ms（60fps；per [ADR-0010] SLO）
-  - Insert / move / resize op 端到端（含 server roundtrip）< 200ms p95（per [ADR-0010]）
-- **Accessibility**: 详 Must section 第三项
-- **Persistence latency**: edit 后 < 5s 内 commit 到 server；fail 时本地缓存重试
-
-## Non-goals
-
-- ❌ **View mode** —— 归 [notepage-view.md]
-- ❌ **Theme system / cascade / affordance form factor** —— 归 [theme-system.md] / [theme-system-author-view.md]
-- ❌ **Mobile / tablet 投影** —— 归 [notepage-responsive.md]
-- ❌ **Block 内部 prose-flow 编辑细节** —— 归 [ADR-0013] / 各 plugin EditView
-- ❌ **Block kind enumeration** —— 归 [plugin-system.md]
-- ❌ **具体 UI 实现选择** —— 详上面 "Out of PRD scope"
-
-## Acceptance criteria
-
-### M2 acceptance
-
-- Author 能从空白 notepage 开始，通过 palette 加 markdown block，拖到 notepage 任意位置，编辑文本，刷新页面后内容还在
-- 拖 / resize / delete 三个 intent 完整 work；gravity 正确触发；invariant 破坏的操作 state no-op + UI surface 失败 + user 知道为什么
-- 算法 contract 全 match prototype（hole-fill / move 保 size / 6 resize axes / atomic transform / Option A）
-- Keyboard a11y baseline：无 mouse 能完成所有 op；screen reader 可识别 block 结构
-
-### M3 acceptance
-
-- 至少 5 个 block kind 可插入 / 编辑（具体 kinds 详 [plugin-system.md]）
-- Reject feedback 文字辅助识别（如 Should 落地）
-
-### M4 acceptance
-
-- 所有 9 个内置 block kind 在 notepage 上可编辑
-- Undo / redo（如启用）shipped
-
-## Edge cases
-
-| 场景 | 期望行为（user-observable）|
+| Concern | Examples allowed |
 |---|---|
-| Notepage 完全空 | User 能识别可以加 block（具体 affordance：自动 open palette / hint / 空 canvas 上的 placeholder / dev 决定）|
-| Notepage 满（无可用 hole 容纳新 block）| Insert 操作失败 + user 知道原因 |
-| 拖到 cursor out of bounds | Visual reject feedback；松手后 block 留原位 |
-| Resize 到 < 1×1 | Reject + user 知道 invalid span |
-| Resize 把邻居挤出 grid | Reject，邻居不动 |
-| 拖 in flight 时 server 失败 | UI rollback 到拖前状态 + user 知道失败原因 |
-| 拖时网络断 | 本地 optimistic update + 重连后 server reconcile；冲突走 last-write-wins |
-| 同 notepage 多 tab 打开同时编辑 | Last-write-wins；UI 不显式提示冲突（Day-1 简化；per [notepage.md] non-goals） |
-| 选中 block 时 session 被取消 | Edit 操作 disabled；user 知道需重新登录 |
+| Insert entry | toolbar, palette, slash command, context menu, empty-state action |
+| Selection visual | outline, shadow, tint, focus ring |
+| Drag/resize handles | always visible, hover, focus, touch-specific handles |
+| Reject feedback | toast, inline message, status area, accessible announcement |
+| Keyboard bindings | standard web/OS conventions chosen by implementation |
+| Palette sorting | category, frequency, alphabetical |
 
-## Dependencies
+Themes may vary the form factor as long as parent and editing behavior invariants remain true.
 
-PRD 层 upstream 依赖（ADR / CONTRACT / prototype 是 downstream，归 References 段）：
+### Non-Goals
+
+- ❌ Public read route / SEO behavior.
+- ❌ Mobile/tablet projection rules.
+- ❌ Theme cascade internals and exact visual affordance choices.
+- ❌ Block kind enumeration.
+- ❌ Multi-select in M2.
+- ❌ Product-level draft version.
+
+### Edge Cases
+
+| Scenario | Expected behavior |
+|---|---|
+| Empty notepage | Author can discover at least one way to add the first block. |
+| No grid space for insert | Insert rejects and author receives understandable feedback. |
+| Move out of bounds | Block remains at prior valid position and author receives feedback. |
+| Resize below minimum | Resize rejects and state remains valid. |
+| Delete selected block | Selection clears or moves predictably; layout remains valid. |
+| Network fails after accepted local edit | Author sees persistence failure/retry state; public state is not updated accidentally. |
+| Session expires mid-edit | Editing operations are disabled or fail clearly; private content is not exposed. |
+| Same notepage open in multiple tabs | M2 uses simplified conflict semantics; no CRDT or explicit collaborative conflict UX. |
+
+### Dependencies
+
+PRD-layer upstream dependencies:
 
 - **Parent PRD**: [notepage.md](./notepage.md)
 - **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-responsive.md](./notepage-responsive.md)
-- **Other feature PRDs**: [theme-system.md](../theme-system/theme-system.md)（presentation layer + cascade + affordance form factor freedom）/ [plugin-system.md](../plugin-system/plugin-system.md)（提供 block kinds + EditView contract）/ [authentication.md](../authentication/authentication.md)（提供 edit 权限 + system-level PEP）
-- **External services**: 无 Day-1 外部依赖
+- **Cross-folder PRDs**:
+  - [authentication.md](../authentication/authentication.md)
+  - [identity.md](../authentication/identity.md)
+  - [theme-system.md](../theme-system/theme-system.md)
+  - [theme-system-author-view.md](../theme-system/theme-system-author-view.md)
+  - [plugin-system.md](../plugin-system/plugin-system.md)
+- **External services**: none for M2.
 
-## Open questions
+### Open Questions
 
-1. **Undo / redo scope**: per-block edit 内部 undo (Lexical SoT) vs notepage-level undo (GridState history) 合并还是各管各？
-2. **Multi-select Day-1 or Phase 2+**: 用户做 5 块 markdown 笔记可能不需要；做 dashboard 可能需要批量调整。倾向 Phase 2+
+1. **Update-public action UX**: exact label and placement remain open.
+2. **Persistence semantics**: exact autosave/retry timing belongs to implementation/ADR, but accepted author edits must not be casually lost.
+3. **Undo/redo scope**: per-block editor undo vs notepage GridState undo vs combined history.
+4. **Multi-tab conflict policy**: M2 can remain simplified, but ADR/API should eventually define conflict semantics.
+5. **Mobile editing capability**: consumed from [notepage-responsive.md](./notepage-responsive.md); this PRD owns desktop/tablet-capable editing behavior.
 
-## Surfaced ADR debts
+### Surfaced ADR Debts
 
-- **Undo / redo scope GAP**: 现有 ADR 集（[ADR-0003] / [ADR-0013] / [ADR-0014]）都没明确 undo / redo 形态。**Action**: 视 Open question 1 拍后开新 ADR 或归 [ADR-0013]
-- **Multi-tab 冲突策略 GAP**: Edge case 写了 "last-write-wins"，[ADR-0002] / [ADR-0009] 没显式说 conflict detection。**Action**: audit [ADR-0002] / [ADR-0009] 时 verify
-- **Keyboard a11y baseline 没在 prototype validated**: prototype 完全 mouse-only；keyboard a11y 是 Day-1 production mandate 但没 implementation reference。**Action**: M2 实装时单独 prototype keyboard interaction layer + 验证
+- **[ADR-0003] grid engine contract**: ensure pass 4/5 PRD language aligns with hole-fill, move-size preservation, resize axes, atomic transform, and gravity.
+- **[ADR-0013] block editor state**: clarify how block internal editing state participates in author working state.
+- **[ADR-0014] plugin contract**: EditView must support authoring without leaking public read state.
+- **[ADR-0009] mutation API**: update-public action and author working state persistence need endpoint semantics.
+- **Undo/redo ADR or ADR extension**: unresolved cross-layer behavior.
+- **Conflict semantics**: multi-tab/last-write behavior needs explicit API/substrate alignment.
 
-详 [AUDIT-2026-05.md] PRD-surfaced debts log。
+详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) PRD-surfaced debts log。
 
-## References
+### References
 
-PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align 本 PRD**。任何 ADR ↔ PRD 不一致 → ADR rework（详 [AUDIT-2026-05.md] 流程）。
-
-- **Aligning ADRs**（technical realization of this PRD's WHAT）:
-  - [ADR-0003](../../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — gravity / drop intent / AABB invariants（核心算法承诺）
-  - [ADR-0013](../../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — EditView 内编辑
-  - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — defaultSize / EditView / RenderView contract
+- **Aligning ADRs**（pending PRD-driven rework; see top disclaimer）:
+  - [ADR-0002](../../../../engineering/decisions/ADR-0002-substrate-db-backed.md) — author working state / public read state persistence
+  - [ADR-0003](../../../../engineering/decisions/ADR-0003-grid-engine-contract.md) — gravity / drop intent / AABB invariants
   - [ADR-0009](../../../../engineering/decisions/ADR-0009-api-style.md) — mutation endpoints
   - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — drag fps / op latency
+  - [ADR-0013](../../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — block EditView internals
+  - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — defaultSize / EditView / RenderView contract
+- **Parent**: [notepage.md](./notepage.md)
+- **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-responsive.md](./notepage-responsive.md)
+- **Cross-folder PRDs**: [authentication.md](../authentication/authentication.md) / [identity.md](../authentication/identity.md) / [theme-system.md](../theme-system/theme-system.md) / [theme-system-author-view.md](../theme-system/theme-system-author-view.md) / [plugin-system.md](../plugin-system/plugin-system.md)
 - **Contract**: [grid-engine CONTRACT.md](../../../../../packages/grid-engine/CONTRACT.md)
-- **Frozen DI**: [grid-redesign-2026-05-11.md](../../../../engineering/design/_frozen/grid-redesign-2026-05-11.md) §3 + §4
-- **Prototype reference**（validated algorithm core; UI choices not normative）:
-  - `carryover/_reference/prototype/useGridInteraction.ts` — drag/resize state machine
-  - `carryover/_reference/prototype/shared-overlays.tsx` — DropGhost / ResizePreview / ResizeHandles 视觉 semantics
-  - `carryover/_reference/prototype/MiniPalette.tsx` — palette drag-insert flow（form factor not normative）
-- **Audit**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
+- **Frozen DI**: [grid-redesign-2026-05-11.md](../../../../engineering/design/_frozen/grid-redesign-2026-05-11.md)
+- **Prototype references**:
+  - `carryover/_reference/prototype/useGridInteraction.ts`
+  - `carryover/_reference/prototype/shared-overlays.tsx`
+  - `carryover/_reference/prototype/MiniPalette.tsx`
+- **Discussion record**: [notepage-prd-alignment-2026-05-22.md](../../../../engineering/design/discussions/notepage-prd-alignment-2026-05-22.md)
+- **Audit register**: [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md)
 - **Doc convention**: [doc-conventions.md](../../../../process/methods/doc-conventions.md)
+- **PRD form**: [prd-discipline.md](../../../../process/methods/prd-discipline.md)
 
-## Changelog
+### Changelog
 
-- 2026-05-16 initial draft；从 features/canvas-editing.md 拆出 edit-specific 内容
-- 2026-05-16 pass 2 (owner review against prototype): WHAT vs HOW 边界 sharpen ——
-  - Algorithm contract 与 prototype 验证对齐显式标注（6 resize axes / atomic transform / move 保 size / hole-fill / Option A）
-  - 删除 implementation prescriptions（outline / toast / 半透明 / 具体 keymap / toolbar palette / handle visibility）—— 都是 dev/theme 层决策
-  - 新增 `Out of PRD scope (dev / theme decisions)` 段显式列 10 个 HOW concern
-  - User stories / Functional req Must / Edge cases 改 user-observable WHAT 表述，去 UI 实现细节
-  - Keyboard a11y baseline 保留但不规定 specific bindings；标记 prototype 未 validated → AUDIT 新增 debt
-  - Theme extensibility 显式：第三方 theme 可选不同 palette form factor / handle visual / 等
-- 2026-05-16 pass 3 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs / Contract / Prototype 移到 References "Aligning ADRs" 段（PRD 是 master，ADR 是 downstream）
-- 2026-05-16 hygiene pass 4 (owner review):
-  - 相对链接深度修正
-  - `inferDropIntent(state, cursor, kind)` 旧签名移除（与 [ADR-0003] kind-opaque 冲突）→ 改为 "caller 取 proposed size，engine 只做 geometry clamp"
-  - "Invalid op = silent no-op" → "state no-op + mutation rejected + UI must surface failure"（silent 误读为"可以不提示"）；M2 acceptance 措辞同步
+- 2026-05-16 initial draft；从 features/canvas-editing.md 拆出 edit-specific 内容。
+- 2026-05-16 pass 2 (owner review against prototype)：WHAT vs HOW 边界 sharpen；algorithm contract 与 prototype 验证对齐；implementation prescriptions 移出 PRD；keyboard a11y baseline 保留。
+- 2026-05-16 pass 3 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs / Contract / Prototype 移到 References。
+- 2026-05-16 hygiene pass 4 (owner review)：relative links fixed；kind-opaque insert signature corrected；invalid op changed from silent no-op to state no-op + mutation rejected + UI must surface failure。
+- 2026-05-22 pass 5 — authoring state + BDD rewrite：改为 What / Why / Whole picture / Author-facing experience / BDD Acceptance / Reference；同步 parent private/public、author working state vs public read state、update-public action、BDD acceptance discipline，同时保留 algorithm contract as product-facing obligations。
