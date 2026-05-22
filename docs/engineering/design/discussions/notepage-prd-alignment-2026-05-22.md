@@ -347,3 +347,68 @@ These items supersede the earlier historical `Open Items` list without editing t
 ### 2026-05-23 - Artifact Update
 
 - Appended owner date clarification and Codex's narrowed review finding. No previous dialogue entries were edited.
+
+### 2026-05-23 - Turn 11
+
+- **Owner**: Asked what to do next and considered writing the AI-Integration PRD:
+  > 接下来我在考虑写AI-Integration的PRD，或者说你有其他的想法？
+- **Codex response**:
+  - Recommended writing AI-Integration next, but only after a small notepage closeout.
+  - Identified the closeout as the remaining `update-public` wording issue:
+    - parent/body text already says public readers see author changes only after an explicit complete/update-public action;
+    - `notepage.md` Open Questions still asks whether update-public is automatic on save or explicit;
+    - this should be corrected before AI-Integration consumes the notepage author/public-state model.
+  - Recommended narrowing the Open Question to label, placement, and possible UI coupling with save, without reopening the explicit reader-visible update boundary.
+  - Said AI-Integration is a reasonable next PRD because it will stress-test notepage, authentication/identity, plugin-system, self-host-deploy, and future search-discovery boundaries.
+  - Recommended framing AI-Integration as a permissioned semantic operation layer rather than a chatbot feature.
+- **Files mentioned**:
+  - `docs/product/prd/features/notepage/notepage.md`
+  - `docs/product/prd/features/notepage/notepage-editing.md`
+  - `docs/product/prd/features/ai-integration/`
+  - `docs/product/prd/features/authentication/`
+  - `docs/product/prd/features/plugin-system/`
+  - `docs/product/prd/features/self-host-deploy/`
+  - `docs/product/prd/features/search-discovery/`
+- **Action proposed or taken**:
+  - Close the notepage `update-public` wording issue first.
+  - Then proceed to AI-Integration PRD framing.
+
+### 2026-05-23 - Artifact Update
+
+- Appended the pre-AI-Integration notepage closeout item: resolve `update-public` Open Question wording so it no longer conflicts with the explicit reader-visible update boundary.
+
+### 2026-05-23 - Turn 12
+
+- **Owner**: Asked to resolve the final closeout item from this discussion before starting the next PRD:
+  > 在进行下一个PRD的撰写之前，先把discussion中提到的最后收尾解决一下
+- **Codex response**:
+  - Treated the final closeout as the `update-public` wording mismatch identified in Turn 10 and Turn 11.
+  - Updated the parent PRD Open Question so it no longer asks whether reader-visible update is automatic on save or explicit.
+  - Kept the decided boundary: public readers see author changes only after an explicit complete/update-public action.
+  - Narrowed the remaining question to UX details: action label, placement, and whether the explicit action is visually coupled with save controls.
+  - Mirrored the same wording in `notepage-editing.md` so the parent and editing sub-PRD do not drift.
+- **Files mentioned**:
+  - `docs/product/prd/features/notepage/notepage.md`
+  - `docs/product/prd/features/notepage/notepage-editing.md`
+- **Action proposed or taken**:
+  - Close the `automatic on save vs explicit` wording issue.
+  - Keep update-public UX details open for implementation-stage design.
+  - Proceed to the next PRD only after this closeout is reflected in the PRDs.
+
+### Current Open Items after 2026-05-23 closeout
+
+These items supersede the earlier historical `Current Open Items after 2026-05-22 rewrite cleanup` list without editing that list in place.
+
+- Final public URL syntax: M2 may use `/notes/:slug`, but route-class behavior is the product contract.
+- Author complete/update-public action UX: exact label, placement, and save-control coupling remain open; explicit reader-visible update is resolved.
+- Future public delete response: whether to add intentional public tombstone / `410 Gone` behavior after M2.
+- Slug reuse and alias policy for deleted or renamed public pages.
+- Undo/redo scope across block editor state, notepage GridState, and combined author history.
+- Reader annotation / private reader edit mode.
+- Mobile content-editing extent beyond the M2 read-first baseline and limited authoring allowance.
+- Future cross-page capabilities are not a current notepage open item; they remain future PRD scope outside the single-notepage foundation.
+
+### 2026-05-23 - Artifact Update
+
+- Updated `notepage.md` and `notepage-editing.md` to narrow update-public wording to UX details while preserving the explicit reader-visible update boundary.
+- Appended current open items after closeout so the discussion no longer points future PRD work at a stale automatic-vs-explicit ambiguity.

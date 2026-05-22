@@ -205,7 +205,7 @@ Scenario: Editing can be completed without a mouse
 
 ### M4 — Editing Polish
 
-- All 9 built-in block kinds can be edited.
+- All PRD-approved built-in block kinds can be edited across the supported catalog.
 - Undo/redo ships only after scope across block editor state and GridState is ratified.
 - Multi-select remains future unless explicitly promoted.
 
@@ -280,7 +280,7 @@ PRD-layer upstream dependencies:
 
 ### Open Questions
 
-1. **Update-public action UX**: exact label and placement remain open.
+1. **Update-public action UX**: exact label, placement, and whether the explicit reader-visible update action is visually coupled with save controls remain open; the requirement for an explicit reader-visible update is not open.
 2. **Persistence semantics**: exact autosave/retry timing belongs to implementation/ADR, but accepted author edits must not be casually lost.
 3. **Undo/redo scope**: per-block editor undo vs notepage GridState undo vs combined history.
 4. **Multi-tab conflict policy**: M2 can remain simplified, but ADR/API should eventually define conflict semantics.
@@ -327,3 +327,4 @@ PRD-layer upstream dependencies:
 - 2026-05-16 pass 3 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs / Contract / Prototype 移到 References。
 - 2026-05-16 hygiene pass 4 (owner review)：relative links fixed；kind-opaque insert signature corrected；invalid op changed from silent no-op to state no-op + mutation rejected + UI must surface failure。
 - 2026-05-22 pass 5 — authoring state + BDD rewrite：改为 What / Why / Whole picture / Author-facing experience / BDD Acceptance / Reference；同步 parent private/public、author working state vs public read state、update-public action、BDD acceptance discipline，同时保留 algorithm contract as product-facing obligations。
+- 2026-05-23 closeout：收窄 update-public Open Question；只保留 label / placement / save-control coupling，explicit reader-visible update boundary 不再重开。

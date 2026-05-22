@@ -34,11 +34,11 @@ Block extension = **author 写一个新 block kind**，让它出现在 notepage 
 
 ### Must (Day-1, M2) — Day-1 milestone scope（align project roadmap）
 
-- **M2 ship scope**：markdown plugin **完整 E2E** + registry 能 register 多 plugin（其他 8 built-in 可以 stub register 但完整实装在 M3/M4）；align [project.md] M2 = "login → markdown block → public view"
-- **Roadmap target catalog**（9 built-in block kinds；分布在 M2/M3/M4 渐进 ship；per frozen DI [grid-redesign-2026-05-11.md] §6）：
+- **M2 ship scope**：markdown plugin **完整 E2E** + registry 能 register 多 built-in plugin candidates（非 M2 concrete block 可 stub register，但完整实装在 M3/M4）；align [project.md] M2 = "login → markdown block → public view"
+- **Roadmap target catalog**（built-in block kinds 渐进 ship；具体 product catalog 以 [blocks.md](../blocks/blocks.md) 及其 `block-*` sub-PRD 为准）：
   - **M2 complete**: markdown
-  - **M3 5 light**: markdown + image / code / callout / math (具体清单与 [plugin-system.md] M3 align)
-  - **M4 9 full**: + pdf / jupyter / nn-viz / agent-flow (heavy plugins)
+  - **M3 candidates**: markdown + image / code / drawing（exact count and final catalog remain PRD-driven）
+  - **M4 full/heavy catalog**: exact heavy set remains PRD-driven
 - **Closed registry Day-1**：framework 启动时 explicit register（详 [ADR-0014]）；第三方 plugin 不能 runtime install
 - **每个 built-in block plugin 是完整 TS module**：author 可读、可 copy、可 fork
 
@@ -111,13 +111,13 @@ Block extension = **author 写一个新 block kind**，让它出现在 notepage 
 
 ### M3 acceptance
 
-- **5 light block kinds 完整 work**（markdown / image / code / callout / math 等；具体清单与 [plugin-system.md] M3 align）
-- agentOps 跨 5 kinds work（AI 能 manipulate）
+- **Light block kind breadth 完整 work**（current candidates: markdown / image / code / drawing；exact count and final catalog align with [blocks.md](../blocks/blocks.md)）
+- agentOps 跨 current supported block kinds work（AI 能 manipulate；exact kind count 由 [blocks.md](../blocks/blocks.md) / AI PRD 共同收口）
 - Plugin author 文档完整
 
 ### M4 acceptance
 
-- **9 built-in block kinds 全 work**（M3 5 light + M4 4 heavy：jupyter / nn-viz / agent-flow / pdf 等）+ 跨 5 deploy mode 验证
+- **Full/heavy built-in block catalog 全 work**（exact heavy set PRD-driven：jupyter / nn-viz / agent-flow / pdf 等仅作候选）+ 跨 5 deploy mode 验证
 - Plugin lazy migration baseline shipped
 
 ### Phase 2+
@@ -154,7 +154,7 @@ PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：
 ## Open questions
 
 1. **Plugin author CLI Day-1 ship?** `pnpm create skb-plugin --kind=X` scaffolding；倾向 Should（M2 ship 简化版 + M3 polish）
-2. **9 built-in block plugin 拆 separate packages 还是 monorepo 单 package?** 拆 separate 利于 fork（author copy 一个目录即可）；单 package 维护简单。倾向拆（per frozen DI 暗示）
+2. **Built-in block plugin 拆 separate packages 还是 monorepo 单 package?** 拆 separate 利于 fork（author copy 一个目录即可）；单 package 维护简单。倾向拆（per frozen DI 暗示）
 3. **Built-in plugin discoverable to author?** 即 author 是否能 import a built-in plugin 来 compose？还是 built-in 是 framework-internal？倾向"可 import 用于 fork / compose"（不然 fork path 不成立）
 4. **Plugin author 文档归 PRD 还是 runbook?** 当前 PRD 是 WHAT；author 详细 how-to 走 runbook（如 `engineering/runbooks/plugin-author-guide.md` 待 M3 写）
 

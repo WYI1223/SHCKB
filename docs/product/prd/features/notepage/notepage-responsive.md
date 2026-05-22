@@ -35,7 +35,7 @@ Notepage responsive 定义同一 notepage 在 desktop/tablet/mobile viewport 下
 
 ## Why
 
-Notepage uses a constrained canvas model, but readers and authors will use it across small phones, tablets, laptops, desktops, and mixed touch/mouse devices. Responsive behavior must preserve the same notepage identity and GridState while making the page usable at each viewport.
+Notepage uses a responsive grid-composed page model, but readers and authors will use it across small phones, tablets, laptops, desktops, and mixed touch/mouse devices. Responsive behavior must preserve the same notepage identity and GridState while making the page usable at each viewport.
 
 The key product rule is:
 

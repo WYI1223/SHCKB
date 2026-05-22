@@ -38,7 +38,7 @@ Notepage 是 SHCKB 的核心 user-facing object：一个作者创建、编辑、
 
 **为什么 notepage 是产品核心对象**：
 
-SHCKB 的最短价值路径是 author 创建一个 notepage，写入内容，决定是否公开，然后 reader 能稳定访问和阅读。Notepage 不是纯编辑器 canvas，也不是纯文档页面；它同时承载 authoring、public reading、theme presentation、responsive projection、permissions、SEO、and future extension surfaces。
+SHCKB 的最短价值路径是 author 创建一个 notepage，写入内容，决定是否公开，然后 reader 能稳定访问和阅读。Notepage 是由 structured blocks 组成、在 responsive grid 上排布的可分享 web page；它不是纯 document-flow 页面，也不是 infinite whiteboard。它同时承载 authoring、public reading、theme presentation、responsive projection、permissions、SEO、and future extension surfaces。
 
 **为什么 parent PRD 要先锁共同模型**：
 
@@ -228,7 +228,7 @@ Scenario: View, edit, and responsive sub-PRDs pass together
 
 ### M4 — Production Polish
 
-- 9 built-in block kinds work across view/edit/responsive paths.
+- PRD-approved built-in block catalog works across view/edit/responsive paths.
 - Deploy-mode verification confirms notepage route classes and public/private behavior across supported deploy modes.
 - Undo/redo ships only after the scope across block editor state and notepage GridState is ratified.
 
@@ -304,7 +304,7 @@ PRD-layer upstream dependencies:
 ## Open Questions
 
 1. **Final public URL syntax**: M2 may use `/notes/:slug`, but future product shape may need author-scoped URL, custom domain, or another public route form.
-2. **Author complete/update-public action**: exact label, placement, and whether it is automatic on save or explicit in UI.
+2. **Author complete/update-public action UX**: exact label, placement, and whether the explicit reader-visible update action is visually coupled with save controls remain open; the requirement for an explicit reader-visible update is not open.
 3. **Public delete external response**: M2 defaults privacy-preserving; future may add explicit `410 Gone` / tombstone page for intentionally removed public content.
 4. **Slug reuse and alias policy**: deleted public slugs should not be silently reused; exact alias/tombstone rules remain future work.
 5. **Undo/redo scope**: block editor internal undo vs notepage GridState undo vs combined history.
@@ -374,3 +374,5 @@ PRD-layer upstream dependencies:
 - 2026-05-22 pass 4 — parent model + BDD rewrite：改为 What / Why / Whole picture / Product Decisions / BDD Acceptance / Sub-PRDs / Reference；ratified private-by-default, private/public-only visibility, metadata outside GridState, route-class framing, privacy-preserving delete default, BDD acceptance discipline, and parent-owned data boundary。
 - 2026-05-22 pass 4 follow-up：明确本 PRD 只定义 single-notepage foundation，不限制 future cross-page capabilities（multi-note browsing / folder organization / workspace forest / block references / backlinks / graph/search discovery）。
 - 2026-05-23 cleanup：future cross-page capabilities 保留为 Non-Goal / resolved boundary，不再列为当前 Open Question 或 Surfaced ADR Debt。
+- 2026-05-23 closeout：收窄 complete/update-public Open Question；只保留 label / placement / save-control coupling，explicit reader-visible update boundary 不再重开。
+- 2026-05-23 product wording sync：将 notepage 描述从编辑器/canvas 口径收窄为 grid-composed shareable web page；避免与未来 drawing block 或 HTML canvas 实现细节混淆。

@@ -3,20 +3,20 @@
 | Field | Value |
 |---|---|
 | Status | living |
-| Last updated | 2026-05-18 |
+| Last updated | 2026-05-23 |
 | Owner | W_YI |
 
 > **ADR reference status (2026-05-18 owner framing)**: 本 PRD 引用的**所有 ADR**（含 [ADR-0001] / [ADR-0002] / [ADR-0003]）均 **pending PRD-driven rework round 2**——遵循 owner framing "需求决定架构，架构决定代码与工期"：Phase E PRD 全完成后 ADR 统一 PRD-informed rework；之前标 REWORKED 的 ADR-0001/0002/0003 也需 PRD-informed 再 audit；ADR-0007/0014/0017/0018 的 partial rework 只是 cross-ADR alignment，**不算 final**。**同步规则**：ADR 改动时必须 grep 全 PRD ADR refs 同步修订，避免 PRD ↔ ADR drift。详 [AUDIT-2026-05.md](../../engineering/decisions/AUDIT-2026-05.md) 2026-05-18 entry。
 
 ## Vision
 
-一个**可自托管的 canvas 知识库平台**。Note 不是 document-flow 页面，是 2D constrained-canvas —— 内容以 tile（block）形式摆在 12 列 × N 行的网格底板上。软件本身是开源 distributable artifact，由不同 operator 在不同环境部署、服务不同用户群。
+一个**可自托管的 composable 知识库平台**。Notepage 是由结构化 block 组成、在响应式网格上排布的可分享 web page；它不是纯 document-flow 页面，也不是无限白板。软件本身是开源 distributable artifact，由不同 operator 在不同环境部署、服务不同用户群。
 
 参考形态 = Pocketbase / Ghost self-host / Outline self-host / Lemmy / Mastodon（软件分发，operator 各自部署）。
 
 ## 产品定义
 
-- **Canvas 不是文档**：内容是 2D tile placement（约束 canvas），不是 prose-flow（详 [mental-model.md]）
+- **Notepage 是 grid-composed web page**：内容由 structured blocks 组成，并排布在 responsive grid 上；它不是 prose-flow，也不是 infinite canvas（详 [mental-model.md]）
 - **Self-hostable platform**：operator 自部署，不是 SaaS 集中托管
 - **Plugin-extensible**：block 种类通过 plugin 扩展；加功能块 = 写 plugin（详 [ADR-0004]）
 - **AI-native（架构 Day-1 ready，user-visible 功能 M3+）**：架构 Day-1 为 AI 准备（semantic API surface / MCP server scaffold / plugin agentOps signature 都按 agent 是二等用户设计；详 [ADR-0005] / [ADR-0015]）；用户看得见的 AI 功能（in-app AI / external client integration）属 [ai-integration.md]，作 M3+ owner-driven 推进。**Day-1 不 ship user-visible AI feature 不等于 Day-1 不做 AI 准备**
@@ -24,7 +24,7 @@
 
 ## 核心原则
 
-1. **Constrained canvas，非 Notion-shape doc-flow** —— 约束（snap / gravity / no-overlap）做 affordance 不做 cage
+1. **Grid-composed web page，非 Notion-shape doc-flow / infinite whiteboard** —— snap / gravity / no-overlap 做 affordance，不把 notepage 限死成单一编辑器形态
 2. **Plugin extension first-class** —— 内置 plugin 和第三方 plugin 走同一 contract
 3. **数据 SoT 在 server DB** —— 不是 git-as-DB，不是 file-as-DB（详 [ADR-0002]）
 4. **Agent 是二等用户不是 retrofit** —— semantic API 是架构 first-class 层
@@ -72,8 +72,8 @@
 |---|---|---|
 | **M1** | Foundation skeleton —— monorepo + carryover packages drop-in | [bootstrap-evolution.md] |
 | **M2** | First end-to-end slice —— login → 创建 note → markdown block → save → 公开访问（minimum shippable） | [bootstrap-evolution.md] |
-| **M3** | Plugin breadth + AI —— 5 light plugins + in-app AI + MCP server | [bootstrap-evolution.md] |
-| **M4** | Heavy plugins + production polish —— jupyter/nn-viz/agent-flow/discussion + 5 deploy mode 验证 | [bootstrap-evolution.md] |
+| **M3** | Block/plugin breadth + AI —— light block catalog（image / code / drawing candidates）+ in-app AI + MCP server | [bootstrap-evolution.md] |
+| **M4** | Heavy block/plugin catalog + production polish —— exact heavy set PRD-driven + 5 deploy mode 验证 | [bootstrap-evolution.md] |
 | **Phase 2+** | Plugin marketplace / wikilink + backlinks / MCP Apps / 协作（CRDT）/ 等 | TBD |
 
 ## Feature PRDs
@@ -83,6 +83,7 @@
 ### Day-1 critical
 
 - [notepage/]（draft；top + 3 sub-PRDs：notepage / -view / -editing / -responsive；note author / reader 视角）
+- [blocks/]（draft；top-level block abstraction + concrete sub-PRDs；M2 markdown block product-complete；image/code/drawing as candidate skeletons；separate from notepage workflow and plugin-system extension lifecycle）
 - [theme-system/]（draft；top + user-view + author-view；presentation layer + 4-layer cascade + L0 hard invariants；horizontal subsystem）
 - [plugin-system/]（draft；top + new-block sub-PRD；extension author 视角；generic extension framework 不只 block kind；与 theme-system 平级 horizontal subsystem）
 - [authentication/]（draft；flat single PRD；system-level PEP + AuthProvider plugin extension type + Build/Buy=Buy Better-Auth baseline + Day-1 3-role + anonymous first-class）
@@ -116,3 +117,5 @@
 - 2026-05-16 theme-system reframe：theme 抽出独立 horizontal subsystem folder（与 plugin-system 平级）；Day-1 critical feature 列表加 `theme-system/`；notepage/ 收窄为 3 sub-PRDs（去掉 themes）；plugin-system/ 收窄为 1 sub-PRD（去掉 new-theme）
 - 2026-05-16 Day-1 PRD #3 authentication 起草：reframe 为 system-level PEP；Build/Buy=Buy（Better-Auth baseline）；AuthProvider 跟 BlockPlugin / ThemePlugin 平级 plugin extension type
 - 2026-05-17 Day-1 PRD #4 self-host-deploy 起草：operator-facing feature folder；3 PRDs（top + setup-time + runtime）；setup-time vs run-time 时间维度二分；M2 = Canonical OCI + single-binary + < 10 min onboarding；M3 NAS/VPS templates；M4 Workers tier 3 verify + 5 mode 全 verify。**Day-1 critical 4 PRDs 全部 draft 完成**
+- 2026-05-23 blocks PRD initial draft：新增 `blocks/` feature PRD，作为 content-kind capability layer；project feature list 同步 Day-1 critical 入口。
+- 2026-05-23 blocks split sync：product wording 从 constrained-canvas 收窄为 grid-composed web page；`blocks/` 同步为 parent abstraction + `block-*` concrete PRD structure；M3/M4 catalog wording改为 PRD-driven candidates。

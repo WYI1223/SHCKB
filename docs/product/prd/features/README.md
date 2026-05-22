@@ -27,6 +27,7 @@ features/
 | Feature | Folder | Status |
 |---|---|---|
 | Notepage（core user-facing object） | [notepage/](./notepage/) | draft（top pass 4 + 3 sub-PRD BDD rewrite） |
+| Blocks (content-kind capability layer) | [blocks/](./blocks/) | draft (parent PRD + markdown draft + image/code/drawing skeletons) |
 | Theme system（presentation layer + 4-layer cascade） | [theme-system/](./theme-system/) | draft（top + user-view + author-view） |
 | Plugin system（generic extension framework） | [plugin-system/](./plugin-system/) | draft（top + new-block sub-PRD） |
 | Authentication（system-level PEP + 4-layer abstraction）| [authentication/](./authentication/) | draft（top + pep + identity；pass 5 split）|
@@ -50,6 +51,15 @@ features/
 | [notepage/notepage-view.md](./notepage/notepage-view.md) | Reader/read path：canonical public read route + private/deleted no-leak behavior + preview noindex + SSR/SEO + view BDD |
 | [notepage/notepage-editing.md](./notepage/notepage-editing.md) | Authoring path：author working state + insert/move/resize/delete + update-public action + algorithm contract + editing BDD |
 | [notepage/notepage-responsive.md](./notepage/notepage-responsive.md) | Viewport projection：desktop 12-col / tablet 12-col compact / mobile 1-col + touch as affordance + mobile limited authoring + responsive BDD |
+
+### Blocks (content-kind capability layer)
+| PRD | Scope |
+|---|---|
+| [blocks/blocks.md](./blocks/blocks.md) | top-level block abstraction：shared block contract + block/notepage/plugin-system boundary + built-in catalog policy |
+| [blocks/block-markdown.md](./blocks/block-markdown.md) | M2 concrete block：canonical markdown content + source-compatible authoring + reader render + extraction + rich-editor runway |
+| [blocks/block-image.md](./blocks/block-image.md) | M3 candidate skeleton：image/blob asset + alt/caption + responsive reader render + missing-asset fallback |
+| [blocks/block-code.md](./blocks/block-code.md) | M3 candidate skeleton：source code content + language metadata + readable render + copy/extraction/fallback |
+| [blocks/block-drawing.md](./blocks/block-drawing.md) | M3/later candidate skeleton：bounded drawing/sketch/diagram surface inside one block; not the notepage layout model |
 
 ### Theme system（presentation layer 子系统；horizontal subsystem）
 
@@ -84,6 +94,7 @@ features/
 
 **Cross-PRD audience split**:
 - `notepage/` = note author / reader 视角（产品 user）
+- `blocks/` = content-kind capability layer consumed by notepage, search, AI, theme, and plugin-system
 - `theme-system/` = horizontal subsystem，含 user-view 和 author-view 双 PRD
 - `plugin-system/` = extension author（developer-user）视角
 - `self-host-deploy/` = operator lifecycle 视角（setup-time 主动变更 + runtime 自主运行）
@@ -114,3 +125,5 @@ features/
 - 2026-05-17 **Day-1 PRD #4 self-host-deploy 起草**：operator-facing feature folder（非 horizontal subsystem）；owner ratify **setup-time vs runtime 时间维度二分**（per discussion 候选 Y）；3 PRDs（top + setup-time + runtime）；top 含 3-tier operator profile + 5 deploy mode + 12 cross-cutting invariants；setup-time 5 sections（first install / adapter config / L4 option add / upgrade / L3 replacement migration）；runtime 4 sections（backup schedule / health / log + audit / anomaly detection）；M2 ship Canonical OCI + single-binary + < 10 min onboarding；M3 NAS/VPS templates；M4 Workers tier 3 verify + 5 mode 全 verify；surface 多条 ADR debts（migration archive format / metrics ADR / audit event ADR / alert delivery / install profile validation / etc.）
 - 2026-05-22 **self-host-deploy top pass 2 sync**：top-level PRD 改为 operator-lifecycle shared model（What / Why / Whole picture / Operator-facing experience / MVP / Progressive / Done / Reference）；features index 同步 setup-time/runtime narrative form、bootstrap mode、M-stage restore/deploy-mode口径；新增 self-host top-level discussion record。
 - 2026-05-22 **notepage PRD BDD rewrite**：notepage top + view/editing/responsive 改为 parent model + route/visibility/data-boundary + BDD acceptance；M2 create 默认 private；visibility 简化为 private/public；public readers see last completed public state；route locks class not exact path；delete 默认 privacy-preserving；responsive 收口 viewport-width projection / touch affordance / readable typography。
+- 2026-05-23 **blocks PRD initial draft**: added `blocks/` as a Day-1 critical product feature for content-kind capability, separate from notepage workflow and plugin-system extension-author lifecycle.
+- 2026-05-23 **blocks PRD parent/sub split**: `blocks.md` narrowed to top-level abstraction；added `block-markdown.md` plus `block-image.md` / `block-code.md` / `block-drawing.md` skeletons；removed callout and standalone math from current block candidates.

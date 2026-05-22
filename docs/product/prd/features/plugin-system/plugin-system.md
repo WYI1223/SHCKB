@@ -85,7 +85,7 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 - ❌ **Hot reload plugin** —— Day-1 plugin 改 → 重启 server；hot reload Phase 2+
 - ❌ **Plugin 间直接 call** —— 跨 plugin 走 framework capability ctx；不允许 `getPlugin('other').handler.x()`（per [ADR-0014]）
 - ❌ **Plugin 改 framework 内部**（API endpoint / DB schema / 等）—— 这些是 framework owner 决策，不开放给 plugin
-- ❌ **第三方 plugin Day-1 ship** —— Day-1 closed registry；分层 ship 节奏 align project roadmap：M2 markdown block E2E + 3 built-in theme；M3 5 light blocks；M4 9 built-in blocks 全 work；第三方 plugin marketplace Phase 2+ open
+- ❌ **第三方 plugin Day-1 ship** —— Day-1 closed registry；分层 ship 节奏 align project roadmap：M2 markdown block E2E + 3 built-in theme；M3 block/plugin breadth（current block candidates 以 [blocks.md](../blocks/blocks.md) 为准）；M4 full/heavy catalog PRD-driven；第三方 plugin marketplace Phase 2+ open
 
 ## Acceptance criteria
 
@@ -99,12 +99,12 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 ### M3 acceptance
 
 - Sandbox baseline（[ADR-0011] Phase 1 inline → Phase 2 worker boundary 起步）
-- **5 light block kinds 完整 work**（详 [new-block.md] M3；align project.md M3 plugin breadth）
+- **Light block kind breadth 完整 work**（详 [new-block.md] M3；exact count and catalog align with [blocks.md](../blocks/blocks.md) and project.md M3 plugin breadth）
 - Plugin author 文档完整（[new-block.md] author guide + theme author guide 见 [theme-system-author-view.md]）
 
 ### M4 acceptance
 
-- **9 built-in block kinds 全 work**（重型 plugin: jupyter / nn-viz / agent-flow / discussion；align project.md M4）
+- **Full/heavy built-in block catalog 全 work**（candidate heavy plugins PRD-driven；align project.md M4）
 - 5 deploy mode 下 plugin 都 work（含 Workers runtime constraint）
 - Plugin 卸载 / data cleanup workflow
 
