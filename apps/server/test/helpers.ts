@@ -15,6 +15,7 @@ export const ADMIN_PASSWORD = 'admin-password-1';
 export type TestContext = {
   db: Db;
   app: ReturnType<typeof createApp>;
+  blobStore: BlobStore;
   cookie: string;
   /** request with the admin session cookie attached */
   authed: (path: string, init?: RequestInit) => Promise<Response>;
@@ -28,10 +29,11 @@ export async function createTestContext(): Promise<TestContext> {
     adminPassword: ADMIN_PASSWORD,
     secret: TEST_SECRET,
   });
+  const blobStore = new BlobStore(mkdtempSync(join(tmpdir(), 'skb-blobs-')));
   const app = createApp({
     db: handle.db,
     auth,
-    blobStore: new BlobStore(mkdtempSync(join(tmpdir(), 'skb-blobs-'))),
+    blobStore,
     meta: { version: 'test', schemaVersion: handle.schemaVersion },
   });
 
@@ -54,7 +56,7 @@ export async function createTestContext(): Promise<TestContext> {
       headers: { cookie, 'content-type': 'application/json', ...(init?.headers ?? {}) },
     });
 
-  return { db: handle.db, app, cookie, authed };
+  return { db: handle.db, app, blobStore, cookie, authed };
 }
 
 export async function json(res: Response) {
