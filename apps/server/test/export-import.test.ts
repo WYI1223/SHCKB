@@ -74,3 +74,97 @@ describe('buildExport', () => {
     expect(dirs).toEqual(['tree/a_b/folder.json', 'tree/a_b~2/folder.json']);
   });
 });
+
+// ----- importer -----
+
+import { importBundle } from '../src/export/importer';
+
+async function freshContext() {
+  return createTestContext();
+}
+
+describe('importBundle', () => {
+  test('round trip: export → import into empty instance → identical re-export', async () => {
+    const src = await freshContext();
+    await seedInstance(src, src.blobStore);
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.counts).toEqual({ folders: 1, pages: 2, blocks: 2, blobs: 1 });
+
+    const again = buildExport(dst.db, dst.blobStore, OPTS);
+    expect([...again.files.keys()].sort()).toEqual([...bundle.files.keys()].sort());
+    for (const [p, text] of bundle.files) {
+      expect(again.files.get(p)).toBe(text); // OPTS pins exportedAt → fully byte-identical
+    }
+    expect([...again.blobs.keys()]).toEqual([...bundle.blobs.keys()]);
+
+    // published page is live again, HTML re-rendered
+    const html = await dst.app.request('http://localhost/notes/page-one');
+    expect(html.status).toBe(200);
+    expect(await html.text()).toContain('Page One');
+  });
+
+  test('rejects non-empty instance', async () => {
+    const src = await freshContext();
+    await seedInstance(src, src.blobStore);
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const result = importBundle(src.db, src.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.error).toBe('instance is not empty');
+    }
+  });
+
+  test('rejects newer format with downgrade hint', async () => {
+    const src = await freshContext();
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const manifest = JSON.parse(bundle.files.get('manifest.json')!);
+    bundle.files.set('manifest.json', JSON.stringify({ ...manifest, formatVersion: 99 }));
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.error).toContain('newer than this build');
+      expect(result.error).toContain('downgrade');
+    }
+  });
+
+  test('atomic: one invalid page → nothing lands', async () => {
+    const src = await freshContext();
+    await seedInstance(src, src.blobStore);
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const path = 'tree/page-two.page.json';
+    const page = JSON.parse(bundle.files.get(path)!);
+    page.blocks = [{ id: 'bad', kind: 'markdown', col: 10, row: 0, colSpan: 6, rowSpan: 1, content: {} }]; // exceeds 12 cols
+    bundle.files.set(path, JSON.stringify(page));
+
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+      expect(result.details?.some((d) => d.includes(path))).toBe(true);
+    }
+    const tree = await json(await dst.authed('/api/tree'));
+    expect(tree.folders).toEqual([]);
+    expect(tree.notepages).toEqual([]);
+  });
+
+  test('blob hash mismatch is rejected before anything lands', async () => {
+    const src = await freshContext();
+    const seeded = await seedInstance(src, src.blobStore);
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    bundle.blobs.set(seeded.hash, new TextEncoder().encode('tampered'));
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.details?.some((d) => d.includes('hash mismatch'))).toBe(true);
+    const tree = await json(await dst.authed('/api/tree'));
+    expect(tree.notepages).toEqual([]);
+  });
+});
