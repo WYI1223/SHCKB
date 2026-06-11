@@ -71,7 +71,7 @@ export function Shell() {
   return (
     <ShellContext.Provider value={{ me, tree, publicTree, instanceTheme, refresh }}>
       <ThemeProvider theme={instTheme}>
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: instTheme.fontFamily }}>
           {!collapsed && <Sidebar />}
           <button
             onClick={() => setCollapsed((c) => !c)}

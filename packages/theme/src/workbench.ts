@@ -47,6 +47,7 @@ export const workbench: Theme = {
   surfaceInsetBg: 'oklch(96.5% 0.003 260)',
   hairline: 'oklch(90% 0.005 260)',
   quoteColor: 'oklch(48% 0.015 260)',
+  fontFamily: 'system-ui, sans-serif',
   // Low-saturation functional family: purple = prose, blue = media,
   // green = code. Same lightness band so no kind shouts.
   kindHues: {

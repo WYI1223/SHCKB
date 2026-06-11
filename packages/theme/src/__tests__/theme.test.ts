@@ -38,6 +38,7 @@ describe('theme registry', () => {
         'surfaceInsetBg',
         'hairline',
         'quoteColor',
+        'fontFamily',
       ] as const) {
         expect(t[key], `${t.id}.${key}`).toBeTruthy();
       }

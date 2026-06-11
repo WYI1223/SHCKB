@@ -32,7 +32,13 @@ export function GridCanvas(props: GridCanvasProps) {
 
   return (
     <div
-      style={{ display: 'flex', justifyContent: 'center', background: theme.canvasBg, padding: '20px 20px 80px' }}
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        background: theme.canvasBg,
+        padding: '20px 20px 80px',
+        fontFamily: theme.fontFamily,
+      }}
       onClick={() => onActivate(null)}
     >
       <div

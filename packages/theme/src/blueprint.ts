@@ -66,6 +66,7 @@ export const blueprint: Theme = {
   surfaceInsetBg: 'oklch(22% 0.05 246)',
   hairline: 'oklch(60% 0.08 220 / 50%)',
   quoteColor: 'oklch(80% 0.06 218)',
+  fontFamily: 'system-ui, sans-serif',
 
   // Drafting-pen line codes: each kind is a pen on the rail.
   // markdown = cyan ink, image = magenta pen, code = amber pen,

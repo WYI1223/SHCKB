@@ -60,6 +60,9 @@ export type ThemeTokens = {
   hairline: string;
   /** Blockquote text color. */
   quoteColor: string;
+  /** Body font stack (content surfaces + chrome). Font FILES need the
+   * future theme asset pipeline — stacks of installed fonts only. */
+  fontFamily: string;
   kindHues: Record<string, string>;
   kindHueFallback: string;
   /** CSS rules for highlight.js token classes (code kind). */
@@ -96,6 +99,7 @@ export const graphPaper: Theme = {
   surfaceInsetBg: 'oklch(95% 0.01 80)',
   hairline: 'oklch(85% 0.01 80)',
   quoteColor: 'oklch(50% 0.02 80)',
+  fontFamily: 'system-ui, sans-serif',
   kindHues: {
     markdown: 'oklch(60% 0.04 280)',
     image: 'oklch(65% 0.12 240)',
@@ -122,6 +126,7 @@ export const ink: Theme = {
   surfaceInsetBg: 'oklch(96% 0 0)',
   hairline: 'oklch(80% 0.005 270)',
   quoteColor: 'oklch(45% 0.01 270)',
+  fontFamily: 'system-ui, sans-serif',
   kindHues: {
     markdown: 'oklch(25% 0.01 270)',
     image: 'oklch(25% 0.01 270)',

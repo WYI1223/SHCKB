@@ -6,6 +6,7 @@
  * closure, NEVER via useTheme (stationery→context→themes→stationery
  * would be a runtime import cycle — the Bun TDZ bug class).
  */
+import type { ReactNode } from 'react';
 import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps, Theme, ThemeTokens } from './themes';
 
 /** Code slips pasted into a journal: warm, low-saturation ink tones
@@ -46,6 +47,10 @@ const TOKENS: ThemeTokens = {
   surfaceInsetBg: 'oklch(94% 0.02 90)',
   hairline: 'oklch(80% 0.04 75)',
   quoteColor: 'oklch(46% 0.05 60)',
+  /** Handwriting-leaning stack: Segoe Print (Latin) → Kai (CJK) →
+   * cursive. Installed-font stacks only — font files are a theme-asset
+   * pipeline future. */
+  fontFamily: "'Segoe Print', 'KaiTi', '楷体', 'STKaiti', 'Comic Sans MS', cursive",
   /** Washi-tape strips pinning each slip. */
   kindHues: {
     markdown: 'oklch(78% 0.06 20)', // dusty pink washi
@@ -74,10 +79,77 @@ function curlSideOf(id: string): 'left' | 'right' {
   return (Math.abs(h) & 1) === 0 ? 'right' : 'left';
 }
 
-function StationeryBlockFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
+/** Per-kind shell variation (the BlockFrame contract carries `kind`
+ * precisely for this): images become Polaroid prints — stiff card,
+ * clean edges (no tear), thick white border with the classic deep
+ * bottom margin. Content stays kind-owned; only the shell changes. */
+function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; colSpan: number; tape: string; children: ReactNode }) {
+  const tilt = (tiltOf(blockId, colSpan) * 1.4).toFixed(3);
+  return (
+    <div
+      className="skb-block skb-paper-slip skb-polaroid"
+      data-kind="image"
+      style={{ position: 'relative', width: '100%', height: '100%', transform: `rotate(${tilt}deg)` }}
+    >
+      <div
+        aria-hidden
+        className="skb-washi"
+        style={{
+          position: 'absolute',
+          top: '-7px',
+          left: '50%',
+          width: '58px',
+          height: '14px',
+          transform: `translateX(-50%) rotate(${(-Number(tilt) * 1.2).toFixed(3)}deg)`,
+          background: tape,
+          opacity: 0.78,
+          boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
+          zIndex: 3,
+        }}
+      />
+      <div
+        className="skb-polaroid-card"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'oklch(97.5% 0.004 95)',
+          boxShadow: '0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
+          padding: '10px 10px 30px',
+        }}
+      >
+        <div
+          className="skb-paper"
+          style={{
+            // the photo window: dark slate behind the print
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            background: 'oklch(30% 0.01 80)',
+            overflow: 'auto',
+            fontSize: '14px',
+            lineHeight: 1.55,
+            color: 'oklch(90% 0.01 80)',
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: BlockFrameProps) {
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
   const tape = TOKENS.kindHues[kind] ?? TOKENS.kindHueFallback;
   const curl = curlSideOf(blockId);
+  if (kind === 'image') {
+    return (
+      <PolaroidFrame blockId={blockId} colSpan={colSpan} tape={tape}>
+        {children}
+      </PolaroidFrame>
+    );
+  }
+  void rowSpan;
   return (
     <div
       className="skb-block skb-paper-slip"

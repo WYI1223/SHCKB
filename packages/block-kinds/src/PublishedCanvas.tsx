@@ -34,7 +34,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
   const Title = theme.PageTitle ?? DefaultPageTitle;
 
   return (
-    <div style={{ background: theme.canvasBg, minHeight: '100vh' }}>
+    <div style={{ background: theme.canvasBg, minHeight: '100vh', fontFamily: theme.fontFamily }}>
       <div style={{ maxWidth: `${COLS * SLOT}px`, margin: '0 auto', padding: '40px 20px' }}>
         <Title title={doc.title} />
         <Surface widthPx={COLS * SLOT} heightPx={rows * SLOT}>
