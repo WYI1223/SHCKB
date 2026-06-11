@@ -112,15 +112,17 @@ function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; 
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'oklch(97.5% 0.004 95)',
-          boxShadow: '0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
+          // card stock: faint top-light gradient + inner hairline emboss
+          background: 'linear-gradient(178deg, oklch(98% 0.004 95), oklch(97% 0.005 95))',
+          boxShadow:
+            'inset 0 0 0 1px oklch(93% 0.008 95), 0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
           padding: '10px 10px 30px',
         }}
       >
         <div
           className="skb-paper"
           style={{
-            // the photo window: dark slate behind the print
+            // the photo window: dark slate behind the print, recessed
             position: 'relative',
             width: '100%',
             height: '100%',
@@ -129,10 +131,15 @@ function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; 
             fontSize: '14px',
             lineHeight: 1.55,
             color: 'oklch(90% 0.01 80)',
+            boxShadow: 'inset 0 1px 3px oklch(0% 0 0 / 45%), inset 0 0 1px oklch(0% 0 0 / 55%)',
           }}
         >
           {children}
         </div>
+        {/* glass sheen + vignette: fixed over the photo window (a
+            sibling overlay — anything inside the scroll container
+            would scroll away with the content) */}
+        <div aria-hidden className="skb-polaroid-gloss" style={{ position: 'absolute', inset: '10px 10px 30px', pointerEvents: 'none' }} />
       </div>
     </div>
   );
@@ -285,6 +292,30 @@ const STATIONERY_GLOBAL_CSS = `
 .skb-curl-right { right: 6px; transform: skewX(-9deg) rotate(2.5deg); }
 .skb-curl-left { left: 6px; transform: skewX(9deg) rotate(-2.5deg); }
 .skb-paper { position: relative; z-index: 2; }
+/* polaroid material: glass sheen (diagonal light band) + corner
+ * vignette over the recessed photo window; the sheen drifts slightly
+ * on hover. Emboss ridge under the window on the card's bottom margin. */
+.skb-polaroid-gloss {
+  background:
+    linear-gradient(115deg, transparent 36%, oklch(100% 0 0 / 9%) 42%, oklch(100% 0 0 / 17%) 49%, oklch(100% 0 0 / 5%) 55%, transparent 62%) 0 0 / 220% 100%,
+    radial-gradient(120% 120% at 50% 45%, transparent 62%, oklch(0% 0 0 / 16%) 100%);
+  background-position: 18% 0, 0 0;
+  transition: background-position 360ms ease;
+}
+.skb-polaroid:hover .skb-polaroid-gloss { background-position: 62% 0, 0 0; }
+.skb-polaroid-card::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 24px;
+  height: 2px;
+  background: linear-gradient(oklch(91% 0.008 95), oklch(99% 0.003 95));
+  border-radius: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skb-polaroid-gloss { transition: none; }
+}
 /* Hidden scrollbar + scroll-aware curl hints (owner feedback): the
  * paper "curls" at an edge exactly when more content lies beyond it.
  * Classic background-attachment local/scroll layering — the local
