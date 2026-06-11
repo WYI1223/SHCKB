@@ -37,6 +37,8 @@ export const notepages = sqliteTable('notepages', {
     .notNull()
     .default('private'),
   gravityEnabled: integer('gravity_enabled', { mode: 'boolean' }).notNull().default(true),
+  /** Per-page theme pin; null = follow the instance theme [ADR-0024]. */
+  themeId: text('theme_id'),
   folderId: text('folder_id'),
   sortKey: integer('sort_key').notNull().default(0),
   publishedDoc: text('published_doc'),
@@ -74,6 +76,13 @@ export const blobs = sqliteTable('blobs', {
   mimeType: text('mime_type').notNull(),
   size: integer('size').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+/** Instance-level key-value settings (first instance setting: theme).
+ * MVP-4 M4-D2; values are plain strings, callers own parsing. */
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
 });
 
 export type NotepageRow = typeof notepages.$inferSelect;

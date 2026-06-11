@@ -13,8 +13,9 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import type { Db } from '../db/client';
 import { blocks, notepages, type PublishedDoc } from '../db/schema';
-import { DEFAULT_THEME_ID, THEMES } from '@skb/theme';
+import { THEMES } from '@skb/theme';
 import { NOT_FOUND_HTML, renderStaticPage } from '../render/publish-html';
+import { effectiveTheme } from '../settings';
 
 type WorkingBlock = {
   id: string;
@@ -145,6 +146,7 @@ export function notepageRoutes(db: Db) {
         title: page.title,
         visibility: page.visibility,
         gravityEnabled: page.gravityEnabled,
+        themeId: page.themeId,
         hasPublished: page.publishedDoc !== null,
         updatedAt: page.updatedAt.getTime(),
       },
@@ -212,8 +214,7 @@ export function notepageRoutes(db: Db) {
       .set({
         slug,
         publishedDoc: JSON.stringify(doc),
-        // Task 5 replaces the default with the page's effective theme.
-        publishedHtml: renderStaticPage(doc, slug, THEMES[DEFAULT_THEME_ID]!),
+        publishedHtml: renderStaticPage(doc, slug, effectiveTheme(db, page)),
         updatedAt: new Date(),
       })
       .where(eq(notepages.id, page.id))
@@ -232,6 +233,28 @@ export function notepageRoutes(db: Db) {
       .set({ visibility: body.visibility, updatedAt: new Date() })
       .where(eq(notepages.id, page.id))
       .run();
+    return c.json({ ok: true });
+  });
+
+  // Per-page theme pin (MVP-4 M4-D2): null = follow instance. Changing
+  // the pin re-renders the published HTML immediately — publishedHtml
+  // stays a pure function of (doc, slug, effective theme).
+  r.post('/notepages/:id/theme', async (c) => {
+    const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
+    if (!page) return c.json(NOT_FOUND, 404);
+    const body = (await c.req.json().catch(() => ({}))) as { themeId?: unknown };
+    const themeId = body.themeId === null ? null : typeof body.themeId === 'string' ? body.themeId : undefined;
+    if (themeId === undefined) return c.json({ error: 'themeId must be a theme id or null' }, 400);
+    if (themeId !== null && !(themeId in THEMES)) return c.json({ error: `unknown theme "${themeId}"` }, 400);
+
+    db.update(notepages).set({ themeId, updatedAt: new Date() }).where(eq(notepages.id, page.id)).run();
+    if (page.publishedDoc !== null) {
+      const doc = JSON.parse(page.publishedDoc) as PublishedDoc;
+      db.update(notepages)
+        .set({ publishedHtml: renderStaticPage(doc, page.slug, effectiveTheme(db, { themeId })) })
+        .where(eq(notepages.id, page.id))
+        .run();
+    }
     return c.json({ ok: true });
   });
 
@@ -258,13 +281,21 @@ export function notepageRoutes(db: Db) {
     return c.json({ notes });
   });
 
+  // Anonymous instance metadata: the active theme (readers' SPA shell
+  // renders public pages with it).
+  r.get('/public/instance', (c) => c.json({ theme: effectiveTheme(db, { themeId: null }).id }));
+
   // Public read route — anonymous principal; no-leak 404 semantics.
   r.get('/public/notes/:slug', (c) => {
     const page = db.select().from(notepages).where(eq(notepages.slug, c.req.param('slug'))).get();
     if (!page || page.visibility !== 'public' || page.publishedDoc === null) {
       return c.json(NOT_FOUND, 404);
     }
-    return c.json({ slug: page.slug, doc: JSON.parse(page.publishedDoc) as PublishedDoc });
+    return c.json({
+      slug: page.slug,
+      theme: effectiveTheme(db, page).id,
+      doc: JSON.parse(page.publishedDoc) as PublishedDoc,
+    });
   });
 
   return r;

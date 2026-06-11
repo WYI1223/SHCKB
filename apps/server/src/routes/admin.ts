@@ -14,6 +14,8 @@ import { referencedBlobHashes } from '../export/blob-refs';
 import { buildExport } from '../export/exporter';
 import { FORMAT_VERSION } from '../export/format';
 import { importBundle, type ImportInput } from '../export/importer';
+import { instanceThemeId, rerenderAllPublished, setSetting } from '../settings';
+import { THEMES } from '@skb/theme';
 
 const requireAdmin: MiddlewareHandler = async (c, next) => {
   const user = c.get('user');
@@ -24,6 +26,19 @@ const requireAdmin: MiddlewareHandler = async (c, next) => {
 export function adminRoutes(db: Db, blobStore: BlobStore, meta: { version: string; schemaVersion: number }) {
   const r = new Hono();
   r.use('/admin/*', requireAdmin);
+
+  // Instance settings: any authenticated user may read; only admin
+  // writes (theme switch re-renders every published page [ADR-0024]).
+  r.get('/settings', (c) => c.json({ theme: instanceThemeId(db) }));
+  r.put('/settings/theme', requireAdmin, async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { theme?: unknown };
+    if (typeof body.theme !== 'string' || !(body.theme in THEMES)) {
+      return c.json({ error: `unknown theme; available: ${Object.keys(THEMES).join(', ')}` }, 400);
+    }
+    setSetting(db, 'theme', body.theme);
+    const rerendered = rerenderAllPublished(db);
+    return c.json({ ok: true, rerendered });
+  });
 
   r.get('/admin/export', (c) => {
     const format = c.req.query('format');
