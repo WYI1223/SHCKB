@@ -42,6 +42,9 @@ export const stationery: Theme = {
   accent: 'oklch(55% 0.08 240)',
   /** Warm muted red, a correction-pen mark rather than an alarm. */
   danger: 'oklch(52% 0.16 28)',
+  surfaceInsetBg: 'oklch(94% 0.02 90)',
+  hairline: 'oklch(80% 0.04 75)',
+  quoteColor: 'oklch(46% 0.05 60)',
   /** Washi-tape strips along the top edge of each slip. */
   kindHues: {
     markdown: 'oklch(78% 0.06 20)', // dusty pink washi

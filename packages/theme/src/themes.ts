@@ -25,6 +25,12 @@ export type Theme = {
   chromeBg: string;
   accent: string;
   danger: string;
+  /** Inset surface inside blocks: markdown pre/inline-code chips. */
+  surfaceInsetBg: string;
+  /** Thin structural line: md table borders, missing-asset dashes. */
+  hairline: string;
+  /** Blockquote text color. */
+  quoteColor: string;
   kindHues: Record<string, string>;
   kindHueFallback: string;
   /** CSS rules for highlight.js token classes (code kind). */
@@ -56,6 +62,9 @@ export const graphPaper: Theme = {
   chromeBg: 'oklch(20% 0.02 80)',
   accent: 'oklch(60% 0.12 240)',
   danger: 'oklch(55% 0.18 25)',
+  surfaceInsetBg: 'oklch(95% 0.01 80)',
+  hairline: 'oklch(85% 0.01 80)',
+  quoteColor: 'oklch(50% 0.02 80)',
   kindHues: {
     markdown: 'oklch(60% 0.04 280)',
     image: 'oklch(65% 0.12 240)',
@@ -79,6 +88,9 @@ export const ink: Theme = {
   textColor: 'oklch(20% 0.01 270)',
   mutedColor: 'oklch(45% 0.01 270)',
   accent: 'oklch(40% 0.15 270)',
+  surfaceInsetBg: 'oklch(96% 0 0)',
+  hairline: 'oklch(80% 0.005 270)',
+  quoteColor: 'oklch(45% 0.01 270)',
   kindHues: {
     markdown: 'oklch(25% 0.01 270)',
     image: 'oklch(25% 0.01 270)',

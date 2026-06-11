@@ -44,6 +44,9 @@ export const workbench: Theme = {
   // Restrained standard blue (Linear/GitHub family), chroma held down.
   accent: 'oklch(52% 0.16 255)',
   danger: 'oklch(53% 0.18 25)',
+  surfaceInsetBg: 'oklch(96.5% 0.003 260)',
+  hairline: 'oklch(90% 0.005 260)',
+  quoteColor: 'oklch(48% 0.015 260)',
   // Low-saturation functional family: purple = prose, blue = media,
   // green = code. Same lightness band so no kind shouts.
   kindHues: {

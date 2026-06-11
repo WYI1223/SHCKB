@@ -38,3 +38,19 @@ describe('renderStaticPage', () => {
     expect(NOT_FOUND_HTML).toContain('does not exist');
   });
 });
+
+// ----- v2: surface tokens (dark-theme hardcode fix) -----
+
+import { blueprint } from '@skb/theme';
+
+describe('surface tokens', () => {
+  test('dark theme: markdown inline code uses surfaceInsetBg, not the old light chip', () => {
+    const doc = {
+      title: 'dark',
+      blocks: [{ id: 'm', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 2, content: { markdown: 'inline `code` here' } }],
+    };
+    const html = renderStaticPage(doc, 's', blueprint);
+    expect(html).toContain(blueprint.surfaceInsetBg);
+    expect(html).not.toContain('oklch(95% 0.01 80)'); // the old hardcode
+  });
+});

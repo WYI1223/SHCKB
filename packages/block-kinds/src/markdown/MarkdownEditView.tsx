@@ -49,7 +49,7 @@ export function MarkdownEditView({ content, onChange }: BlockViewProps<MarkdownC
           height: '100%',
           overflow: 'auto',
           padding: '0 4px',
-          borderLeft: '1px dashed oklch(88% 0.01 80)',
+          borderLeft: `1px dashed ${theme.hairline}`,
         }}
       >
         <MarkdownRenderView content={content} />

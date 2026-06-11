@@ -62,6 +62,11 @@ export const blueprint: Theme = {
   accent: 'oklch(80% 0.135 215)',
   danger: 'oklch(68% 0.19 25)',
 
+  // Dark-surface tokens (the v2 fix: no more hardcoded light insets).
+  surfaceInsetBg: 'oklch(22% 0.05 246)',
+  hairline: 'oklch(60% 0.08 220 / 50%)',
+  quoteColor: 'oklch(80% 0.06 218)',
+
   // Drafting-pen line codes: each kind is a pen on the rail.
   // markdown = cyan ink, image = magenta pen, code = amber pen,
   // unknown kinds = plain white pencil.
