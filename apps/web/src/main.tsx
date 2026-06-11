@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { EditorPage } from './pages/EditorPage';
 import { ListPage } from './pages/ListPage';
+import { LoginPage } from './pages/LoginPage';
 import { ReadPage } from './pages/ReadPage';
 
 createRoot(document.getElementById('root')!).render(
@@ -10,6 +11,7 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ListPage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/edit/:id" element={<EditorPage />} />
         <Route path="/notes/:slug" element={<ReadPage />} />
       </Routes>

@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import pkg from '../package.json';
+import type { Auth } from './auth';
 import type { Db } from './db/client';
-import { pep } from './pep';
+import { createPep } from './pep';
 import { notepageRoutes } from './routes/notepages';
 
 export type AppMeta = {
@@ -14,10 +15,14 @@ const DEFAULT_META: AppMeta = {
   schemaVersion: -1,
 };
 
-export function createApp(db: Db, meta: AppMeta = DEFAULT_META) {
+export function createApp(db: Db, auth: Auth, meta: AppMeta = DEFAULT_META) {
   const app = new Hono();
 
-  app.use('/api/*', pep);
+  app.use('/api/*', createPep(auth));
+
+  // better-auth wire surface (sign-in/sign-out/session); signup is
+  // disabled on this instance (bootstrap.ts owns first-admin creation).
+  app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
   app.get('/api/health', (c) =>
     c.json({ ok: true, version: meta.version, schemaVersion: meta.schemaVersion }),

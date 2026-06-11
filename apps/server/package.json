@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@skb/grid-engine": "workspace:*",
+    "better-auth": "^1.6.16",
     "drizzle-orm": "^0.44.2",
     "hono": "^4.7.10",
     "nanoid": "^5.1.5"

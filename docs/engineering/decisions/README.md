@@ -72,6 +72,7 @@ Audit register 详 [AUDIT-2026-05.md]（footer 含 link）。
 | [ADR-0018](./ADR-0018-install-bootstrap.md) | Install bootstrap（single-entry installer + profile selection + config generation）| deprecated (legacy draft) | architecture-rebuild §0.6 + §11.11（external review of ADR-0001, 2026-05-16） |
 | [ADR-0019](./ADR-0019-mvp-implementation-baseline.md) | MVP implementation baseline（Bun + Hono + Drizzle/SQLite + React/Vite）| proposed | —（PRD-informed；source = [mvp-scope-2026-06-11.md](../design/discussions/mvp-scope-2026-06-11.md)；deprecation gate 后首个新 ADR）|
 | [ADR-0020](./ADR-0020-db-migrations-upgrade.md) | DB migrations + instance upgrade（drizzle-kit generate + 自写 applier + 护栏 + image-tag 升级流）| proposed | —（PRD-informed；source = [mvp2-scope-2026-06-11.md](../design/discussions/mvp2-scope-2026-06-11.md)；承接 setup-time §upgrade）|
+| [ADR-0021](./ADR-0021-auth-library-better-auth.md) | Auth library = better-auth as L3 AuthAdapter impl（verify 完成；signup 永禁 + bootstrap 临时实例 + schema 并入 migration 流）| proposed | —（PRD-informed；承接 authentication.md Build/Buy=Buy verify 条件）|
 
 ## 编号约定
 

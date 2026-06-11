@@ -56,6 +56,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
+    // Session expired/absent on an authenticated surface → login page.
+    if (res.status === 401 && !path.startsWith('/api/auth') && !path.startsWith('/api/public')) {
+      window.location.href = '/login';
+    }
     throw new ApiError(
       res.status,
       typeof body.error === 'string' ? body.error : `request failed (${res.status})`,
@@ -65,7 +69,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+export type Me = { id: string; role: 'admin' | 'author'; name: string; email: string };
+
 export const api = {
+  signIn: (email: string, password: string) =>
+    request<{ user: unknown }>('/api/auth/sign-in/email', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  signOut: () => request<unknown>('/api/auth/sign-out', { method: 'POST', body: '{}' }),
+  me: () => request<{ user: Me | null }>('/api/me'),
   listNotepages: () => request<{ notepages: NotepageSummary[] }>('/api/notepages'),
   createNotepage: (title?: string) =>
     request<{ id: string; slug: string }>('/api/notepages', {

@@ -32,20 +32,36 @@ export function ListPage() {
     <div style={{ maxWidth: '720px', margin: '0 auto', padding: '32px 20px', color: theme.textColor }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <h1 style={{ margin: 0, fontSize: '22px' }}>SHCKB — Notepages</h1>
-        <button
-          onClick={create}
-          style={{
-            background: theme.accent,
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: 'pointer',
-          }}
-        >
-          + New notepage
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={create}
+            style={{
+              background: theme.accent,
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            + New notepage
+          </button>
+          <button
+            onClick={() => void api.signOut().then(() => (window.location.href = '/login'))}
+            style={{
+              background: 'transparent',
+              color: theme.mutedColor,
+              border: theme.blockBorder,
+              borderRadius: '8px',
+              padding: '8px 12px',
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       {error && <p style={{ color: theme.danger }}>{error}</p>}
