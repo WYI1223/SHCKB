@@ -23,6 +23,15 @@ const SLOT = 60;
 const PAD = 4;
 const COLS = 12;
 
+function kindHue(kind: string): string {
+  return (
+    {
+      markdown: 'oklch(60% 0.04 280)',
+      image: 'oklch(65% 0.12 240)',
+    }[kind] ?? 'oklch(60% 0.05 0)'
+  );
+}
+
 const markdownPipeline = unified()
   .use(remarkParse)
   .use(remarkGfm)
@@ -59,13 +68,28 @@ function renderBlockBody(kind: string, content: unknown): string {
   return `<div class="fallback">Unsupported content</div>`;
 }
 
+/* Mirrors the web graph-paper theme tokens (apps/web/src/theme/tokens.ts)
+ * so read mode matches edit mode minus editing chrome — keep in sync. */
 const CSS = `
 * { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, sans-serif; background: white; color: oklch(35% 0.02 80); }
+body { margin: 0; font-family: system-ui, sans-serif; background: oklch(98% 0.005 80); color: oklch(35% 0.02 80); }
 main { max-width: ${COLS * SLOT}px; margin: 0 auto; padding: 40px 20px; }
 h1.page-title { font-size: 26px; margin: 0 0 24px; }
-.grid { position: relative; }
-.block { position: absolute; overflow: hidden; padding: 4px 2px; font-size: 14px; line-height: 1.55; }
+.grid {
+  position: relative;
+  background-image: radial-gradient(circle, oklch(70% 0.01 80) 1px, transparent 1px);
+  background-size: ${SLOT}px ${SLOT}px;
+  background-position: ${SLOT - 1}px ${SLOT - 1}px;
+}
+.block {
+  position: absolute; overflow: auto;
+  background: white;
+  border: 1px solid oklch(85% 0.01 80);
+  border-top-width: 2px;
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 14px; line-height: 1.55;
+}
 .block img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .fallback { color: oklch(50% 0.02 80); font-style: italic; font-size: 13px; }
 .md > :first-child { margin-top: 0; }
@@ -85,7 +109,8 @@ export function renderPublishedHtml(doc: PublishedDoc, slug: string): string {
     .map((b) => {
       const style =
         `left:${b.col * SLOT + PAD}px;top:${b.row * SLOT + PAD}px;` +
-        `width:${b.colSpan * SLOT - 2 * PAD}px;height:${b.rowSpan * SLOT - 2 * PAD}px`;
+        `width:${b.colSpan * SLOT - 2 * PAD}px;height:${b.rowSpan * SLOT - 2 * PAD}px;` +
+        `border-top-color:${kindHue(b.kind)}`;
       return `<div class="block" style="${style}">${renderBlockBody(b.kind, b.content)}</div>`;
     })
     .join('\n');

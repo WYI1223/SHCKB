@@ -6,7 +6,7 @@
  */
 import { totalRows, type Block } from '@skb/grid-engine';
 import { blockModule } from '../blocks/registry';
-import { theme } from '../theme/tokens';
+import { blockCardStyle, canvasBaseplateStyle, theme } from '../theme/tokens';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
 
@@ -40,9 +40,7 @@ export function GridCanvas(props: GridCanvasProps) {
           position: 'relative',
           width: `${state.totalCols * SLOT}px`,
           height: `${rows * SLOT}px`,
-          backgroundImage: `radial-gradient(circle, ${theme.dotColor} ${theme.dotSize / 2}px, transparent ${theme.dotSize / 2}px)`,
-          backgroundSize: `${SLOT}px ${SLOT}px`,
-          backgroundPosition: `${SLOT - theme.dotSize / 2}px ${SLOT - theme.dotSize / 2}px`,
+          ...canvasBaseplateStyle(),
         }}
       >
         {state.blocks.map((b) => (
@@ -81,24 +79,22 @@ function BlockShell({
         if (!isActive) onActivate(block.id);
       }}
       style={{
+        ...blockCardStyle(block.kind),
         position: 'absolute',
         left: `${block.col * slot + pad}px`,
         top: `${block.row * slot + pad}px`,
         width: `${block.colSpan * slot - 2 * pad}px`,
         height: `${block.rowSpan * slot - 2 * pad}px`,
-        background: theme.blockBg,
-        border: isActive ? `1px solid ${theme.accent}` : theme.blockBorder,
-        borderTop: `2px solid ${isActive ? theme.accent : hue}`,
-        borderRadius: theme.blockRadius,
-        padding: '8px 10px',
+        // editing-state chrome on top of the shared card look:
+        ...(isActive
+          ? { border: `1px solid ${theme.accent}`, borderTop: `2px solid ${theme.accent}`, boxShadow: '0 2px 12px oklch(60% 0.12 240 / 25%)' }
+          : {}),
         fontSize: '12px',
         color: theme.textColor,
-        overflow: 'hidden',
         cursor: isActive ? 'default' : 'grab',
         opacity: isResizing ? 0.6 : 1,
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: isActive ? `0 2px 12px oklch(60% 0.12 240 / 25%)` : 'none',
       }}
     >
       <div
