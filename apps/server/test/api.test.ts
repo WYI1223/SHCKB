@@ -78,6 +78,15 @@ describe('notepage crud + working state', () => {
     expect(b.slug).toBe('same-title-2');
   });
 
+  test('same block id on different notepages does not collide (composite PK)', async () => {
+    const a = await createPage('Page A');
+    const b = await createPage('Page B');
+    expect((await putWorking(a.id, { title: 'A', gravityEnabled: true, blocks: [mdBlock('b1', 0, 'a')] })).status).toBe(200);
+    expect((await putWorking(b.id, { title: 'B', gravityEnabled: true, blocks: [mdBlock('b1', 0, 'b')] })).status).toBe(200);
+    const gotB = await json(await t.authed(`/api/notepages/${b.id}`));
+    expect(gotB.blocks[0].content).toEqual({ markdown: 'b' });
+  });
+
   test('working-state save roundtrip', async () => {
     const { id } = await createPage();
     const res = await putWorking(id, {

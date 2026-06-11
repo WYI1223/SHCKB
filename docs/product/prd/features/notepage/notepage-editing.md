@@ -107,6 +107,10 @@ The author can:
 
 Layout operations must preserve grid invariants and surface failures. The user must be able to understand that an operation failed and broadly why.
 
+### Gravity Toggle
+
+The authoring surface exposes the per-notepage gravity setting ([notepage.md] Gravity Setting): with gravity ON, layout operations re-settle blocks upward; with gravity OFF, the author places blocks freely and floating layouts persist. The toggle's exact control form factor is a dev/theme decision; the behavior — author-only ownership, per-page persistence, no GridState rewrite on toggle itself — is product-locked. Re-enable collapse UX follows the parent PRD's open question.
+
 ### Completing Public State
 
 For public notepages, author working edits do not automatically change reader-visible content. The author must have an explicit complete/update-public action that makes the completed state visible to public readers.
@@ -327,4 +331,5 @@ PRD-layer upstream dependencies:
 - 2026-05-16 pass 3 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs / Contract / Prototype 移到 References。
 - 2026-05-16 hygiene pass 4 (owner review)：relative links fixed；kind-opaque insert signature corrected；invalid op changed from silent no-op to state no-op + mutation rejected + UI must surface failure。
 - 2026-05-22 pass 5 — authoring state + BDD rewrite：改为 What / Why / Whole picture / Author-facing experience / BDD Acceptance / Reference；同步 parent private/public、author working state vs public read state、update-public action、BDD acceptance discipline，同时保留 algorithm contract as product-facing obligations。
+- 2026-06-11 gravity toggle absorption：Author-Facing Experience 加 Gravity Toggle 节（行为 product-locked / 形态 dev-theme / re-enable UX 随 parent open question）；对应 [notepage.md] 2026-06-11 Gravity Setting 决策。
 - 2026-05-23 closeout：收窄 update-public Open Question；只保留 label / placement / save-control coupling，explicit reader-visible update boundary 不再重开。

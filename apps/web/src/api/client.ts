@@ -109,7 +109,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   publish: (id: string) =>
-    request<{ publishedAt: number }>(`/api/notepages/${id}/publish`, { method: 'POST' }),
+    request<{ publishedAt: number; slug: string }>(`/api/notepages/${id}/publish`, { method: 'POST' }),
   setVisibility: (id: string, visibility: 'private' | 'public') =>
     request<{ ok: true }>(`/api/notepages/${id}/visibility`, {
       method: 'POST',

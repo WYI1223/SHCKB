@@ -1,16 +1,19 @@
-# Run-verification path (mvp-scope D6): exercises the operator-shaped
-# runtime (container + volume-backed sqlite + single artifact serving
-# API and built web) without being the ratified release artifact.
+# Dev run-verification path (mvp-scope D6): same image as production,
+# dev credentials baked in. NEVER use these values on an exposed host.
 #
 #   docker compose -f compose.dev.yaml up --build
-#   → http://localhost:8080
+#   → http://localhost:8080  (admin@local.dev / dev-admin-password)
 services:
   shckb:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
       - "8080:3000"
+    environment:
+      SHCKB_AUTH_SECRET: dev-only-secret-0123456789abcdef0123456789
+      SHCKB_ADMIN_EMAIL: admin@local.dev
+      SHCKB_ADMIN_PASSWORD: dev-admin-password
     volumes:
       - shckb-data:/data
 

@@ -1,0 +1,28 @@
+# Operator-shaped compose (internet-exposed bootstrap mode).
+# Required env (set in .env next to this file or in the shell):
+#   SHCKB_AUTH_SECRET    >= 32 chars   (openssl rand -base64 32)
+#   SHCKB_ADMIN_EMAIL    first admin login (only used while user table is empty)
+#   SHCKB_ADMIN_PASSWORD first admin password (>= 8 chars)
+# Optional:
+#   SHCKB_BASE_URL       public origin when behind a reverse proxy (e.g. https://notes.example.com)
+#
+# Upgrade flow: docker compose pull && docker compose up -d
+# (migrations apply automatically at startup; see docs/engineering/runbooks/self-host-upgrade.md)
+services:
+  shckb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:3000"
+    environment:
+      SHCKB_AUTH_SECRET: ${SHCKB_AUTH_SECRET:?set SHCKB_AUTH_SECRET (>= 32 chars)}
+      SHCKB_ADMIN_EMAIL: ${SHCKB_ADMIN_EMAIL:?set SHCKB_ADMIN_EMAIL}
+      SHCKB_ADMIN_PASSWORD: ${SHCKB_ADMIN_PASSWORD:?set SHCKB_ADMIN_PASSWORD}
+      SHCKB_BASE_URL: ${SHCKB_BASE_URL:-}
+    volumes:
+      - shckb-data:/data
+    restart: unless-stopped
+
+volumes:
+  shckb-data:

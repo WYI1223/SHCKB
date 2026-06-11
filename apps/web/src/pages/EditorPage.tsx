@@ -43,6 +43,8 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const [title, setTitle] = useState(detail.page.title);
   const [visibility, setVisibility] = useState(detail.page.visibility);
   const [hasPublished, setHasPublished] = useState(detail.page.hasPublished);
+  const [slug, setSlug] = useState(detail.page.slug);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [status, setStatus] = useState<SaveStatus>({ kind: 'saved' });
   const [contents, setContents] = useState<Record<string, unknown>>(() =>
@@ -111,8 +113,15 @@ function Editor({ detail }: { detail: NotepageDetail }) {
 
   async function publish() {
     await save();
-    await api.publish(pageId);
+    const res = await api.publish(pageId);
+    setSlug(res.slug);
     setHasPublished(true);
+  }
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(`${window.location.origin}/notes/${slug}`);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 1500);
   }
 
   async function toggleVisibility() {
@@ -171,9 +180,14 @@ function Editor({ detail }: { detail: NotepageDetail }) {
           {hasPublished ? 'Update public page' : 'Publish'}
         </button>
         {visibility === 'public' && hasPublished && (
-          <Link to={`/notes/${detail.page.slug}`} style={{ color: 'oklch(80% 0.08 240)', fontSize: '12px' }}>
-            view public ↗
-          </Link>
+          <>
+            <Link to={`/notes/${slug}`} style={{ color: 'oklch(80% 0.08 240)', fontSize: '12px' }}>
+              view public ↗
+            </Link>
+            <button onClick={() => void copyLink()} style={chromeButton(false)}>
+              {linkCopied ? 'Copied!' : 'Copy link'}
+            </button>
+          </>
         )}
         <SaveIndicator status={status} />
       </header>

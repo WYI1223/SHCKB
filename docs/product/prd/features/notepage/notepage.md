@@ -113,6 +113,7 @@ Notepage is not just `GridState`. A notepage contains:
 - **Page metadata**: title, slug, description, SEO metadata, OG metadata.
 - **Visibility/public-read state**: private/public plus the last completed public representation, if public.
 - **GridState/layout**: the logical grid state consumed by view/edit/responsive rendering.
+- **Layout behavior setting**: the per-notepage gravity toggle (see Gravity Setting below) — page-level metadata outside GridState.
 - **Block state/content**: per-block kind, content, props, and plugin-owned state.
 - **Theme reference/override**: selected notepage theme and presentation metadata.
 
@@ -128,6 +129,16 @@ M2 has only two product-level visibility states:
 | **Public** | Public readers can access the canonical public read route and see the last completed public state. |
 
 There is no product-level draft state in M2. Internally, implementation may need author working state so that public readers do not see unfinished edits, but the product model should not expose "draft version" as a third user-facing lifecycle state.
+
+### Gravity Setting
+
+Gravity (blocks pull upward after every layout mutation) is an **author-facing per-notepage choice**, not a fixed engine behavior (owner ratified 2026-06-11; the prototype's toggle was always intended as a product feature).
+
+- Gravity ON (default): layouts stay gravity-stable; every mutation re-settles blocks upward.
+- Gravity OFF: the author may keep floating layouts; such layouts persist and render as-placed in working state, preview, and published snapshots.
+- The setting is page-level metadata outside GridState; switching it does not itself rewrite GridState.
+- Theme/plugin layers can never touch this setting (theme-system L0a narrows from "gravity always on" to "the gravity choice belongs to the author only").
+- What happens to floating blocks when gravity is re-enabled (immediate collapse vs preview/confirm) is an open question below.
 
 ### Author Working State vs Public Read State
 
@@ -309,6 +320,7 @@ PRD-layer upstream dependencies:
 4. **Slug reuse and alias policy**: deleted public slugs should not be silently reused; exact alias/tombstone rules remain future work.
 5. **Undo/redo scope**: block editor internal undo vs notepage GridState undo vs combined history.
 6. **Reader annotation / private reader edit mode**: Phase 2+; should not modify author content.
+7. **Gravity re-enable semantics**: turning gravity back ON over a floating layout is a destructive layout change — immediate collapse vs preview/confirm UX remains open (the persistence model and author ownership of the toggle are not open).
 
 ---
 
@@ -376,3 +388,4 @@ PRD-layer upstream dependencies:
 - 2026-05-23 cleanup：future cross-page capabilities 保留为 Non-Goal / resolved boundary，不再列为当前 Open Question 或 Surfaced ADR Debt。
 - 2026-05-23 closeout：收窄 complete/update-public Open Question；只保留 label / placement / save-control coupling，explicit reader-visible update boundary 不再重开。
 - 2026-05-23 product wording sync：将 notepage 描述从编辑器/canvas 口径收窄为 grid-composed shareable web page；避免与未来 drawing block 或 HTML canvas 实现细节混淆。
+- 2026-06-11 gravity setting absorption（owner 2026-06-11 口头拍板落 PRD）：gravity 是 author-facing per-notepage 产品选择；加入 Data Boundary（page-level metadata outside GridState）+ Product Decisions（Gravity Setting 节）+ Open Question（re-enable collapse 语义）；theme L0a 锁语义同步收窄为 "gravity 开关只属 author"。MVP-2 已实装（per-page 持久化 + server 复验随 setting 切换 gravity 检查）。

@@ -43,12 +43,12 @@ function slugify(title: string): string {
   return base || 'note';
 }
 
-function uniqueSlug(db: Db, title: string): string {
+function uniqueSlug(db: Db, title: string, excludeId?: string): string {
   const base = slugify(title);
   let candidate = base;
   for (let n = 2; ; n++) {
     const hit = db.select({ id: notepages.id }).from(notepages).where(eq(notepages.slug, candidate)).get();
-    if (!hit) return candidate;
+    if (!hit || hit.id === excludeId) return candidate;
     candidate = `${base}-${n}`;
   }
 }
@@ -194,6 +194,12 @@ export function notepageRoutes(db: Db) {
   r.post('/notepages/:id/publish', (c) => {
     const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
     if (!page) return c.json(NOT_FOUND, 404);
+
+    // First publish locks the public slug to the title as of that
+    // moment (fixes the create-time "untitled" wart). Once published,
+    // the slug never changes — published links stay stable.
+    const slug = page.publishedDoc === null ? uniqueSlug(db, page.title, page.id) : page.slug;
+
     const doc: PublishedDoc = {
       title: page.title,
       gravityEnabled: page.gravityEnabled,
@@ -203,13 +209,14 @@ export function notepageRoutes(db: Db) {
     // Snapshot is frozen → render reader-grade HTML once, store with it.
     db.update(notepages)
       .set({
+        slug,
         publishedDoc: JSON.stringify(doc),
-        publishedHtml: renderPublishedHtml(doc, page.slug),
+        publishedHtml: renderPublishedHtml(doc, slug),
         updatedAt: new Date(),
       })
       .where(eq(notepages.id, page.id))
       .run();
-    return c.json({ publishedAt: doc.publishedAt });
+    return c.json({ publishedAt: doc.publishedAt, slug });
   });
 
   r.post('/notepages/:id/visibility', async (c) => {

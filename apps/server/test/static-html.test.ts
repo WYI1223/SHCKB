@@ -77,6 +77,33 @@ describe('publish-time static HTML (phase 4)', () => {
     expect(await a.text()).toBe(await b.text());
   });
 
+  test('first publish locks slug to current title; later publishes keep it', async () => {
+    const created = await json(
+      await t.authed('/api/notepages', { method: 'POST', body: JSON.stringify({}) }),
+    );
+    expect(created.slug).toBe('untitled');
+    await t.authed(`/api/notepages/${created.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({ title: 'Real Title', gravityEnabled: true, blocks: [] }),
+    });
+    const pub1 = await json(await t.authed(`/api/notepages/${created.id}/publish`, { method: 'POST' }));
+    expect(pub1.slug).toBe('real-title');
+
+    // rename + re-publish: published slug must stay stable
+    await t.authed(`/api/notepages/${created.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({ title: 'Renamed Again', gravityEnabled: true, blocks: [] }),
+    });
+    const pub2 = await json(await t.authed(`/api/notepages/${created.id}/publish`, { method: 'POST' }));
+    expect(pub2.slug).toBe('real-title');
+
+    await t.authed(`/api/notepages/${created.id}/visibility`, {
+      method: 'POST',
+      body: JSON.stringify({ visibility: 'public' }),
+    });
+    expect((await t.app.request('/notes/real-title')).status).toBe(200);
+  });
+
   test('re-publish refreshes the static html', async () => {
     const { id, slug } = await setupPublished('Refresh', 'version one');
     await t.authed(`/api/notepages/${id}/working-state`, {
