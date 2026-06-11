@@ -47,6 +47,22 @@ docker compose start
 - ⚠️ **不要只拷 `.db` 文件**：运行中实例的大部分数据可能在 `-wal` 文件里（实测踩过）。停容器后整目录打包才是完整备份。
 - Restore = 停容器 → 清空卷 → 解包回 `/data` → 启动。降级到旧版本 = 恢复对应时期的备份（不提供 down migrations，per [ADR-0020]）。
 
+## Logical export / import (MVP-3)
+
+卷备份（上节）是物理备份；`/api/admin/export` 是**逻辑备份**：git 友好的 zip
+（canonical JSON 树 + content-addressed blobs，[ADR-0023]）。两者互补——卷备份
+快且全（含 users），逻辑导出可读、可 diff、可跨实例迁移（**不含 users/auth**）。
+
+- **Export**：登录 admin 后侧栏 ⤓ Export，或 `curl -b <cookie> -o export.zip http://<host>:8080/api/admin/export`
+- **Import（仅空实例）**：新实例完成 first-admin bootstrap 后：
+  `curl -b <cookie> -X POST --data-binary @export.zip http://<host>:8080/api/admin/import`
+  实例已有任何 notepage/folder 时返回 409。导入是原子的：任一项校验失败则什么都不写入，
+  响应 details 列出每个失败项。
+- **保数据的版本降级路径**：新版本实例 export →（未来格式 v2 起：导出端降级格式）→ 旧版本空实例 import。
+  比"恢复备份"多保住备份之后产生的数据。导出物格式版本高于实例支持时 import 明确拒绝（同 DB 降级护栏语义）。
+- **Blob GC**：`curl -b <cookie> -X POST http://<host>:8080/api/admin/blobs/gc` ——
+  删除未被任何 block/已发布快照引用的 blob，返回 `{deleted, freedBytes}`。
+
 ## Environment reference
 
 | Env | Required | 含义 |
@@ -64,4 +80,5 @@ docker compose start
 - [ADR-0020](../decisions/ADR-0020-db-migrations-upgrade.md) — 迁移与升级决策
 - [ADR-0021](../decisions/ADR-0021-auth-library-better-auth.md) — auth / bootstrap 语义
 - [ADR-0022](../decisions/ADR-0022-blob-storage.md) — 备份对象含 blobs 的原因
+- [ADR-0023](../decisions/ADR-0023-export-import-format.md) — 逻辑导出/导入格式与降级路径
 - [setup-time.md](../../product/prd/features/self-host-deploy/setup-time.md) — operator lifecycle 产品口径
