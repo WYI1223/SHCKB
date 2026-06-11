@@ -5,10 +5,11 @@
  */
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { theme } from '../../theme/tokens';
+import { useTheme } from '@skb/theme';
 import type { MarkdownContent } from './markdown';
 
 export function MarkdownRenderView({ content }: { content: MarkdownContent }) {
+  const theme = useTheme();
   if (content.markdown.trim() === '') {
     return <div style={{ color: theme.mutedColor, fontSize: '13px', fontStyle: 'italic' }}>Empty markdown block</div>;
   }

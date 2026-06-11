@@ -4,10 +4,11 @@
  * missing-asset behavior), never a broken page.
  */
 import { useState } from 'react';
-import { theme } from '../../theme/tokens';
+import { useTheme } from '@skb/theme';
 import { blobUrl, type ImageContent } from './image';
 
 export function ImageRenderView({ content }: { content: ImageContent }) {
+  const theme = useTheme();
   const [failed, setFailed] = useState(false);
 
   if (!content.blobHash || failed) {

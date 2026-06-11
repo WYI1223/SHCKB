@@ -9,8 +9,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
-import { api, ApiError, type NotepageDetail, type WorkingBlock } from '../api/client';
-import { blockModule, defaultSizeFor } from '../blocks/registry';
+import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
+import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { useGridInteraction } from '../grid/useGridInteraction';
@@ -194,20 +194,22 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         <SaveIndicator status={status} />
       </header>
 
-      <GridCanvas
-        interaction={interaction}
-        contents={contents}
-        activeId={activeId}
-        onActivate={setActiveId}
-        onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
-        onBlockDeleted={(blockId) =>
-          setContents((c) => {
-            const { [blockId]: _gone, ...rest } = c;
-            return rest;
-          })
-        }
-      />
-      <Palette interaction={interaction} />
+      <HostContext.Provider value={{ uploadBlob }}>
+        <GridCanvas
+          interaction={interaction}
+          contents={contents}
+          activeId={activeId}
+          onActivate={setActiveId}
+          onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
+          onBlockDeleted={(blockId) =>
+            setContents((c) => {
+              const { [blockId]: _gone, ...rest } = c;
+              return rest;
+            })
+          }
+        />
+        <Palette interaction={interaction} />
+      </HostContext.Provider>
     </div>
   );
 }

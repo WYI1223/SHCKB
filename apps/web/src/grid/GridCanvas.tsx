@@ -5,7 +5,7 @@
  * EditView (block-markdown.md performance boundary).
  */
 import { totalRows, type Block } from '@skb/grid-engine';
-import { blockModule } from '../blocks/registry';
+import { blockModule } from '@skb/block-kinds';
 import { blockCardStyle, canvasBaseplateStyle, theme } from '../theme/tokens';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';

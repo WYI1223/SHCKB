@@ -3,7 +3,7 @@
  * Form factor is a dev-layer default, not a product lock
  * (notepage-editing.md: product locks behavior, not form factor).
  */
-import { BLOCK_KINDS } from '../blocks/registry';
+import { BLOCK_KINDS } from '@skb/block-kinds';
 import { theme } from '../theme/tokens';
 import type { Interaction } from './useGridInteraction';
 

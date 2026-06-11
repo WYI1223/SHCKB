@@ -4,12 +4,13 @@
  * yields a new hash — published snapshots keep the old one.
  */
 import { useRef, useState } from 'react';
-import { uploadBlob } from '../../api/client';
-import { theme } from '../../theme/tokens';
-import type { BlockViewProps } from '../types';
+import { useTheme } from '@skb/theme';
+import { useHost, type BlockViewProps } from '../types';
 import { blobUrl, type ImageContent } from './image';
 
 export function ImageEditView({ content, onChange }: BlockViewProps<ImageContent>) {
+  const theme = useTheme();
+  const { uploadBlob } = useHost();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

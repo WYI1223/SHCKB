@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { coerceContent, createContent, extractText } from './image';
+import { coerceContent, createContent, extractText } from '../image/image';
 
 describe('image block module', () => {
   test('createContent + coercion fallback', () => {

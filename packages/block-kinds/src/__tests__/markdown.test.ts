@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { coerceContent, createContent, extractText } from './markdown';
+import { coerceContent, createContent, extractText } from '../markdown/markdown';
 
 describe('markdown block module', () => {
   test('extractText strips formatting, keeps text', () => {

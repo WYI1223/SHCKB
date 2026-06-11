@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { blockModule } from '../blocks/registry';
+import { blockModule } from '@skb/block-kinds';
 import { api, ApiError, type PublishedDoc } from '../api/client';
 import { blockCardStyle, canvasBaseplateStyle, theme } from '../theme/tokens';
 

@@ -4,12 +4,13 @@
  * parsing/preview stay inside the block module.
  */
 import { useEffect, useRef } from 'react';
-import { theme } from '../../theme/tokens';
+import { useTheme } from '@skb/theme';
 import type { BlockViewProps } from '../types';
 import type { MarkdownContent } from './markdown';
 import { MarkdownRenderView } from './MarkdownRenderView';
 
 export function MarkdownEditView({ content, onChange }: BlockViewProps<MarkdownContent>) {
+  const theme = useTheme();
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
