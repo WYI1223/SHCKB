@@ -54,6 +54,8 @@ M2 does not need to ship a fully polished WYSIWYG/rich-text experience.
 
 The canonical stored content for each markdown block instance is markdown string plus minimal metadata needed for that block kind. Editor internal state is transient and must not become the durable source of truth.
 
+Markdown block metadata is limited to markdown-block semantics and rendering/extraction hints. It does not own block instance identity, GridState placement, page visibility, public-read state, timestamps, audit fields, routing, persistence status, or update-public orchestration. Those belong to the notepage host, block instance host, or substrate layers.
+
 A notepage may contain multiple markdown block instances and multiple non-markdown block instances. Markdown block A and markdown block B are the same kind, but their content, transient editor state, dirty state, validation/fallback state, and block-local undo state are instance-isolated.
 
 ### Author Edit Surface
@@ -66,7 +68,7 @@ M2 preferred shape:
 - the active markdown block mounts a lightweight source-compatible editing surface;
 - source-plus-preview is preferred for the active markdown block so authors can see rendered markdown without leaving editing flow;
 - activation/focus/selection are coordinated by notepage editing, but markdown parsing, markdown shortcuts, preview rendering, and markdown edit errors stay inside the markdown block;
-- leaving the active markdown block accepts the current markdown content into author working state, unmounts the editing surface, and returns that block to its latest rendered preview;
+- leaving the active markdown block hands the current markdown content to the notepage host for author working state orchestration, unmounts the editing surface, and returns that block to its latest rendered preview;
 - switching focus between blocks does not publish content and does not rewrite GridState.
 
 M2 default authoring direction is a React-hosted lightweight source-plus-preview surface:
@@ -78,7 +80,9 @@ M2 default authoring direction is a React-hosted lightweight source-plus-preview
 
 A simpler source textarea remains acceptable only if the implementation spike shows it preserves the author feedback loop and rendered inactive previews. The product contract is not full WYSIWYG; it is source-compatible markdown editing with a replacement path.
 
-Focus leave is an authoring-state transition only. It accepts the block-local content into the notepage author working state; public readers still see the last completed public state until the notepage-level complete/update-public action runs.
+Focus leave is an authoring-state transition only. The markdown block hands accepted block-local content to the notepage host for author working state orchestration; public readers still see the last completed public state until the notepage-level complete/update-public action runs.
+
+The markdown block must not write page-level working state, public-read state, or persistence records directly. Persistence timing, retry, conflict handling, and update-public promotion belong to notepage/substrate implementation and later ADR/API work.
 
 ### Performance Boundary
 
@@ -94,21 +98,21 @@ M2 performance rules:
 - preview rendering may be cached by block content version/hash and updated after accepted content changes;
 - markdown content changes do not trigger GridState recomputation.
 
-### React Host and Markdown Stack Direction
+### React Host and Markdown Product Constraints
 
 M2 can assume React as the frontend host. The markdown block should still keep parsing, rendering, sanitization, and extraction behind block-owned functions instead of letting notepage workflow or a single React component define the markdown contract.
 
-Preferred M2 direction:
+M2 product constraints:
 
 - authoring surface: native textarea or minimal React source editor, paired with rendered preview for the active block when feasible;
 - markdown baseline: CommonMark-compatible markdown plus GFM-style product expectations unless the implementation spike finds a narrower M2 subset is necessary;
-- rendering pipeline: mature markdown ecosystem tooling such as the unified/remark/rehype family, with sanitization before public or preview rendering;
-- React adapter: a React render component may be used, including a wrapper around a mature markdown component, but it must call the markdown block's render/extract boundary rather than becoming the durable content contract;
+- rendering pipeline: use mature markdown ecosystem tooling rather than custom parsing/rendering, with sanitization before public or preview rendering;
+- React adapter: a React render component may be used, including a wrapper around a mature markdown component, but it must call the markdown block's render/extract/sanitize surface rather than becoming the durable content contract;
 - extraction: derive plain text from the parsed markdown representation, not from rendered DOM scraping;
-- editor upgrade path: CodeMirror or another richer source editor remains an upgrade candidate if the lightweight textarea/source-plus-preview spike fails, but it is not the default M2 commitment;
+- editor upgrade path: a richer source editor remains an upgrade candidate if the lightweight textarea/source-plus-preview spike fails, but it is not the default M2 commitment;
 - excluded: MDX or executable component semantics, custom markdown parser/renderer/editor, Tiptap-as-grid-host, and editor-as-grid-host patterns.
 
-Exact package choices should be confirmed by an implementation spike or later ADR after the PRD pass. The product constraint is source-compatible markdown content, React-hosted UI, reusable render/extract boundaries, and no executable markdown component model.
+Exact package choices should be confirmed by an implementation spike or later ADR after the PRD pass. Named parser, renderer, sanitizer, React adapter, or editor packages are spike candidates only; they are not ratified product truth in this PRD. The product constraint is source-compatible markdown content, React-hosted UI, reusable render/extract/sanitize surfaces, and no executable markdown component model.
 
 The markdown render/extract/sanitize path should be treated as a block-owned module. React components are adapters at the UI seam, not the source of truth for markdown semantics.
 
@@ -174,7 +178,7 @@ Scenario: Notepage hosts markdown editing without owning markdown semantics
 Scenario: Leaving markdown editing shows the latest rendered preview
   Given an author is editing a markdown block
   When the author moves focus to another block
-  Then the current markdown content is accepted into author working state
+  Then the markdown block hands the current markdown content to the notepage host for author working state orchestration
   And the previous markdown block returns to rendered preview
   And public readers do not see the change until the notepage is explicitly updated for public read
 ```
@@ -238,8 +242,8 @@ Scenario: Unsupported markdown feature degrades locally
 
 - **M2 authoring direction**: React-hosted lightweight source-plus-preview is the preferred product shape; richer editor packages remain future replacement candidates, not M2 commitments.
 - **Multiple instance state**: a notepage may host many markdown block instances, but only the active markdown block mounts the editing surface.
-- **Focus leave behavior**: leaving the active markdown block accepts block-local content into author working state, updates the inactive preview, and unmounts the editor.
-- **Public state separation**: accepting block-local content into author working state does not update public readers; public read state changes only through the notepage update-public flow.
+- **Focus leave behavior**: leaving the active markdown block hands block-local content to the notepage host for author working state orchestration, updates the inactive preview, and unmounts the editor.
+- **Public state separation**: handing block-local content to the notepage host for author working state orchestration does not update public readers; public read state changes only through the notepage update-public flow.
 - **Layout separation**: markdown content edits and focus switches must not mutate GridState geometry.
 - **Prototype result**: a throwaway state-model prototype validated the active-editor / inactive-preview / author-working-state / public-state / GridState separation for two markdown block instances.
 
@@ -249,7 +253,7 @@ Scenario: Unsupported markdown feature degrades locally
 
 1. **Markdown dialect**: exact CommonMark/GFM subset, sanitization rules, and extension policy.
 2. **Math timing**: whether math syntax renders in M2, M3, or remains plain markdown text until a later milestone.
-3. **Future editor replacement candidate**: exact markdown editor path should be re-audited after PRDs are complete and should not be inferred from deprecated ADRs; CodeMirror is a candidate only if the lightweight M2 source editor is insufficient.
+3. **Future editor replacement candidate**: exact markdown editor path should be re-audited after PRDs are complete and should not be inferred from deprecated ADRs; richer source editor packages are candidates only if the lightweight M2 source editor is insufficient.
 4. **Extraction rules**: exact heading/link/image-alt/code handling belongs to search-discovery, but markdown must expose enough plain text.
 5. **Preview cache policy**: exact cache invalidation key and debounce timing belong to implementation/ADR, but product behavior requires latest accepted content to render after focus leave.
 6. **Implementation spike**: confirm source-plus-preview behavior, render/sanitize/extract pipeline, focus-leave preview update, and many-markdown-block performance before locking packages.
@@ -262,6 +266,7 @@ Scenario: Unsupported markdown feature degrades locally
 - **[ADR-0002] block storage**: markdown canonical text should align with block storage shape after PRD pass completes.
 - **[ADR-0014] block/plugin contract**: EditView/RenderView/extraction expectations should map to the shared block contract without leaking editor internals.
 - **[ADR-0008] search abstraction**: markdown plain-text extraction must align with search-discovery.
+- **Markdown stack ADR/spike**: exact parser, renderer, sanitizer, React adapter, and future editor package choices should be decided after PRD pass by implementation spike or ADR; package names in discussion history are not product commitments.
 
 ---
 
@@ -278,6 +283,7 @@ Scenario: Unsupported markdown feature degrades locally
 
 - 2026-05-23 initial split: extracted markdown-specific M2 commitment and editor boundary from parent [blocks.md](./blocks.md).
 - 2026-05-23 block-instance edit pass: clarified markdown is a block-kind internal capability, not a page-level editor; added active-block editing boundary, multiple-instance isolation, no custom markdown wheel-rebuild, and future editor replacement framing.
-- 2026-05-23 lightweight editor performance pass: clarified inactive blocks show rendered preview, active block mounts a lightweight source-compatible editor, focus leave accepts content into author working state, and mounted editor count stays bounded.
+- 2026-05-23 lightweight editor performance pass: clarified inactive blocks show rendered preview, active block mounts a lightweight source-compatible editor, focus leave hands content to the notepage host for author working state orchestration, and mounted editor count stays bounded.
 - 2026-05-23 React markdown stack direction pass: captured React as the frontend host assumption while keeping markdown render/extract/sanitize behavior behind block-owned boundaries.
 - 2026-05-23 closeout pass: resolved the M2 authoring direction to React-hosted lightweight source-plus-preview, captured prototype-validated state separation, and narrowed remaining open questions to package/dialect/cache/extraction details.
+- 2026-05-23 review cleanup: downgraded named markdown libraries to spike/ADR candidates, clarified markdown metadata ownership, and made notepage-owned persistence orchestration explicit.

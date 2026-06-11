@@ -376,6 +376,43 @@
 - rehype-sanitize: <https://github.com/rehypejs/rehype-sanitize>
 - CodeMirror basic editor example: <https://codemirror.net/examples/basic/>
 
+### 2026-05-23 - Turn 20
+
+- **Owner**: Asked Codex to re-review `block-markdown.md` using the earlier multi-angle review standard:
+  > 可以，以这个标准再审一下block-markdown？
+- **Codex response**:
+  - Reviewed `block-markdown.md` against:
+    - document / PRD angle;
+    - writer, reader, and executor angle;
+    - community / open-source contributor angle;
+    - extensibility / maintainability angle;
+    - agent constraint angle.
+  - Said the document is directionally much stronger than the previous version because it now frames markdown as a block-kind internal capability rather than a page-level editor.
+  - Said `Resolved Closeout Notes` are useful because they clarify active-editor behavior, focus leave, public-state separation, layout separation, and prototype validation.
+  - Raised four findings:
+    1. The `React Host and Markdown Stack Direction` section still leans toward HOW because it names candidate technologies such as `unified`, `remark`, `rehype`, and `CodeMirror`. Codex recommended keeping product constraints in PRD and moving package/library choices to ADR debt or implementation spike notes.
+    2. The canonical content wording says `markdown string plus minimal metadata`, but it does not define the metadata boundary. Codex recommended clarifying that markdown block metadata is only markdown semantics/rendering metadata; identity, placement, visibility, public-state, timestamps, and host orchestration belong to notepage / block instance host / substrate layers.
+    3. The focus-leave BDD says content is accepted into author working state. Codex said this is correct but should make clear that the notepage host owns persistence orchestration so an implementation agent does not let markdown block directly write page-level working state.
+    4. Non-goals say exact parser/editor package lock is out of scope, while the preferred stack section names candidate libraries. Codex recommended adding a clarification that named libraries are spike candidates only, not ratified product truth.
+  - Multi-angle summary:
+    - **Document / PRD**: structure is clear; technology candidates should be downgraded from product truth.
+    - **Writer / reader / executor**: reader can understand markdown as block-kind behavior; executor needs clearer persistence ownership.
+    - **Community / open-source**: `block kind` / `block instance` terminology is contributor-friendly; `author working state` should be introduced as a notepage term.
+    - **Extensibility / maintainability**: editor replacement boundary is the right long-term frame; metadata boundary needs tightening.
+    - **Agent constraints**: no MDX, no executable components, no page-level editor, active-editor-only mounting are good hard limits; risk remains that agents may over-read `unified/remark/rehype` as fixed stack.
+- **Files mentioned**:
+  - `docs/product/prd/features/blocks/block-markdown.md`
+  - `docs/product/prd/features/blocks/blocks.md`
+  - `docs/product/prd/features/notepage/notepage.md`
+  - `docs/product/prd/features/notepage/notepage-editing.md`
+- **Action proposed or taken**:
+  - Append this review to the discussion record.
+  - Treat the four findings as cleanup items before using `block-markdown.md` as input to ADR rework or AI/search PRD design.
+
+### 2026-05-23 - Artifact Update
+
+- Appended Codex's five-angle review of `block-markdown.md`, including technology-stack wording, metadata boundary, notepage-owned persistence orchestration, package-lock ambiguity, and agent constraint risks.
+
 ## Changelog
 
 - 2026-05-23 initial record: captured the block-vs-AI sequencing decision, block/notepage/plugin boundary correction, PRD placement decision, and early markdown editor-boundary framing.
@@ -384,3 +421,4 @@
 - 2026-05-23 React markdown stack record: captured React as the frontend host assumption and recorded the mature markdown pipeline direction without binding the product contract to one React component.
 - 2026-05-23 broad blocks review record: integrated the broad PRD reframing review into the main dialogue log instead of a separate continuation section.
 - 2026-05-23 skill closeout record: captured grill-with-docs conclusions, architecture deepening candidates, prototype verdict, and resulting PRD cleanup.
+- 2026-05-23 block-markdown five-angle review: appended Codex review findings as Turn 20 on technology-stack wording, metadata boundary, persistence ownership, package-lock ambiguity, and agent constraints.
