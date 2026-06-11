@@ -1,0 +1,14 @@
+{
+  "name": "shckb",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:server": "bun run --filter @skb/shckb-server dev",
+    "dev:web": "bun run --filter @skb/shckb-web dev",
+    "test": "bun run --filter '*' test"
+  }
+}

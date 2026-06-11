@@ -38,3 +38,9 @@ pnpm-debug.log*
 # Scratch
 .tmp_*
 tmp/
+
+# Local data (sqlite)
+data/
+*.db
+*.sqlite
+*.sqlite3
