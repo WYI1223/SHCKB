@@ -58,3 +58,31 @@ describe('blob store (content-addressed, M2-D3)', () => {
     ).toBe(404);
   });
 });
+
+// ----- MVP-3: store-level read/list/delete (export & GC substrate) -----
+
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { BlobStore } from '../src/blobstore';
+
+describe('BlobStore read/list/delete', () => {
+  test('read returns stored bytes, null for missing/invalid', () => {
+    const store = new BlobStore(mkdtempSync(join(tmpdir(), 'skb-bs-')));
+    const bytes = new TextEncoder().encode('hello blob');
+    const { hash } = store.save(bytes);
+    expect(store.read(hash)).toEqual(bytes);
+    expect(store.read('0'.repeat(64))).toBeNull();
+    expect(store.read('../etc/passwd')).toBeNull();
+  });
+
+  test('list returns sorted hashes; delete removes', () => {
+    const store = new BlobStore(mkdtempSync(join(tmpdir(), 'skb-bs-')));
+    const a = store.save(new TextEncoder().encode('aaa')).hash;
+    const b = store.save(new TextEncoder().encode('bbb')).hash;
+    expect(store.list()).toEqual([a, b].sort());
+    expect(store.delete(a)).toBe(true);
+    expect(store.list()).toEqual([b]);
+    expect(store.delete(a)).toBe(false);
+  });
+});
