@@ -1,0 +1,22 @@
+{
+  "name": "@skb/shckb-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@skb/grid-engine": "workspace:*",
+    "drizzle-orm": "^0.44.2",
+    "hono": "^4.7.10",
+    "nanoid": "^5.1.5"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.15",
+    "typescript": "~5.6.0"
+  }
+}
