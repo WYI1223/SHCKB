@@ -1,0 +1,3 @@
+# Migration files are hashed by the applier (ADR-0020 tamper guard);
+# force LF so working trees match across platforms.
+*.sql text eol=lf

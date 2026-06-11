@@ -99,6 +99,14 @@ describe('migration applier (ADR-0020)', () => {
     expect(() => applyMigrations(db, dir)).toThrow(/history mismatch/);
   });
 
+  test('tamper guard ignores CRLF/LF differences (cross-platform checkouts)', () => {
+    const dir = makeMigrationsDir({ '0000_init.sql': 'CREATE TABLE a (\n  id TEXT\n);' });
+    const db = new Database(':memory:');
+    applyMigrations(db, dir);
+    writeFileSync(join(dir, '0000_init.sql'), 'CREATE TABLE a (\r\n  id TEXT\r\n);');
+    expect(() => applyMigrations(db, dir)).not.toThrow();
+  });
+
   test('failed migration rolls back atomically and aborts', () => {
     const dir = makeMigrationsDir({
       '0000_ok.sql': 'CREATE TABLE good (id TEXT);',

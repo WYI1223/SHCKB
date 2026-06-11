@@ -33,7 +33,10 @@ export type MigrationResult = {
 };
 
 function sha256(text: string): string {
-  return createHash('sha256').update(text).digest('hex');
+  // Normalize line endings before hashing: the same migration file may
+  // be checked out as CRLF on Windows and LF in the Linux container;
+  // the tamper guard must not fire on platform line-ending differences.
+  return createHash('sha256').update(text.replaceAll('\r\n', '\n')).digest('hex');
 }
 
 function tableExists(db: Database, name: string): boolean {
