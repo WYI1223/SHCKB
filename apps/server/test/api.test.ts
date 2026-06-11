@@ -6,8 +6,9 @@ let db: Db;
 let app: ReturnType<typeof createApp>;
 
 beforeEach(() => {
-  db = createDb(':memory:');
-  app = createApp(db);
+  const handle = createDb(':memory:');
+  db = handle.db;
+  app = createApp(db, { version: 'test', schemaVersion: handle.schemaVersion });
 });
 
 async function json(res: Response) {
@@ -38,10 +39,13 @@ async function putWorking(id: string, body: object): Promise<Response> {
 }
 
 describe('scaffold (task 3)', () => {
-  test('health', async () => {
+  test('health exposes version + schemaVersion', async () => {
     const res = await app.request('/api/health');
     expect(res.status).toBe(200);
-    expect(await json(res)).toEqual({ ok: true });
+    const body = await json(res);
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('test');
+    expect(body.schemaVersion).toBeGreaterThanOrEqual(0);
   });
 
   test('pep stub injects local author on /api, anonymous on /api/public', async () => {

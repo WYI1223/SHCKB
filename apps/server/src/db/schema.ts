@@ -6,7 +6,7 @@
  * by the explicit update-public action. Public readers never read the
  * working-state tables directly.
  */
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const notepages = sqliteTable('notepages', {
   id: text('id').primaryKey(),
@@ -21,18 +21,22 @@ export const notepages = sqliteTable('notepages', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-export const blocks = sqliteTable('blocks', {
-  id: text('id').primaryKey(),
-  notepageId: text('notepage_id')
-    .notNull()
-    .references(() => notepages.id, { onDelete: 'cascade' }),
-  kind: text('kind').notNull(),
-  col: integer('col').notNull(),
-  row: integer('row').notNull(),
-  colSpan: integer('col_span').notNull(),
-  rowSpan: integer('row_span').notNull(),
-  content: text('content').notNull(),
-});
+export const blocks = sqliteTable(
+  'blocks',
+  {
+    id: text('id').primaryKey(),
+    notepageId: text('notepage_id')
+      .notNull()
+      .references(() => notepages.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    col: integer('col').notNull(),
+    row: integer('row').notNull(),
+    colSpan: integer('col_span').notNull(),
+    rowSpan: integer('row_span').notNull(),
+    content: text('content').notNull(),
+  },
+  (t) => [index('idx_blocks_notepage').on(t.notepageId)],
+);
 
 export type NotepageRow = typeof notepages.$inferSelect;
 export type BlockRow = typeof blocks.$inferSelect;

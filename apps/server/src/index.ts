@@ -6,7 +6,9 @@ import { createDb } from './db/client';
 const dbPath = resolve(process.env.SHCKB_DB_PATH ?? './data/shckb.db');
 mkdirSync(dirname(dbPath), { recursive: true });
 
-const app = createApp(createDb(dbPath));
+const { db, schemaVersion } = createDb(dbPath);
+const version = process.env.SHCKB_VERSION ?? (await import('../package.json')).version;
+const app = createApp(db, { version, schemaVersion });
 const port = Number(process.env.PORT ?? 3000);
 
 // Compose path: serve the built web app when present (single artifact
