@@ -1,7 +1,8 @@
-import { theme } from '../theme/tokens';
+import { useTheme } from '@skb/theme';
 import { useShell } from '../shell/Shell';
 
 export function WelcomePane() {
+  const theme = useTheme();
   const { me } = useShell();
   return (
     <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>

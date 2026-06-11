@@ -29,3 +29,14 @@ Hobonichi/Midori 纸质手帐的数字转译。暖奶油/牛皮纸画布（oklch
 ## Build log
 
 （按时间追加）
+1. 三 agent 并行交付（各自 worktree，互不冲突）：workbench（冷灰 hue 260 单色系 + 伪阴影白卡）/ stationery（奶油纸 + 牛皮虚线裁片 + 和纸胶带 kindHues）/ blueprint（普鲁士蓝图纸 + 60% alpha 青网点 + 半透明面板 + 磷光代码）。全部 oklch + AA 对比 + token 完整性测试过。
+2. 整合于 feat/style-round：5 主题注册全绿（server 75 / theme 4 / block-kinds 12）；样页渲染脚本 packages/theme/scripts/render-samples.ts；截图 .playwright-mcp/style-round/shot-*.png。
+3. **Blueprint 打出 token 面缺口（差异化方向的预期收益）**：MarkdownRenderView scoped CSS 硬编码浅色——行内 code 在暗色主题真坏（近白底近白字，截图可见）、表格边框/引用色浅色调参；ImageRenderView 缺资产框边框同。Theme-system 需要 surfaceInsetBg / hairline / quoteColor 级表面 token。结论：暗色主题正式上线前必须补 token 面（独立小 pass）。
+4. 坑：长寿 vite 进程在 workspace 包结构变化后不会自动跟上（Windows 跨 symlink 监听不可靠，模块图停在 mvp-4 时点，下拉只见两主题）——`bun run dev --force` 重启后五主题全显。规则：新增/重组 packages/* 后必须重启 vite；server 的 bun --watch 不受此影响。
+5. **Theme 引擎 v2 落地**（owner 裁定 token-only 风格化不足 → spec theme-engine-v2，ADR-0025）：表面 token 三件（蓝图行内 code 真伤修复，回归断言钉死）；渲染槽位 BlockFrame/CanvasSurface/PageTitle/globalCss（缺省即现状，三候选零迁移）；几何/视觉分权（编辑 active 光环改几何盒环，任意壳形状成立）。
+6. **手帐深度样板**：±1.2° 确定性微倾（block.id djb2 哈希，导出字节一致有测试）、和纸胶带替代色条、deckle 撕纸底缘、纸纹理、纸片投影 + hover 浮起、落桌入场动效（prefers-reduced-motion 守卫）。owner 愿景（撕掉卷起/打印拼装离场动效）= skb-anim-* 钩子预留 + 延迟卸载基建挂账。
+7. **Owner 反馈轮（手帐步入正轨后的三项打磨）**：(a) 双滚轮根因 = 编辑器内层与主题壳两层 overflow:auto——滚动权改归主题壳单独所有；手帐隐藏滚动条 + 滚动感知卷边阴影（background-attachment local/scroll 分层，上方可滚顶部现卷边、下方可滚底部现卷边，无 JS 静态页同效）。(b) 倾角随宽度衰减：BlockFrameProps 增 colSpan/rowSpan 几何提示（契约扩展），maxTilt = 1.2°×min(1, 4/colSpan)，12 列宽块 0.4°。(c) Chrome 主题化：撤销 M4-D6 边界（owner 裁定），侧栏/顶栏/登录页消费实例主题 token（Shell 级 Provider），编辑器顶栏跟随页面有效主题；web 端 tokens.ts shim 删除。
+8. **碎边 + 翘角**（owner 反馈）：虚线边升级为真撕纸轮廓——SVG feTurbulence+feDisplacementMap（固定 seed，确定性保住）作用于内容下方的背衬层，drop-shadow 跟随碎边轮廓，文字不过滤镜不变形；CanvasSurface 渲染一次共享 filter def。翘角 = 底角斜切阴影元素溢出到桌面（左/右角由 block.id FNV 哈希定，每张纸翘不同角）；hover 时碎边阴影加深。旧底缘锯齿 deckle 伪元素退役（被全周碎边取代）。
+9. **字体 token + 拍立得**（owner 反馈）：fontFamily 进 ThemeTokens（装机字体栈即用；字体文件 = 主题资产管线 future）——手帐用 Segoe Print/楷体手写栈，code 块等宽不受染。image kind 的壳分支为拍立得（BlockFrame 契约的 kind 参数正为 per-kind 壳设计）：白厚卡纸、深底边、深色相纸窗、清洁边缘（硬卡纸不撕边）、倾角 ×1.4。壳 per-kind 可变、内容归 kind 的边界不破。
+10. **拍立得质感**（owner 反馈"效果敷衍"）：三层材料——相纸高光（斜向光带 overlay，hover 漂移 360ms；放在滚动容器外的兄弟层，否则随内容滚走）+ 照片窗内凹（inset shadow + 四角暗角 vignette）+ 卡纸材质（顶光渐变 + 内压线 + 窗下压纹棱线）。reduced-motion 守卫覆盖光带动画。
+11. **拍立得物理修正**（owner）：暗角移除（vignette 是镜头伪影，相纸没有）；反光拆两层同角同步漂移——白卡光带强（带暗侧衬形，垫于照片窗下方故只显在白边框）、照片膜光弱（约 1/3 alpha，有色相纸吸光）。四边内凹阴影保留。

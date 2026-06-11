@@ -4,10 +4,11 @@
  * (notepage-editing.md: product locks behavior, not form factor).
  */
 import { BLOCK_KINDS } from '@skb/block-kinds';
-import { theme } from '../theme/tokens';
+import { kindHue, useTheme } from '@skb/theme';
 import type { Interaction } from './useGridInteraction';
 
 export function Palette({ interaction }: { interaction: Interaction }) {
+  const theme = useTheme();
   return (
     <div
       style={{
@@ -41,8 +42,8 @@ export function Palette({ interaction }: { interaction: Interaction }) {
               alignItems: 'center',
               gap: '4px',
               padding: '4px 6px',
-              background: `color-mix(in oklch, ${theme.kindHue(mod.kind)} 30%, transparent)`,
-              border: `1px solid ${theme.kindHue(mod.kind)}`,
+              background: `color-mix(in oklch, ${kindHue(theme, mod.kind)} 30%, transparent)`,
+              border: `1px solid ${kindHue(theme, mod.kind)}`,
               borderRadius: '4px',
               cursor: 'grab',
               fontSize: '11px',

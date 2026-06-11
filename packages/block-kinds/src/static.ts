@@ -32,8 +32,9 @@ export function renderStaticPage(doc: PublishedDocShape, slug: string, theme: Th
 <meta property="og:title" content="${title}">
 <style>
 * { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, sans-serif; background: ${theme.canvasBg}; color: ${theme.textColor}; }
+body { margin: 0; font-family: ${theme.fontFamily}; background: ${theme.canvasBg}; color: ${theme.textColor}; }
 ${theme.codeCss}
+${theme.globalCss ?? ''}
 </style>
 </head>
 <body>${body}</body>

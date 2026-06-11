@@ -75,7 +75,8 @@ Audit register 详 [AUDIT-2026-05.md]（footer 含 link）。
 | [ADR-0021](./ADR-0021-auth-library-better-auth.md) | Auth library = better-auth as L3 AuthAdapter impl（verify 完成；signup 永禁 + bootstrap 临时实例 + schema 并入 migration 流）| proposed | —（PRD-informed；承接 authentication.md Build/Buy=Buy verify 条件）|
 | [ADR-0022](./ADR-0022-blob-storage.md) | Blob storage = content-addressed immutable local-fs（sha256 id + capability-URL trade-off + GC deferred）| proposed | —（PRD-informed；承接 block-image + 两态快照引用稳定性；GC 债已由 ADR-0023 偿还）|
 | [ADR-0023](./ADR-0023-export-import-format.md) | Export/import canonical format & 双向格式迁移（确定性导出 + 降级在导出端 + blob 引用契约 + GC）| proposed | —（PRD-informed；source = [mvp3-scope-2026-06-12.md](../design/discussions/mvp3-scope-2026-06-12.md)；承接 setup-time operator 迁移口径）|
-| [ADR-0024](./ADR-0024-render-unification-theme.md) | Render unification & theme seam（共享组件静态渲染 + publishedHtml 纯函数 + 实例/逐页主题 + 格式 v2）| proposed | —（PRD-informed；source = [mvp4-scope-2026-06-12.md](../design/discussions/mvp4-scope-2026-06-12.md)；还 mvp2 双渲染器债，plugin-system 前置）|
+| [ADR-0024](./ADR-0024-render-unification-theme.md) | Render unification & theme seam（共享组件静态渲染 + publishedHtml 纯函数 + 实例/逐页主题 + 格式 v2）| proposed | —（PRD-informed；source = [mvp4-scope-2026-06-12.md](../design/discussions/mvp4-scope-2026-06-12.md)；还 mvp2 双渲染器债，plugin-system 前置；"theme = 纯数据" 表述由 ADR-0025 修订）|
+| [ADR-0025](./ADR-0025-theme-slots.md) | Theme render slots & surface tokens（theme = tokens + 槽位；几何/视觉分权；动效分层；手帐深度样板）| proposed | —（PRD-informed；source = theme-engine-v2 spec；owner 裁定 token-only 风格化不足）|
 
 ## 编号约定
 

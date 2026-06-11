@@ -4,7 +4,7 @@
  * preview.
  */
 import type { Block } from '@skb/grid-engine';
-import { theme } from '../theme/tokens';
+import { useTheme } from '@skb/theme';
 import type { Interaction, ResizeAxis } from './useGridInteraction';
 
 const HANDLE_BG = 'oklch(60% 0.12 240 / 70%)';
@@ -148,6 +148,7 @@ export function ResizePreview({
   slotSize: number;
   padding: number;
 }) {
+  const theme = useTheme();
   const { resize } = interaction;
   if (!resize.active || resize.blockId === null) return null;
   return (

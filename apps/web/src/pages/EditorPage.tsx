@@ -11,12 +11,11 @@ import { Link, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
 import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
-import { THEMES, ThemeProvider, graphPaper } from '@skb/theme';
+import { THEMES, ThemeProvider, graphPaper, useTheme } from '@skb/theme';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { useGridInteraction } from '../grid/useGridInteraction';
 import { useShell } from '../shell/Shell';
-import { theme } from '../theme/tokens';
 
 const AUTOSAVE_MS = 800;
 
@@ -146,6 +145,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const effective = THEMES[themeId ?? shell.instanceTheme] ?? graphPaper;
 
   return (
+    <ThemeProvider theme={effective}>
     <div>
       <header
         style={{
@@ -156,7 +156,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
           alignItems: 'center',
           gap: '12px',
           padding: '10px 20px 10px 44px',
-          background: theme.chromeBg,
+          background: effective.chromeBg,
           color: 'white',
         }}
       >
@@ -181,7 +181,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
             type="checkbox"
             checked={interaction.gravityEnabled}
             onChange={(e) => interaction.setGravityEnabled(e.target.checked)}
-            style={{ accentColor: theme.accent }}
+            style={{ accentColor: effective.accent }}
           />
           Gravity
         </label>
@@ -210,7 +210,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         <button onClick={toggleVisibility} style={chromeButton(visibility === 'public')}>
           {visibility === 'public' ? 'Public' : 'Private'}
         </button>
-        <button onClick={() => void publish()} style={{ ...chromeButton(true), background: theme.accent, borderColor: theme.accent }}>
+        <button onClick={() => void publish()} style={{ ...chromeButton(true), background: effective.accent, borderColor: effective.accent }}>
           {hasPublished ? 'Update public page' : 'Publish'}
         </button>
         {visibility === 'public' && hasPublished && (
@@ -226,7 +226,6 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         <SaveIndicator status={status} />
       </header>
 
-      <ThemeProvider theme={effective}>
       <HostContext.Provider value={{ uploadBlob }}>
         <GridCanvas
           interaction={interaction}
@@ -243,8 +242,8 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         />
         <Palette interaction={interaction} />
       </HostContext.Provider>
-      </ThemeProvider>
     </div>
+    </ThemeProvider>
   );
 }
 
@@ -286,6 +285,7 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
 }
 
 function PageMessage({ text, danger }: { text: string; danger?: boolean }) {
+  const theme = useTheme();
   return (
     <p style={{ textAlign: 'center', marginTop: '80px', color: danger ? theme.danger : theme.mutedColor }}>{text}</p>
   );

@@ -5,8 +5,8 @@
  * EditView (block-markdown.md performance boundary).
  */
 import { totalRows, type Block } from '@skb/grid-engine';
-import { blockModule } from '@skb/block-kinds';
-import { blockCardStyle, canvasBaseplateStyle, kindHue, useTheme } from '@skb/theme';
+import { blockModule, DefaultBlockFrame, DefaultCanvasSurface } from '@skb/block-kinds';
+import { kindHue, useTheme } from '@skb/theme';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
 
@@ -28,10 +28,17 @@ export function GridCanvas(props: GridCanvasProps) {
   const rows = totalRows(state) + MIN_ROWS_PADDING;
   const SLOT = theme.slot;
   const PAD = theme.pad;
+  const Surface = theme.CanvasSurface ?? DefaultCanvasSurface;
 
   return (
     <div
-      style={{ display: 'flex', justifyContent: 'center', background: theme.canvasBg, padding: '20px 20px 80px' }}
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        background: theme.canvasBg,
+        padding: '20px 20px 80px',
+        fontFamily: theme.fontFamily,
+      }}
       onClick={() => onActivate(null)}
     >
       <div
@@ -41,14 +48,15 @@ export function GridCanvas(props: GridCanvasProps) {
           position: 'relative',
           width: `${state.totalCols * SLOT}px`,
           height: `${rows * SLOT}px`,
-          ...canvasBaseplateStyle(theme),
         }}
       >
-        {state.blocks.map((b) => (
-          <BlockShell key={b.id} block={b} {...props} slot={SLOT} pad={PAD} />
-        ))}
-        {drag.intent && <DropGhost intent={drag.intent} slotSize={SLOT} padding={PAD} />}
-        <ResizePreview interaction={interaction} slotSize={SLOT} padding={PAD} />
+        <Surface widthPx={state.totalCols * SLOT} heightPx={rows * SLOT}>
+          {state.blocks.map((b) => (
+            <BlockShell key={b.id} block={b} {...props} slot={SLOT} pad={PAD} />
+          ))}
+          {drag.intent && <DropGhost intent={drag.intent} slotSize={SLOT} padding={PAD} />}
+          <ResizePreview interaction={interaction} slotSize={SLOT} padding={PAD} />
+        </Surface>
       </div>
     </div>
   );
@@ -70,6 +78,9 @@ function BlockShell({
   const isActive = activeId === block.id;
   const isResizing = interaction.resize.active && interaction.resize.blockId === block.id;
   const hue = kindHue(theme, block.kind);
+  // v2 [ADR-0025]: outer div = geometry + interaction + editing chrome
+  // (editor-owned); the theme's BlockFrame owns the visual shell.
+  const Frame = theme.BlockFrame ?? DefaultBlockFrame;
 
   return (
     <div
@@ -81,49 +92,59 @@ function BlockShell({
         if (!isActive) onActivate(block.id);
       }}
       style={{
-        ...blockCardStyle(theme, block.kind),
         position: 'absolute',
         left: `${block.col * slot + pad}px`,
         top: `${block.row * slot + pad}px`,
         width: `${block.colSpan * slot - 2 * pad}px`,
         height: `${block.rowSpan * slot - 2 * pad}px`,
-        // editing-state chrome on top of the shared card look:
-        ...(isActive
-          ? { border: `1px solid ${theme.accent}`, borderTop: `2px solid ${theme.accent}`, boxShadow: '0 2px 12px oklch(60% 0.12 240 / 25%)' }
-          : {}),
-        fontSize: '12px',
-        color: theme.textColor,
+        // active ring is editor chrome on the unrotated geometry box —
+        // it works for any frame shape a theme draws inside.
+        ...(isActive ? { boxShadow: `0 0 0 2px ${theme.accent}`, zIndex: 30 } : {}),
         cursor: isActive ? 'default' : 'grab',
         opacity: isResizing ? 0.6 : 1,
-        display: 'flex',
-        flexDirection: 'column',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '4px',
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ fontWeight: 600, color: hue, fontSize: '11px' }}>
-          {mod ? `${mod.glyph} ${mod.label}` : `? ${block.kind}`}
-        </span>
-        <span style={{ fontSize: '10px', opacity: 0.5, marginRight: '20px' }}>
-          {block.colSpan}×{block.rowSpan}
-        </span>
-      </div>
-      <div style={{ flex: 1, minHeight: 0, overflow: isActive ? 'visible' : 'auto' }}>
-        <BlockBody
-          block={block}
-          mod={mod}
-          isActive={isActive}
-          content={contents[block.id]}
-          onContentChange={onContentChange}
-        />
-      </div>
+      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            // scrolling belongs to the theme's frame alone (owner
+            // feedback: double scrollbars) — inactive blocks grow
+            // naturally and the frame scrolls them.
+            height: isActive ? '100%' : 'auto',
+            minHeight: '100%',
+            fontSize: '12px',
+            color: theme.textColor,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '4px',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontWeight: 600, color: hue, fontSize: '11px' }}>
+              {mod ? `${mod.glyph} ${mod.label}` : `? ${block.kind}`}
+            </span>
+            <span style={{ fontSize: '10px', opacity: 0.5, marginRight: '20px' }}>
+              {block.colSpan}×{block.rowSpan}
+            </span>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'visible' }}>
+            <BlockBody
+              block={block}
+              mod={mod}
+              isActive={isActive}
+              content={contents[block.id]}
+              onContentChange={onContentChange}
+            />
+          </div>
+        </div>
+      </Frame>
       <DeleteButton
         onClick={() => {
           interaction.ops.remove(block.id);

@@ -35,6 +35,10 @@ describe('theme registry', () => {
         'danger',
         'kindHueFallback',
         'codeCss',
+        'surfaceInsetBg',
+        'hairline',
+        'quoteColor',
+        'fontFamily',
       ] as const) {
         expect(t[key], `${t.id}.${key}`).toBeTruthy();
       }

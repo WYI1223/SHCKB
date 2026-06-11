@@ -20,7 +20,7 @@ export function ImageRenderView({ content }: { content: ImageContent }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          border: '1px dashed oklch(85% 0.01 80)',
+          border: `1px dashed ${theme.hairline}`,
           borderRadius: '4px',
           color: theme.mutedColor,
           fontSize: '12px',
