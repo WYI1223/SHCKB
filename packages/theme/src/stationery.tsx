@@ -66,9 +66,18 @@ function tiltOf(id: string, colSpan: number): number {
   return ((Math.abs(h) % 1000) / 1000) * (2 * maxTilt) - maxTilt;
 }
 
+/** Second hash bit stream: which bottom corner lifts (owner feedback —
+ * each slip curls a different corner, like real taped paper). */
+function curlSideOf(id: string): 'left' | 'right' {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = ((h ^ id.charCodeAt(i)) * 16777619) | 0;
+  return (Math.abs(h) & 1) === 0 ? 'right' : 'left';
+}
+
 function StationeryBlockFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
   const tape = TOKENS.kindHues[kind] ?? TOKENS.kindHueFallback;
+  const curl = curlSideOf(blockId);
   return (
     <div
       className="skb-block skb-paper-slip"
@@ -88,23 +97,26 @@ function StationeryBlockFrame({ kind, blockId, colSpan, children }: BlockFramePr
           background: tape,
           opacity: 0.78,
           boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
-          zIndex: 1,
+          zIndex: 3,
         }}
       />
+      {/* lifted-corner shadow: spills past the torn edge onto the desk */}
+      <div aria-hidden className={`skb-curl skb-curl-${curl}`} />
+      {/* torn silhouette: turbulence-displaced backing layer; content
+          never passes through the filter, so text stays crisp */}
+      <div aria-hidden className="skb-paper-edge" />
       <div
         className="skb-paper"
         style={{
           // background lives in globalCss (scroll-aware curl shadows
-          // need the layered background-attachment trick).
-          width: '100%',
-          height: '100%',
-          border: TOKENS.blockBorder,
-          borderRadius: TOKENS.blockRadius,
-          padding: '12px 10px 10px',
+          // need the layered background-attachment trick); inset leaves
+          // a rim where the torn silhouette shows through.
+          position: 'absolute',
+          inset: '3px',
+          padding: '10px 8px 8px',
           overflow: 'auto',
           fontSize: '14px',
           lineHeight: 1.55,
-          boxShadow: '0 2px 5px oklch(40% 0.04 60 / 16%), 0 1px 2px oklch(40% 0.04 60 / 10%)',
         }}
       >
         {children}
@@ -115,7 +127,17 @@ function StationeryBlockFrame({ kind, blockId, colSpan, children }: BlockFramePr
 
 function StationeryCanvasSurface({ widthPx, heightPx, children }: CanvasSurfaceProps) {
   return (
-    <div
+    <>
+      {/* one shared turbulence filter per canvas (fixed seed →
+          deterministic markup; torn edges differ visually because each
+          slip samples the noise at its own screen position) */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden>
+        <filter id="skb-rough">
+          <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" seed="7" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="7" />
+        </filter>
+      </svg>
+      <div
       className="skb-canvas skb-desk"
       style={{
         position: 'relative',
@@ -130,9 +152,10 @@ function StationeryCanvasSurface({ widthPx, heightPx, children }: CanvasSurfaceP
         backgroundSize: `auto, ${TOKENS.slot}px ${TOKENS.slot}px`,
         backgroundPosition: `0 0, ${TOKENS.slot - 1}px ${TOKENS.slot - 1}px`,
       }}
-    >
-      {children}
-    </div>
+      >
+        {children}
+      </div>
+    </>
   );
 }
 
@@ -158,15 +181,38 @@ const STATIONERY_GLOBAL_CSS = `
   from { opacity: 0; translate: 0 -8px; }
   to { opacity: 1; translate: 0 0; }
 }
+.skb-paper-slip .skb-paper-edge {
+  animation: skb-paper-drop 240ms ease-out backwards;
+}
 .skb-paper-slip .skb-paper {
   animation: skb-paper-drop 240ms ease-out backwards;
-  transition: box-shadow 160ms ease, translate 160ms ease;
 }
-.skb-paper-slip:hover .skb-paper {
-  translate: 0 -1.5px;
-  box-shadow: 0 5px 12px oklch(40% 0.04 60 / 22%), 0 2px 4px oklch(40% 0.04 60 / 12%);
+/* torn silhouette: displaced backing layer; its drop-shadow follows
+ * the ragged outline (applied AFTER displacement in the filter chain) */
+.skb-paper-edge {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: oklch(98% 0.013 95);
+  filter: url(#skb-rough) drop-shadow(0 2px 4px oklch(40% 0.04 60 / 22%));
+  transition: filter 160ms ease;
 }
-.skb-paper { position: relative; }
+.skb-paper-slip:hover .skb-paper-edge {
+  filter: url(#skb-rough) drop-shadow(0 5px 10px oklch(40% 0.04 60 / 30%));
+}
+/* lifted bottom corner: skewed shadow spilling onto the desk */
+.skb-curl {
+  position: absolute;
+  bottom: 1px;
+  width: 42%;
+  height: 14px;
+  z-index: 0;
+  box-shadow: 0 8px 9px oklch(38% 0.04 60 / 34%);
+  background: transparent;
+}
+.skb-curl-right { right: 6px; transform: skewX(-9deg) rotate(2.5deg); }
+.skb-curl-left { left: 6px; transform: skewX(9deg) rotate(-2.5deg); }
+.skb-paper { position: relative; z-index: 2; }
 /* Hidden scrollbar + scroll-aware curl hints (owner feedback): the
  * paper "curls" at an edge exactly when more content lies beyond it.
  * Classic background-attachment local/scroll layering — the local
@@ -186,20 +232,9 @@ const STATIONERY_GLOBAL_CSS = `
 .skb-paper::-webkit-scrollbar { display: none; }
 .skb-paper pre { scrollbar-width: none; }
 .skb-paper pre::-webkit-scrollbar { display: none; }
-.skb-paper::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: -4px;
-  height: 5px;
-  background:
-    linear-gradient(-45deg, transparent 70%, oklch(98% 0.013 95) 0) 0 0 / 10px 5px repeat-x,
-    linear-gradient(45deg, transparent 70%, oklch(98% 0.013 95) 0) 5px 0 / 10px 5px repeat-x;
-  filter: drop-shadow(0 1px 1px oklch(40% 0.04 60 / 14%));
-}
 @media (prefers-reduced-motion: reduce) {
-  .skb-paper-slip .skb-paper { animation: none; transition: none; }
+  .skb-paper-slip .skb-paper,
+  .skb-paper-slip .skb-paper-edge { animation: none; transition: none; }
 }
 `;
 
