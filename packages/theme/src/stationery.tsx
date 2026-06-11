@@ -184,6 +184,8 @@ const STATIONERY_GLOBAL_CSS = `
   background-attachment: local, local, scroll, scroll;
 }
 .skb-paper::-webkit-scrollbar { display: none; }
+.skb-paper pre { scrollbar-width: none; }
+.skb-paper pre::-webkit-scrollbar { display: none; }
 .skb-paper::after {
   content: '';
   position: absolute;
