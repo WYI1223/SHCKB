@@ -32,3 +32,4 @@ Hobonichi/Midori 纸质手帐的数字转译。暖奶油/牛皮纸画布（oklch
 1. 三 agent 并行交付（各自 worktree，互不冲突）：workbench（冷灰 hue 260 单色系 + 伪阴影白卡）/ stationery（奶油纸 + 牛皮虚线裁片 + 和纸胶带 kindHues）/ blueprint（普鲁士蓝图纸 + 60% alpha 青网点 + 半透明面板 + 磷光代码）。全部 oklch + AA 对比 + token 完整性测试过。
 2. 整合于 feat/style-round：5 主题注册全绿（server 75 / theme 4 / block-kinds 12）；样页渲染脚本 packages/theme/scripts/render-samples.ts；截图 .playwright-mcp/style-round/shot-*.png。
 3. **Blueprint 打出 token 面缺口（差异化方向的预期收益）**：MarkdownRenderView scoped CSS 硬编码浅色——行内 code 在暗色主题真坏（近白底近白字，截图可见）、表格边框/引用色浅色调参；ImageRenderView 缺资产框边框同。Theme-system 需要 surfaceInsetBg / hairline / quoteColor 级表面 token。结论：暗色主题正式上线前必须补 token 面（独立小 pass）。
+4. 坑：长寿 vite 进程在 workspace 包结构变化后不会自动跟上（Windows 跨 symlink 监听不可靠，模块图停在 mvp-4 时点，下拉只见两主题）——`bun run dev --force` 重启后五主题全显。规则：新增/重组 packages/* 后必须重启 vite；server 的 bun --watch 不受此影响。
