@@ -5,6 +5,9 @@
  * publishedHtml purity depends on Theme being plain data [ADR-0024].
  */
 import type React from 'react';
+import { blueprint } from './blueprint';
+import { stationery } from './stationery';
+import { workbench } from './workbench';
 
 export type Theme = {
   id: string;
@@ -84,7 +87,7 @@ export const ink: Theme = {
   kindHueFallback: 'oklch(25% 0.01 270)',
 };
 
-export const THEMES: Record<string, Theme> = { 'graph-paper': graphPaper, ink };
+export const THEMES: Record<string, Theme> = { 'graph-paper': graphPaper, ink, workbench, stationery, blueprint };
 export const DEFAULT_THEME_ID = 'graph-paper';
 
 export function kindHue(theme: Theme, kind: string): string {
