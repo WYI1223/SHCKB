@@ -33,3 +33,5 @@ Hobonichi/Midori 纸质手帐的数字转译。暖奶油/牛皮纸画布（oklch
 2. 整合于 feat/style-round：5 主题注册全绿（server 75 / theme 4 / block-kinds 12）；样页渲染脚本 packages/theme/scripts/render-samples.ts；截图 .playwright-mcp/style-round/shot-*.png。
 3. **Blueprint 打出 token 面缺口（差异化方向的预期收益）**：MarkdownRenderView scoped CSS 硬编码浅色——行内 code 在暗色主题真坏（近白底近白字，截图可见）、表格边框/引用色浅色调参；ImageRenderView 缺资产框边框同。Theme-system 需要 surfaceInsetBg / hairline / quoteColor 级表面 token。结论：暗色主题正式上线前必须补 token 面（独立小 pass）。
 4. 坑：长寿 vite 进程在 workspace 包结构变化后不会自动跟上（Windows 跨 symlink 监听不可靠，模块图停在 mvp-4 时点，下拉只见两主题）——`bun run dev --force` 重启后五主题全显。规则：新增/重组 packages/* 后必须重启 vite；server 的 bun --watch 不受此影响。
+5. **Theme 引擎 v2 落地**（owner 裁定 token-only 风格化不足 → spec theme-engine-v2，ADR-0025）：表面 token 三件（蓝图行内 code 真伤修复，回归断言钉死）；渲染槽位 BlockFrame/CanvasSurface/PageTitle/globalCss（缺省即现状，三候选零迁移）；几何/视觉分权（编辑 active 光环改几何盒环，任意壳形状成立）。
+6. **手帐深度样板**：±1.2° 确定性微倾（block.id djb2 哈希，导出字节一致有测试）、和纸胶带替代色条、deckle 撕纸底缘、纸纹理、纸片投影 + hover 浮起、落桌入场动效（prefers-reduced-motion 守卫）。owner 愿景（撕掉卷起/打印拼装离场动效）= skb-anim-* 钩子预留 + 延迟卸载基建挂账。
