@@ -63,6 +63,13 @@ docker compose start
 - **Blob GC**：`curl -b <cookie> -X POST http://<host>:8080/api/admin/blobs/gc` ——
   删除未被任何 block/已发布快照引用的 blob，返回 `{deleted, freedBytes}`。
 
+### 格式版本与跨版本迁移（MVP-4 起格式 v2）
+
+- v2 导出携带实例主题与逐页主题钉选；**v2 实例自动 import v1 导出物**（升级补默认值，无损）
+- 给旧版本实例产导出物：`/api/admin/export?format=1`（导出端降级，[ADR-0023]/[ADR-0024]）；
+  先 `&dryRun=1` 查看损失清单（非默认主题与钉选会被丢弃并逐项列出）
+- **换实例主题会全量重渲染所有已发布页**（大实例上有可见停顿，属预期行为）
+
 ## Environment reference
 
 | Env | Required | 含义 |
