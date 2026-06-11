@@ -13,7 +13,8 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import type { Db } from '../db/client';
 import { blocks, notepages, type PublishedDoc } from '../db/schema';
-import { NOT_FOUND_HTML, renderPublishedHtml } from '../render/publish-html';
+import { DEFAULT_THEME_ID, THEMES } from '@skb/theme';
+import { NOT_FOUND_HTML, renderStaticPage } from '../render/publish-html';
 
 type WorkingBlock = {
   id: string;
@@ -211,7 +212,8 @@ export function notepageRoutes(db: Db) {
       .set({
         slug,
         publishedDoc: JSON.stringify(doc),
-        publishedHtml: renderPublishedHtml(doc, slug),
+        // Task 5 replaces the default with the page's effective theme.
+        publishedHtml: renderStaticPage(doc, slug, THEMES[DEFAULT_THEME_ID]!),
         updatedAt: new Date(),
       })
       .where(eq(notepages.id, page.id))

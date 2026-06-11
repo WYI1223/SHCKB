@@ -10,7 +10,8 @@ import { TOTAL_COLS, validateState } from '@skb/grid-engine';
 import type { BlobStore } from '../blobstore';
 import type { Db } from '../db/client';
 import { blobs, blocks, folders, notepages, type PublishedDoc } from '../db/schema';
-import { renderPublishedHtml } from '../render/publish-html';
+import { DEFAULT_THEME_ID, THEMES } from '@skb/theme';
+import { renderStaticPage } from '../render/publish-html';
 import { FORMAT_VERSION, type ExportManifest, type ExportPage } from './format';
 import { upgradeToVersion, type JsonFiles } from './migrate-format';
 
@@ -200,7 +201,8 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
           folderId,
           sortKey: page.sortKey,
           publishedDoc: published === null ? null : JSON.stringify(published),
-          publishedHtml: published === null ? null : renderPublishedHtml(published, page.slug),
+          // Task 5 replaces the default with the page's effective theme.
+          publishedHtml: published === null ? null : renderStaticPage(published, page.slug, THEMES[DEFAULT_THEME_ID]!),
           createdAt: new Date(page.createdAt),
           updatedAt: new Date(page.updatedAt),
         })

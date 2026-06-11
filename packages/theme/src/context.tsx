@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { graphPaper, type Theme } from './index';
+import { graphPaper, type Theme } from './themes';
 
 /** Content surfaces read the active theme from here; the default keeps
  * un-providered trees (and app chrome) on graph-paper. */

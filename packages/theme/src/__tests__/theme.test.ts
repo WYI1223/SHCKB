@@ -7,7 +7,7 @@ import {
   graphPaper,
   ink,
   kindHue,
-} from '../index';
+} from '../themes';
 
 describe('theme registry', () => {
   test('default theme is graph-paper and registered', () => {
