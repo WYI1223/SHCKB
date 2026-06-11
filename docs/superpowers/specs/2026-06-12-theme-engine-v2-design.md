@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (owner review pending) |
+| Status | approved (owner ratified 2026-06-12；离场动效确认为方向标不是本轮验收项) |
 | 动机 | Owner 裁定：token-only 主题"风格化程度太低，只有配色变化"；theme-system PRD 本就定位 theme = plugin type，应能改结构（方块样子）乃至动效（撕纸/打印）|
 | Lineage | MVP-4 theme seam（token 集）→ **v2 = token + 渲染槽位 + 动效缝** → theme-system 完整盘子（L0-L3 级联、theme 即插件）|
 | 样板 | 手帐 Stationery 深度版（owner 拍板）；蓝图深度版为后续候选 |
@@ -62,7 +62,8 @@ type Theme = { /* 现有 tokens + §1 三新增 */ } & ThemeSlots;
 3. **撕纸边缘**：底缘 deckle 效果（clip-path 锯齿或多重 box-shadow，纯 CSS 无外部资产）
 4. **纸纹理**：canvas 与纸片的轻微纤维纹理（CSS gradient 噪声，无图片）
 5. **入场动效**：纸片落桌（translateY + 微旋安定），hover 轻微浮起
-6. token 部分沿用风格轮交付的配色（那轮工作不浪费）
+6. **纸片投影**（owner 补充：阴影属风格化武器库）：柔和 drop shadow 让纸片离开桌面；hover 浮起时投影加深拉远
+7. token 部分沿用风格轮交付的配色（那轮工作不浪费）
 
 ## 5. 文档与决策
 
