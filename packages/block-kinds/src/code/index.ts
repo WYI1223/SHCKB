@@ -1,3 +1,10 @@
+/**
+ * ⚠️ DRAFT kind (owner decision 2026-06-12): the editing surface is a
+ * plain textarea — no tab handling, bracket auto-close, or indent
+ * preservation yet. Render path (highlight.js) is production-grade;
+ * the editor UX is a startup version pending a dedicated pass (likely
+ * alongside the executable-code family). Recorded in AUDIT register.
+ */
 import type { BlockKindModule } from '../types';
 import { CodeEditView } from './CodeEditView';
 import { CodeRenderView } from './CodeRenderView';
@@ -5,7 +12,7 @@ import { coerceContent, createContent, extractText, type CodeContent } from './c
 
 export const codeModule: BlockKindModule<CodeContent> = {
   kind: 'code',
-  label: 'Code',
+  label: 'Code (draft)',
   glyph: '{}',
   defaultSize: { colSpan: 6, rowSpan: 3 },
   createContent,

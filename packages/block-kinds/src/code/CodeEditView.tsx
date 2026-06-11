@@ -35,7 +35,7 @@ export function CodeEditView({ content, onChange }: BlockViewProps<CodeContent>)
         onChange={(e) => onChange({ ...content, source: e.target.value })}
         spellCheck={false}
         aria-label="Source code"
-        placeholder="Write code…"
+        placeholder="Write code… (draft editor: no tab/bracket assist yet)"
         style={{
           flex: 1,
           minHeight: 0,
