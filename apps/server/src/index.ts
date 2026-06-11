@@ -1,13 +1,15 @@
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import pkg from '../package.json';
 import { createApp } from './app';
 import { ensureFirstAdmin } from './bootstrap';
 import { createAuth } from './auth';
+import { BlobStore } from './blobstore';
 import { createDb } from './db/client';
 
 const dbPath = resolve(process.env.SHCKB_DB_PATH ?? './data/shckb.db');
 mkdirSync(dirname(dbPath), { recursive: true });
+const blobDir = resolve(process.env.SHCKB_BLOB_DIR ?? join(dirname(dbPath), 'blobs'));
 
 const secret = process.env.SHCKB_AUTH_SECRET;
 if (!secret || secret.length < 32) {
@@ -26,7 +28,12 @@ await ensureFirstAdmin(db, {
 });
 
 const version = process.env.SHCKB_VERSION ?? pkg.version;
-const app = createApp(db, auth, { version, schemaVersion });
+const app = createApp({
+  db,
+  auth,
+  blobStore: new BlobStore(blobDir),
+  meta: { version, schemaVersion },
+});
 const port = Number(process.env.PORT ?? 3000);
 
 // Compose path: serve the built web app when present (single artifact

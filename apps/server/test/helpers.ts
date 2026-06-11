@@ -1,7 +1,11 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect } from 'bun:test';
 import { createApp } from '../src/app';
 import { ensureFirstAdmin } from '../src/bootstrap';
 import { createAuth } from '../src/auth';
+import { BlobStore } from '../src/blobstore';
 import { createDb, type Db } from '../src/db/client';
 
 export const TEST_SECRET = 'test-secret-0123456789abcdef0123456789abcdef';
@@ -24,7 +28,12 @@ export async function createTestContext(): Promise<TestContext> {
     adminPassword: ADMIN_PASSWORD,
     secret: TEST_SECRET,
   });
-  const app = createApp(handle.db, auth, { version: 'test', schemaVersion: handle.schemaVersion });
+  const app = createApp({
+    db: handle.db,
+    auth,
+    blobStore: new BlobStore(mkdtempSync(join(tmpdir(), 'skb-blobs-'))),
+    meta: { version: 'test', schemaVersion: handle.schemaVersion },
+  });
 
   const signIn = await app.request('http://localhost/api/auth/sign-in/email', {
     method: 'POST',

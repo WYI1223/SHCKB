@@ -42,6 +42,18 @@ export const blocks = sqliteTable(
   (t) => [index('idx_blocks_notepage').on(t.notepageId)],
 );
 
+/**
+ * Content-addressed blob registry (mvp2 M2-D3): hash = sha256 of bytes,
+ * files live in the blob dir keyed by hash, rows are metadata only.
+ * Immutable: a hash is never re-written; no GC in MVP-2 (surfaced debt).
+ */
+export const blobs = sqliteTable('blobs', {
+  hash: text('hash').primaryKey(),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
 export type NotepageRow = typeof notepages.$inferSelect;
 export type BlockRow = typeof blocks.$inferSelect;
 

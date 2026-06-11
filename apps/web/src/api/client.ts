@@ -71,6 +71,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type Me = { id: string; role: 'admin' | 'author'; name: string; email: string };
 
+export async function uploadBlob(file: File): Promise<{ hash: string; size: number; mimeType: string }> {
+  const res = await fetch('/api/blobs', {
+    method: 'POST',
+    body: file,
+    headers: { 'content-type': file.type },
+  });
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    if (res.status === 401) window.location.href = '/login';
+    throw new ApiError(res.status, typeof body.error === 'string' ? body.error : 'upload failed');
+  }
+  return body as { hash: string; size: number; mimeType: string };
+}
+
 export const api = {
   signIn: (email: string, password: string) =>
     request<{ user: unknown }>('/api/auth/sign-in/email', {

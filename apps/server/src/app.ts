@@ -1,21 +1,22 @@
 import { Hono } from 'hono';
-import pkg from '../package.json';
 import type { Auth } from './auth';
+import type { BlobStore } from './blobstore';
 import type { Db } from './db/client';
 import { createPep } from './pep';
+import { blobRoutes } from './routes/blobs';
 import { notepageRoutes } from './routes/notepages';
 
-export type AppMeta = {
-  version: string;
-  schemaVersion: number;
+export type AppDeps = {
+  db: Db;
+  auth: Auth;
+  blobStore: BlobStore;
+  meta: {
+    version: string;
+    schemaVersion: number;
+  };
 };
 
-const DEFAULT_META: AppMeta = {
-  version: process.env.SHCKB_VERSION ?? pkg.version,
-  schemaVersion: -1,
-};
-
-export function createApp(db: Db, auth: Auth, meta: AppMeta = DEFAULT_META) {
+export function createApp({ db, auth, blobStore, meta }: AppDeps) {
   const app = new Hono();
 
   app.use('/api/*', createPep(auth));
@@ -30,6 +31,7 @@ export function createApp(db: Db, auth: Auth, meta: AppMeta = DEFAULT_META) {
   app.get('/api/me', (c) => c.json({ user: c.get('user') }));
 
   app.route('/api', notepageRoutes(db));
+  app.route('/api', blobRoutes(db, blobStore));
 
   return app;
 }

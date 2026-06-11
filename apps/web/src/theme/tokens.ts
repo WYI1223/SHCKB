@@ -21,6 +21,7 @@ export const theme = {
   kindHue: (kind: string): string =>
     ({
       markdown: 'oklch(60% 0.04 280)',
+      image: 'oklch(65% 0.12 240)',
     })[kind] ?? 'oklch(60% 0.05 0)',
 } as const;
 

@@ -4,12 +4,14 @@
  * only ever see this lookup shape.
  */
 import type { BlockSize } from '@skb/grid-engine';
+import { imageModule } from './image';
 import { markdownModule } from './markdown';
 import type { BlockKindModule } from './types';
 
 export const BLOCK_KINDS: Record<string, BlockKindModule<never>> = {
   // Content type erased at the registry boundary; modules are internally typed.
   markdown: markdownModule as unknown as BlockKindModule<never>,
+  image: imageModule as unknown as BlockKindModule<never>,
 };
 
 export function blockModule(kind: string): BlockKindModule<never> | null {
