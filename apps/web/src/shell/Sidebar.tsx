@@ -232,13 +232,31 @@ export function Sidebar() {
       </div>
 
       {me && (
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-          <button onClick={() => void createPage(null)} style={{ ...newButton(), flex: 1 }}>
-            + Page
-          </button>
-          <button onClick={() => void createFolder(null)} style={{ ...newButton(), flex: 1 }}>
-            + Folder
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button onClick={() => void createPage(null)} style={{ ...newButton(), flex: 1 }}>
+              + Page
+            </button>
+            <button onClick={() => void createFolder(null)} style={{ ...newButton(), flex: 1 }}>
+              + Folder
+            </button>
+          </div>
+          {me.role === 'admin' && (
+            <a
+              href="/api/admin/export"
+              download="shckb-export.zip"
+              title="Download a full logical export (git-friendly zip)"
+              style={{
+                ...sideButton(),
+                textAlign: 'center',
+                textDecoration: 'none',
+                border: `1px dashed ${theme.mutedColor}`,
+                borderRadius: '6px',
+              }}
+            >
+              ⤓ Export
+            </a>
+          )}
         </div>
       )}
 
