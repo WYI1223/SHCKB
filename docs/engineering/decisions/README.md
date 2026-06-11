@@ -70,6 +70,7 @@ Audit register 详 [AUDIT-2026-05.md]（footer 含 link）。
 | [ADR-0016](./ADR-0016-css-framework.md) | CSS framework（Tailwind 4 + cva + shadcn ui + grid-themes）| deprecated (legacy draft) | architecture-rebuild §11.16 |
 | [ADR-0017](./ADR-0017-backup-strategy.md) | Backup strategy（pluggable BackupProvider）| deprecated (legacy draft) | — (owner review of ADR-0002, 2026-05-14) |
 | [ADR-0018](./ADR-0018-install-bootstrap.md) | Install bootstrap（single-entry installer + profile selection + config generation）| deprecated (legacy draft) | architecture-rebuild §0.6 + §11.11（external review of ADR-0001, 2026-05-16） |
+| [ADR-0019](./ADR-0019-mvp-implementation-baseline.md) | MVP implementation baseline（Bun + Hono + Drizzle/SQLite + React/Vite）| proposed | —（PRD-informed；source = [mvp-scope-2026-06-11.md](../design/discussions/mvp-scope-2026-06-11.md)；deprecation gate 后首个新 ADR）|
 
 ## 编号约定
 
