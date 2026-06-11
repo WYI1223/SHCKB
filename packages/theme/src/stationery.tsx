@@ -56,15 +56,18 @@ const TOKENS: ThemeTokens = {
   codeCss: STATIONERY_CODE_CSS,
 };
 
-/** djb2 → deterministic tilt in [-1.2°, 1.2°] (publishedHtml purity). */
-function tiltOf(id: string): number {
+/** djb2 → deterministic tilt (publishedHtml purity). Wider slips tilt
+ * less — a 1.2° tilt displaces a 12-col slip's corners ~15px, so the
+ * max angle scales down with colSpan (owner feedback 2026-06-12). */
+function tiltOf(id: string, colSpan: number): number {
   let h = 5381;
   for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) | 0;
-  return ((Math.abs(h) % 1000) / 1000) * 2.4 - 1.2;
+  const maxTilt = 1.2 * Math.min(1, 4 / Math.max(colSpan, 1));
+  return ((Math.abs(h) % 1000) / 1000) * (2 * maxTilt) - maxTilt;
 }
 
-function StationeryBlockFrame({ kind, blockId, children }: BlockFrameProps) {
-  const tilt = tiltOf(blockId).toFixed(3);
+function StationeryBlockFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
+  const tilt = tiltOf(blockId, colSpan).toFixed(3);
   const tape = TOKENS.kindHues[kind] ?? TOKENS.kindHueFallback;
   return (
     <div
@@ -91,9 +94,10 @@ function StationeryBlockFrame({ kind, blockId, children }: BlockFrameProps) {
       <div
         className="skb-paper"
         style={{
+          // background lives in globalCss (scroll-aware curl shadows
+          // need the layered background-attachment trick).
           width: '100%',
           height: '100%',
-          background: TOKENS.blockBg,
           border: TOKENS.blockBorder,
           borderRadius: TOKENS.blockRadius,
           padding: '12px 10px 10px',
@@ -163,6 +167,23 @@ const STATIONERY_GLOBAL_CSS = `
   box-shadow: 0 5px 12px oklch(40% 0.04 60 / 22%), 0 2px 4px oklch(40% 0.04 60 / 12%);
 }
 .skb-paper { position: relative; }
+/* Hidden scrollbar + scroll-aware curl hints (owner feedback): the
+ * paper "curls" at an edge exactly when more content lies beyond it.
+ * Classic background-attachment local/scroll layering — the local
+ * cover layers slide away from an edge once it is scrolled, revealing
+ * the fixed curl shadow beneath. No JS; works on the static page. */
+.skb-paper {
+  scrollbar-width: none;
+  background:
+    linear-gradient(oklch(98% 0.013 95) 30%, oklch(98% 0.013 95 / 0%)) top / 100% 26px,
+    linear-gradient(oklch(98% 0.013 95 / 0%), oklch(98% 0.013 95) 70%) bottom / 100% 26px,
+    radial-gradient(70% 10px at 50% 0, oklch(38% 0.04 60 / 32%), transparent 70%) top / 100% 12px,
+    radial-gradient(70% 10px at 50% 100%, oklch(38% 0.04 60 / 32%), transparent 70%) bottom / 100% 12px,
+    oklch(98% 0.013 95);
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+.skb-paper::-webkit-scrollbar { display: none; }
 .skb-paper::after {
   content: '';
   position: absolute;

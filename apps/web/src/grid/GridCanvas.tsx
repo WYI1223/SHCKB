@@ -98,12 +98,16 @@ function BlockShell({
         opacity: isResizing ? 0.6 : 1,
       }}
     >
-      <Frame kind={block.kind} blockId={block.id}>
+      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan}>
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            height: '100%',
+            // scrolling belongs to the theme's frame alone (owner
+            // feedback: double scrollbars) — inactive blocks grow
+            // naturally and the frame scrolls them.
+            height: isActive ? '100%' : 'auto',
+            minHeight: '100%',
             fontSize: '12px',
             color: theme.textColor,
           }}
@@ -124,7 +128,7 @@ function BlockShell({
               {block.colSpan}×{block.rowSpan}
             </span>
           </div>
-          <div style={{ flex: 1, minHeight: 0, overflow: isActive ? 'visible' : 'auto' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'visible' }}>
             <BlockBody
               block={block}
               mod={mod}

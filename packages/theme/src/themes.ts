@@ -10,7 +10,16 @@ import { blueprint } from './blueprint';
 import { stationery } from './stationery';
 import { workbench } from './workbench';
 
-export type BlockFrameProps = { kind: string; blockId: string; children: ReactNode };
+export type BlockFrameProps = {
+  kind: string;
+  blockId: string;
+  /** Geometry hints (grid units) — themes may scale effects by size
+   * (e.g. wide blocks tilt less). Never used for layout (canvas owns
+   * geometry). */
+  colSpan: number;
+  rowSpan: number;
+  children: ReactNode;
+};
 export type CanvasSurfaceProps = { widthPx: number; heightPx: number; children: ReactNode };
 export type PageTitleProps = { title: string };
 

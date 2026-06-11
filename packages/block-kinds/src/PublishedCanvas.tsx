@@ -51,7 +51,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
                   height: `${b.rowSpan * SLOT - 2 * PAD}px`,
                 }}
               >
-                <Frame kind={b.kind} blockId={b.id}>
+                <Frame kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan}>
                   {mod ? (
                     <mod.RenderView content={(b.content ?? mod.createContent()) as never} />
                   ) : (

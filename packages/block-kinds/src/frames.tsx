@@ -8,7 +8,7 @@
 import { blockCardStyle, canvasBaseplateStyle, useTheme } from '@skb/theme';
 import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps } from '@skb/theme';
 
-export function DefaultBlockFrame({ kind, blockId: _blockId, children }: BlockFrameProps) {
+export function DefaultBlockFrame({ kind, blockId: _blockId, colSpan: _c, rowSpan: _r, children }: BlockFrameProps) {
   const theme = useTheme();
   return (
     <div
