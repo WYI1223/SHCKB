@@ -6,9 +6,8 @@
  */
 import { useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { THEMES } from '@skb/theme';
+import { THEMES, useTheme, type Theme } from '@skb/theme';
 import { ApiError, api, importBundle, type TreeFolder } from '../api/client';
-import { theme } from '../theme/tokens';
 import { useShell } from './Shell';
 
 const SIDEBAR_W = 260;
@@ -25,6 +24,7 @@ type PageItem = {
 };
 
 export function Sidebar() {
+  const theme = useTheme();
   const { me, tree, publicTree, instanceTheme, refresh } = useShell();
   const navigate = useNavigate();
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
@@ -131,7 +131,7 @@ export function Sidebar() {
       <div key={f.id}>
         <div
           className="skb-row"
-          style={{ ...rowStyle(false), paddingLeft: `${8 + depth * INDENT}px`, cursor: 'pointer' }}
+          style={{ ...rowStyle(theme, false), paddingLeft: `${8 + depth * INDENT}px`, cursor: 'pointer' }}
           onClick={() => toggleFolder(f.id)}
         >
           <span style={{ fontSize: '9px', width: '12px', color: theme.mutedColor }}>
@@ -165,7 +165,7 @@ export function Sidebar() {
         <NavLink
           to={p.to}
           className="skb-row"
-          style={({ isActive }) => ({ ...rowStyle(isActive), paddingLeft: `${8 + depth * INDENT + 12}px` })}
+          style={({ isActive }) => ({ ...rowStyle(theme, isActive), paddingLeft: `${8 + depth * INDENT + 12}px` })}
         >
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {p.title}
@@ -220,7 +220,7 @@ export function Sidebar() {
         display: 'flex',
         flexDirection: 'column',
         borderRight: theme.blockBorder,
-        background: 'oklch(96.5% 0.005 80)',
+        background: theme.canvasBg,
         padding: '10px 6px',
         overflow: 'auto',
       }}
@@ -237,12 +237,12 @@ export function Sidebar() {
           <button
             onClick={() => void api.signOut().then(() => (window.location.href = '/'))}
             title={`Signed in as ${me.email}`}
-            style={sideButton()}
+            style={sideButton(theme)}
           >
             Sign out
           </button>
         ) : me === null ? (
-          <Link to="/login" style={{ ...sideButton(), textDecoration: 'none', color: theme.accent }}>
+          <Link to="/login" style={{ ...sideButton(theme), textDecoration: 'none', color: theme.accent }}>
             Sign in
           </Link>
         ) : null}
@@ -251,10 +251,10 @@ export function Sidebar() {
       {me && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
           <div style={{ display: 'flex', gap: '4px' }}>
-            <button onClick={() => void createPage(null)} style={{ ...newButton(), flex: 1 }}>
+            <button onClick={() => void createPage(null)} style={{ ...newButton(theme), flex: 1 }}>
               + Page
             </button>
-            <button onClick={() => void createFolder(null)} style={{ ...newButton(), flex: 1 }}>
+            <button onClick={() => void createFolder(null)} style={{ ...newButton(theme), flex: 1 }}>
               + Folder
             </button>
           </div>
@@ -292,7 +292,7 @@ export function Sidebar() {
                 download="shckb-export.zip"
                 title="Download a full logical export (git-friendly zip)"
                 style={{
-                  ...sideButton(),
+                  ...sideButton(theme),
                   flex: 1,
                   textAlign: 'center',
                   textDecoration: 'none',
@@ -305,7 +305,7 @@ export function Sidebar() {
               <button
                 onClick={() => importInput.current?.click()}
                 title="Restore a full export into this instance (empty instance only)"
-                style={{ ...sideButton(), flex: 1, border: `1px dashed ${theme.mutedColor}`, borderRadius: '6px' }}
+                style={{ ...sideButton(theme), flex: 1, border: `1px dashed ${theme.mutedColor}`, borderRadius: '6px' }}
               >
                 ⤒ Import
               </button>
@@ -349,6 +349,7 @@ function MoveMenu({
   onPick: (folderId: string | null) => void;
   onClose: () => void;
 }) {
+  const theme = useTheme();
   // flatten with depth for indented listing
   const flat: Array<{ f: TreeFolder; depth: number }> = [];
   const walk = (parentId: string | null, depth: number) => {
@@ -418,6 +419,7 @@ function RowAction({
   danger?: boolean;
   children: React.ReactNode;
 }) {
+  const theme = useTheme();
   return (
     <button
       aria-label={label}
@@ -441,7 +443,7 @@ function RowAction({
   );
 }
 
-function rowStyle(active: boolean): React.CSSProperties {
+function rowStyle(theme: Theme, active: boolean): React.CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',
@@ -451,12 +453,12 @@ function rowStyle(active: boolean): React.CSSProperties {
     fontSize: '13px',
     color: theme.textColor,
     textDecoration: 'none',
-    background: active ? 'oklch(92% 0.01 80)' : 'transparent',
+    background: active ? theme.surfaceInsetBg : 'transparent',
     fontWeight: active ? 600 : 400,
   };
 }
 
-function sideButton(): React.CSSProperties {
+function sideButton(theme: Theme): React.CSSProperties {
   return {
     background: 'transparent',
     color: theme.mutedColor,
@@ -468,7 +470,7 @@ function sideButton(): React.CSSProperties {
   };
 }
 
-function newButton(): React.CSSProperties {
+function newButton(theme: Theme): React.CSSProperties {
   return {
     background: 'transparent',
     color: theme.mutedColor,
@@ -481,5 +483,6 @@ function newButton(): React.CSSProperties {
 }
 
 function Empty({ text }: { text: string }) {
+  const theme = useTheme();
   return <p style={{ color: theme.mutedColor, fontSize: '12px', padding: '4px 10px' }}>{text}</p>;
 }

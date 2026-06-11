@@ -10,9 +10,10 @@ import { useParams } from 'react-router-dom';
 import { PublishedCanvas } from '@skb/block-kinds';
 import { THEMES, ThemeProvider, graphPaper } from '@skb/theme';
 import { api, ApiError, type PublishedDoc } from '../api/client';
-import { theme } from '../theme/tokens';
+import { useTheme } from '@skb/theme';
 
 export function ReadPage() {
+  const theme = useTheme();
   const { slug } = useParams<{ slug: string }>();
   const [resp, setResp] = useState<{ doc: PublishedDoc; theme: string } | null>(null);
   const [notFound, setNotFound] = useState(false);

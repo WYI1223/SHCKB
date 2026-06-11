@@ -16,7 +16,7 @@ import {
   type TreeFolder,
   type TreePage,
 } from '../api/client';
-import { theme } from '../theme/tokens';
+import { THEMES, ThemeProvider, graphPaper } from '@skb/theme';
 import { Sidebar } from './Sidebar';
 
 type ShellState = {
@@ -63,36 +63,43 @@ export function Shell() {
     refresh();
   }, [refresh]);
 
+  // Chrome follows the INSTANCE theme's tokens (owner decision
+  // 2026-06-12, revising M4-D6); content surfaces re-provide the
+  // page's effective theme inside.
+  const instTheme = THEMES[instanceTheme] ?? graphPaper;
+
   return (
     <ShellContext.Provider value={{ me, tree, publicTree, instanceTheme, refresh }}>
-      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-        {!collapsed && <Sidebar />}
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
-          title={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
-          style={{
-            position: 'fixed',
-            left: collapsed ? '8px' : '266px',
-            top: '10px',
-            zIndex: 60,
-            width: '24px',
-            height: '24px',
-            border: 'none',
-            borderRadius: '6px',
-            background: 'transparent',
-            color: theme.mutedColor,
-            cursor: 'pointer',
-            fontSize: '14px',
-            lineHeight: 1,
-          }}
-        >
-          {collapsed ? '☰' : '⟨'}
-        </button>
-        <main style={{ flex: 1, minWidth: 0, overflow: 'auto', background: theme.canvasBg }}>
-          <Outlet />
-        </main>
-      </div>
+      <ThemeProvider theme={instTheme}>
+        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+          {!collapsed && <Sidebar />}
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
+            style={{
+              position: 'fixed',
+              left: collapsed ? '8px' : '266px',
+              top: '10px',
+              zIndex: 60,
+              width: '24px',
+              height: '24px',
+              border: 'none',
+              borderRadius: '6px',
+              background: 'transparent',
+              color: instTheme.mutedColor,
+              cursor: 'pointer',
+              fontSize: '14px',
+              lineHeight: 1,
+            }}
+          >
+            {collapsed ? '☰' : '⟨'}
+          </button>
+          <main style={{ flex: 1, minWidth: 0, overflow: 'auto', background: instTheme.canvasBg }}>
+            <Outlet />
+          </main>
+        </div>
+      </ThemeProvider>
     </ShellContext.Provider>
   );
 }
