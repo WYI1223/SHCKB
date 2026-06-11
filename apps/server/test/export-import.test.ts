@@ -168,3 +168,91 @@ describe('importBundle', () => {
     expect(tree.notepages).toEqual([]);
   });
 });
+
+// ----- admin routes (zip export/import, gc, role gate) -----
+
+import { unzipSync } from 'fflate';
+import { createAuth } from '../src/auth';
+import { TEST_SECRET } from './helpers';
+
+describe('admin routes', () => {
+  test('export → import over HTTP round trip; GC reclaims unreferenced blob', async () => {
+    const src = await freshContext();
+    const seeded = await seedInstance(src, src.blobStore);
+    // an orphan blob: uploaded but referenced by nothing
+    const orphanUp = await src.authed('/api/blobs', {
+      method: 'POST',
+      body: new TextEncoder().encode('orphan-bytes'),
+      headers: { 'content-type': 'image/png' },
+    });
+    const orphan = (await json(orphanUp)).hash as string;
+
+    const exportRes = await src.authed('/api/admin/export');
+    expect(exportRes.status).toBe(200);
+    expect(exportRes.headers.get('content-type')).toBe('application/zip');
+    const zipBytes = new Uint8Array(await exportRes.arrayBuffer());
+    const entries = unzipSync(zipBytes);
+    expect(Object.keys(entries)).toContain('manifest.json');
+    expect(Object.keys(entries)).toContain(`blobs/${seeded.hash}`);
+    expect(Object.keys(entries)).not.toContain(`blobs/${orphan}`); // unreferenced → not exported
+
+    const dst = await freshContext();
+    const importRes = await dst.authed('/api/admin/import', {
+      method: 'POST',
+      body: zipBytes,
+      headers: { 'content-type': 'application/zip' },
+    });
+    expect(importRes.status).toBe(200);
+    expect((await json(importRes)).counts.pages).toBe(2);
+    const page = await dst.app.request('http://localhost/notes/page-one');
+    expect(page.status).toBe(200);
+
+    // GC on source removes the orphan, keeps the referenced blob
+    const gc = await src.authed('/api/admin/blobs/gc', { method: 'POST' });
+    const gcBody = await json(gc);
+    expect(gcBody.deleted).toBe(1);
+    expect(src.blobStore.read(orphan)).toBeNull();
+    expect(src.blobStore.read(seeded.hash)).not.toBeNull();
+  });
+
+  test('unsupported ?format is rejected with a clear error', async () => {
+    const ctx = await freshContext();
+    const res = await ctx.authed('/api/admin/export?format=0');
+    expect(res.status).toBe(400);
+    expect((await json(res)).error).toContain('format v1 only');
+  });
+
+  test('import into non-empty instance → 409; garbage body → 400', async () => {
+    const ctx = await freshContext();
+    await seedInstance(ctx, ctx.blobStore);
+    const selfZip = new Uint8Array(await (await ctx.authed('/api/admin/export')).arrayBuffer());
+    const res409 = await ctx.authed('/api/admin/import', { method: 'POST', body: selfZip });
+    expect(res409.status).toBe(409);
+    const dst = await freshContext();
+    const res400 = await dst.authed('/api/admin/import', { method: 'POST', body: new Uint8Array([1, 2, 3]) });
+    expect(res400.status).toBe(400);
+  });
+
+  test('admin gate: anonymous 401, author role 403', async () => {
+    const ctx = await freshContext();
+    const anon = await ctx.app.request('http://localhost/api/admin/export');
+    expect(anon.status).toBe(401);
+
+    // create an author-role user via a transient signup-enabled auth
+    // instance on the same db (the bootstrap.ts trick)
+    const signup = createAuth(ctx.db, { secret: TEST_SECRET, baseURL: 'http://localhost', allowSignUp: true });
+    await signup.api.signUpEmail({ body: { email: 'author@local.test', password: 'author-pass-1', name: 'Author' } });
+    const signIn = await ctx.app.request('http://localhost/api/auth/sign-in/email', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'author@local.test', password: 'author-pass-1' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(signIn.status).toBe(200);
+    const cookie = signIn.headers.get('set-cookie')!
+      .split(/,(?=\s*[^\s;=]+=)/)
+      .map((c) => c.split(';')[0]!.trim())
+      .join('; ');
+    const asAuthor = await ctx.app.request('http://localhost/api/admin/export', { headers: { cookie } });
+    expect(asAuthor.status).toBe(403);
+  });
+});
