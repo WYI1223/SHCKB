@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (owner review pending) |
+| Status | approved (owner ratified 2026-06-12，含 §2 钉选形态替换) |
 | Theme | "in-tree 的 kind 和 theme 都是恰好住在仓库里的插件" — 为 MVP-5 plugin-system 挣出 API |
 | Lineage | MVP-1 核心循环 → MVP-2 可部署 → MVP-3 数据自主权 → **MVP-4 插件就绪** → MVP-5 plugin-system |
 | Discussion | build log 落 `docs/engineering/design/discussions/mvp4-scope-2026-06-12.md` |
@@ -23,7 +23,7 @@
 - **Theme = 可替换 token 集**（id/name/tokens，可选组件级覆盖留 seam 不实装）。当前外观固化为第一个主题 `graph-paper`；再做一个**最小第二主题**证明切换真实可用（占位审美即可，正经方案等 §5 风格轮）
 - **实例级设置**：新建 `settings` 表（key-value，第一个实例级设置出现的正确容器；migration）。Admin 选实例主题
 - **逐页钉选**：`notepages.theme_id` 可空列；空 = 跟随实例。有效主题 = `page.themeId ?? instance.theme`
-  - ⚠️ 此处是对 owner "多选跳过重渲染" 提议的**形态替换**（owner 待确认）：跳过重渲染会留下不可再现的旧 HTML（下次 re-publish 仍会变新主题）；钉选达成同样意图（页面保持特定外观）且永远可精确复现
+  - 此处是对 owner "多选跳过重渲染" 提议的**形态替换**（owner ratified 2026-06-12）：跳过重渲染会留下不可再现的旧 HTML（下次 re-publish 仍会变新主题）；钉选达成同样意图（页面保持特定外观）且永远可精确复现
 - **换主题 = 全量重渲染所有已发布页**（各按有效主题）。不变量：`publishedHtml` 永远是 `(publishedDoc, slug, 有效主题)` 的纯函数；公开站不存在"碰巧是旧主题"的页面
 - 多选管理 UI：页面钉选入口（编辑器 page 设置处）+ admin 主题面板列出钉选页清单
 - **不做**：L0-L3 全级联、per-user 切换、运行时 CSS 主题热切——theme-system 完整盘子留给插件机制之后
