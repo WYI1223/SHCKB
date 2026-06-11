@@ -1,0 +1,35 @@
+{
+  "name": "@skb/block-kinds",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./static": "./src/static.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@skb/grid-engine": "workspace:*",
+    "@skb/theme": "workspace:*",
+    "highlight.js": "^11.10.0",
+    "mdast-util-to-string": "^4.0.0",
+    "react-markdown": "^9.0.3",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.20",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.6.0",
+    "vitest": "^4.1.5"
+  }
+}

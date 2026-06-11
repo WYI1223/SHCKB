@@ -10,17 +10,16 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@skb/block-kinds": "workspace:*",
     "@skb/grid-engine": "workspace:*",
+    "@skb/theme": "workspace:*",
     "better-auth": "^1.6.16",
     "drizzle-orm": "^0.44.2",
     "fflate": "^0.8.2",
     "hono": "^4.7.10",
     "nanoid": "^5.1.5",
-    "rehype-stringify": "^10.0.1",
-    "remark-gfm": "^4.0.1",
-    "remark-parse": "^11.0.0",
-    "remark-rehype": "^11.1.2",
-    "unified": "^11.0.5"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.15",
