@@ -12,7 +12,8 @@ import type { Db } from '../db/client';
 import { blobs } from '../db/schema';
 import { referencedBlobHashes } from '../export/blob-refs';
 import { buildExport } from '../export/exporter';
-import { FORMAT_VERSION } from '../export/format';
+import { FORMAT_VERSION, canonicalJson } from '../export/format';
+import { downgradeToVersion } from '../export/migrate-format';
 import { importBundle, type ImportInput } from '../export/importer';
 import { instanceThemeId, rerenderAllPublished, setSetting } from '../settings';
 import { THEMES } from '@skb/theme';
@@ -41,12 +42,11 @@ export function adminRoutes(db: Db, blobStore: BlobStore, meta: { version: strin
   });
 
   r.get('/admin/export', (c) => {
-    const format = c.req.query('format');
-    if (format !== undefined && Number(format) !== FORMAT_VERSION) {
+    const formatParam = c.req.query('format');
+    const target = formatParam === undefined ? FORMAT_VERSION : Number(formatParam);
+    if (!Number.isInteger(target) || target < 1 || target > FORMAT_VERSION) {
       return c.json(
-        {
-          error: `this build exports format v${FORMAT_VERSION} only; export-side downgrade arrives with format v2 [ADR-0023]`,
-        },
+        { error: `unsupported format v${formatParam}; this build exports v1..v${FORMAT_VERSION} [ADR-0023]` },
         400,
       );
     }
@@ -55,15 +55,31 @@ export function adminRoutes(db: Db, blobStore: BlobStore, meta: { version: strin
       schemaVersion: meta.schemaVersion,
       exportedAt: Date.now(),
     });
+
+    // export-side downgrade [ADR-0023]: the newer build produces the
+    // older format; losses are explicit, never silent.
+    let files = bundle.files;
+    let losses: string[] = [];
+    if (target < FORMAT_VERSION) {
+      const parsed = new Map([...bundle.files].map(([p, text]) => [p, JSON.parse(text) as unknown]));
+      const down = downgradeToVersion(parsed, target);
+      losses = down.losses;
+      files = new Map([...down.files].map(([p, v]) => [p, canonicalJson(v)]));
+    }
+    if (c.req.query('dryRun') !== undefined) {
+      return c.json({ formatVersion: target, losses });
+    }
+
     // fixed mtime (DOS epoch — zip cannot express earlier): zip bytes
     // stay deterministic modulo manifest.exportedAt
     const DOS_EPOCH = new Date('1980-01-01T00:00:00Z');
     const entries: Zippable = {};
-    for (const [path, text] of bundle.files) entries[path] = [strToU8(text), { mtime: DOS_EPOCH }];
+    for (const [path, text] of files) entries[path] = [strToU8(text), { mtime: DOS_EPOCH }];
     for (const [hash, bytes] of bundle.blobs) entries[`blobs/${hash}`] = [bytes, { mtime: DOS_EPOCH }];
     return c.body(zipSync(entries), 200, {
       'content-type': 'application/zip',
       'content-disposition': 'attachment; filename="shckb-export.zip"',
+      'x-downgrade-loss-count': String(losses.length),
     });
   });
 

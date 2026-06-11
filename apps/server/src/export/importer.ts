@@ -12,6 +12,7 @@ import type { Db } from '../db/client';
 import { blobs, blocks, folders, notepages, type PublishedDoc } from '../db/schema';
 import { DEFAULT_THEME_ID, THEMES } from '@skb/theme';
 import { renderStaticPage } from '../render/publish-html';
+import { settings as settingsTable } from '../db/schema';
 import { FORMAT_VERSION, type ExportManifest, type ExportPage } from './format';
 import { upgradeToVersion, type JsonFiles } from './migrate-format';
 
@@ -40,6 +41,7 @@ function parsePage(path: string, value: unknown, errors: string[]): ExportPage |
   if (typeof p.title !== 'string') return e('missing title');
   if (p.visibility !== 'private' && p.visibility !== 'public') return e('visibility must be private|public');
   if (typeof p.gravityEnabled !== 'boolean') return e('missing gravityEnabled');
+  if (p.themeId !== null && typeof p.themeId !== 'string') return e('themeId must be a string or null');
   if (typeof p.sortKey !== 'number') return e('missing sortKey');
   if (typeof p.createdAt !== 'number' || typeof p.updatedAt !== 'number') return e('missing timestamps');
   if (p.published !== null) {
@@ -105,6 +107,7 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
   }
   const manifest = files.get('manifest.json') as ExportManifest;
   if (!Array.isArray(manifest.blobs)) return fail(400, 'manifest.json has no blobs list');
+  if (typeof manifest.settings?.theme !== 'string') return fail(400, 'manifest.json has no settings.theme');
 
   // gate 3: structural + per-page validation (everything before any write)
   const errors: string[] = [];
@@ -173,8 +176,17 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
   // later transaction failure are reclaimed by GC), then one DB txn.
   for (const m of manifest.blobs) blobStore.save(input.blobs.get(m.hash)!);
 
+  // effective theme during import: pin → bundle's instance theme →
+  // default; unknown ids degrade (data is preserved, rendering degrades)
+  const instanceTheme = THEMES[manifest.settings.theme] ?? THEMES[DEFAULT_THEME_ID]!;
+  const themeFor = (themeId: string | null) => (themeId !== null ? (THEMES[themeId] ?? instanceTheme) : instanceTheme);
+
   const sortedFolderDirs = [...foldersByDir.keys()].sort((a, b) => a.split('/').length - b.split('/').length);
   db.transaction((tx) => {
+    tx.insert(settingsTable)
+      .values({ key: 'theme', value: manifest.settings.theme })
+      .onConflictDoUpdate({ target: settingsTable.key, set: { value: manifest.settings.theme } })
+      .run();
     for (const m of manifest.blobs) {
       tx.insert(blobs)
         .values({ hash: m.hash, mimeType: m.mimeType, size: m.size, createdAt: new Date(m.createdAt) })
@@ -198,11 +210,11 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
           title: page.title,
           visibility: page.visibility,
           gravityEnabled: page.gravityEnabled,
+          themeId: page.themeId,
           folderId,
           sortKey: page.sortKey,
           publishedDoc: published === null ? null : JSON.stringify(published),
-          // Task 5 replaces the default with the page's effective theme.
-          publishedHtml: published === null ? null : renderStaticPage(published, page.slug, THEMES[DEFAULT_THEME_ID]!),
+          publishedHtml: published === null ? null : renderStaticPage(published, page.slug, themeFor(page.themeId)),
           createdAt: new Date(page.createdAt),
           updatedAt: new Date(page.updatedAt),
         })

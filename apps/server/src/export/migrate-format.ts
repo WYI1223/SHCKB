@@ -18,8 +18,53 @@ export type FormatTransform = {
   down(files: JsonFiles): { files: JsonFiles; losses: string[] };
 };
 
-/** Production registry — empty while only format v1 exists. */
-export const FORMAT_TRANSFORMS: FormatTransform[] = [];
+import { DEFAULT_THEME_ID } from '@skb/theme';
+
+/** Production registry. Every format change ships exactly one up/down
+ * pair [ADR-0023]; the v2 pair below is the first real one (MVP-4
+ * theme data [ADR-0024]). */
+export const FORMAT_TRANSFORMS: FormatTransform[] = [
+  {
+    // v2: instance theme setting + per-page theme pin
+    to: 2,
+    up(files) {
+      const next: JsonFiles = new Map();
+      for (const [path, value] of files) {
+        if (path === 'manifest.json') {
+          const m = value as Record<string, unknown>;
+          next.set(path, { ...m, settings: { theme: DEFAULT_THEME_ID } });
+        } else if (path.endsWith('.page.json')) {
+          // reconstruct key order explicitly so v1→v2→export stays canonical
+          const { id, slug, title, visibility, gravityEnabled, ...rest } = value as Record<string, unknown>;
+          next.set(path, { id, slug, title, visibility, gravityEnabled, themeId: null, ...rest });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return next;
+    },
+    down(files) {
+      const next: JsonFiles = new Map();
+      const losses: string[] = [];
+      for (const [path, value] of files) {
+        if (path === 'manifest.json') {
+          const { settings, ...m } = value as Record<string, unknown> & { settings?: { theme?: string } };
+          if (settings?.theme !== undefined && settings.theme !== DEFAULT_THEME_ID) {
+            losses.push(`manifest.json: instance theme "${settings.theme}" dropped (v1 has no settings)`);
+          }
+          next.set(path, m);
+        } else if (path.endsWith('.page.json')) {
+          const { themeId, ...rest } = value as Record<string, unknown> & { themeId?: string | null };
+          if (themeId != null) losses.push(`${path}: themeId "${themeId}" dropped (v1 has no per-page theme)`);
+          next.set(path, rest);
+        } else {
+          next.set(path, value);
+        }
+      }
+      return { files: next, losses };
+    },
+  },
+];
 
 function versionOf(files: JsonFiles): number {
   const manifest = files.get('manifest.json') as { formatVersion?: unknown } | undefined;

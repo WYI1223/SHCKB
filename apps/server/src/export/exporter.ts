@@ -7,6 +7,7 @@
 import type { BlobStore } from '../blobstore';
 import type { Db } from '../db/client';
 import { blobs, blocks, folders, notepages, type PublishedDoc } from '../db/schema';
+import { instanceThemeId } from '../settings';
 import { referencedBlobHashes } from './blob-refs';
 import {
   FORMAT_VERSION,
@@ -95,6 +96,7 @@ export function buildExport(
       title: p.title,
       visibility: p.visibility,
       gravityEnabled: p.gravityEnabled,
+      themeId: p.themeId,
       sortKey: p.sortKey,
       createdAt: p.createdAt.getTime(),
       updatedAt: p.updatedAt.getTime(),
@@ -134,6 +136,7 @@ export function buildExport(
     appVersion: opts.appVersion,
     exportedAt: opts.exportedAt,
     counts: { folders: folderRows.length, pages: pageRows.length, blocks: blockRows.length, blobs: blobOut.size },
+    settings: { theme: instanceThemeId(db) },
     pages: [...pagePaths].sort(),
     blobs: manifestBlobs,
   };

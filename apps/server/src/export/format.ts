@@ -12,7 +12,7 @@
  */
 import type { PublishedDoc } from '../db/schema';
 
-export const FORMAT_VERSION = 1;
+export const FORMAT_VERSION = 2;
 
 export type ExportManifest = {
   formatVersion: number;
@@ -20,6 +20,8 @@ export type ExportManifest = {
   appVersion: string;
   exportedAt: number; // the ONLY export-time field anywhere in the bundle
   counts: { folders: number; pages: number; blocks: number; blobs: number };
+  /** Instance-level settings (v2+): currently just the theme. */
+  settings: { theme: string };
   pages: string[]; // page file paths, lexicographically sorted
   blobs: Array<{ hash: string; mimeType: string; size: number; createdAt: number }>; // sorted by hash
 };
@@ -47,6 +49,8 @@ export type ExportPage = {
   title: string;
   visibility: 'private' | 'public';
   gravityEnabled: boolean;
+  /** Per-page theme pin (v2+); null = follow instance. */
+  themeId: string | null;
   sortKey: number;
   createdAt: number;
   updatedAt: number;

@@ -46,7 +46,7 @@ describe('buildExport', () => {
     expect([...bundle.blobs.keys()]).toEqual([seeded.hash]);
 
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(1);
+    expect(manifest.formatVersion).toBe(2);
     expect(manifest.counts).toEqual({ folders: 1, pages: 2, blocks: 2, blobs: 1 });
     expect(manifest.pages).toEqual(['tree/A/page-one.page.json', 'tree/page-two.page.json']);
 
@@ -219,7 +219,7 @@ describe('admin routes', () => {
     const ctx = await freshContext();
     const res = await ctx.authed('/api/admin/export?format=0');
     expect(res.status).toBe(400);
-    expect((await json(res)).error).toContain('format v1 only');
+    expect((await json(res)).error).toContain('unsupported format');
   });
 
   test('import into non-empty instance → 409; garbage body → 400', async () => {
@@ -254,5 +254,78 @@ describe('admin routes', () => {
       .join('; ');
     const asAuthor = await ctx.app.request('http://localhost/api/admin/export', { headers: { cookie } });
     expect(asAuthor.status).toBe(403);
+  });
+});
+
+// ----- format v2: theme data in the bundle (MVP-4) -----
+
+import { downgradeToVersion } from '../src/export/migrate-format';
+import { strFromU8 } from 'fflate';
+
+describe('format v2 (theme data)', () => {
+  test('v2 export carries settings + per-page themeId; round trip preserves them', async () => {
+    const src = await freshContext();
+    const seeded = await seedInstance(src, src.blobStore);
+    await src.authed('/api/settings/theme', { method: 'PUT', body: JSON.stringify({ theme: 'ink' }) });
+    await src.authed(`/api/notepages/${seeded.p2}/theme`, { method: 'POST', body: JSON.stringify({ themeId: 'graph-paper' }) });
+
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const manifest = JSON.parse(bundle.files.get('manifest.json')!);
+    expect(manifest.formatVersion).toBe(2);
+    expect(manifest.settings).toEqual({ theme: 'ink' });
+    const p2 = JSON.parse(bundle.files.get('tree/page-two.page.json')!);
+    expect(p2.themeId).toBe('graph-paper');
+
+    const dst = await freshContext();
+    expect(importBundle(dst.db, dst.blobStore, bundle).ok).toBe(true);
+    expect((await json(await dst.authed('/api/settings'))).theme).toBe('ink');
+    const again = buildExport(dst.db, dst.blobStore, OPTS);
+    for (const [p, text] of bundle.files) expect(again.files.get(p)).toBe(text);
+  });
+
+  test('v1 bundle imports via the real upgrade transform (defaults applied)', async () => {
+    const src = await freshContext();
+    await seedInstance(src, src.blobStore);
+    const v2 = buildExport(src.db, src.blobStore, OPTS);
+    // produce a v1 bundle through the real down transform
+    const parsed = new Map([...v2.files].map(([p, t]) => [p, JSON.parse(t) as unknown]));
+    const { files: v1files, losses } = downgradeToVersion(parsed, 1);
+    expect(losses).toEqual([]); // default theme + no pins → lossless
+    const v1bundle = {
+      files: new Map([...v1files].map(([p, v]) => [p, JSON.stringify(v)])),
+      blobs: v2.blobs,
+    };
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, v1bundle);
+    expect(result.ok).toBe(true);
+    expect((await json(await dst.authed('/api/settings'))).theme).toBe('graph-paper');
+  });
+
+  test('downgrade is lossy-explicit when theme data is non-default', async () => {
+    const src = await freshContext();
+    const seeded = await seedInstance(src, src.blobStore);
+    await src.authed('/api/settings/theme', { method: 'PUT', body: JSON.stringify({ theme: 'ink' }) });
+    await src.authed(`/api/notepages/${seeded.p1}/theme`, { method: 'POST', body: JSON.stringify({ themeId: 'graph-paper' }) });
+    const v2 = buildExport(src.db, src.blobStore, OPTS);
+    const parsed = new Map([...v2.files].map(([p, t]) => [p, JSON.parse(t) as unknown]));
+    const { losses } = downgradeToVersion(parsed, 1);
+    expect(losses.some((l) => l.includes('instance theme "ink"'))).toBe(true);
+    expect(losses.some((l) => l.includes('themeId'))).toBe(true);
+  });
+
+  test('export route ?format=1 serves a v1 zip; dryRun reports losses', async () => {
+    const ctx = await freshContext();
+    await seedInstance(ctx, ctx.blobStore);
+    await ctx.authed('/api/settings/theme', { method: 'PUT', body: JSON.stringify({ theme: 'ink' }) });
+
+    const dry = await json(await ctx.authed('/api/admin/export?format=1&dryRun=1'));
+    expect(dry.losses.length).toBeGreaterThan(0);
+
+    const res = await ctx.authed('/api/admin/export?format=1');
+    expect(res.status).toBe(200);
+    const entries = unzipSync(new Uint8Array(await res.arrayBuffer()));
+    const manifest = JSON.parse(strFromU8(entries['manifest.json']!));
+    expect(manifest.formatVersion).toBe(1);
+    expect('settings' in manifest).toBe(false);
   });
 });
