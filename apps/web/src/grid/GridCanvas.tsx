@@ -34,6 +34,7 @@ export function GridCanvas(props: GridCanvasProps) {
       onClick={() => onActivate(null)}
     >
       <div
+        data-skb-canvas
         {...interaction.canvasDropProps(SLOT)}
         style={{
           position: 'relative',
