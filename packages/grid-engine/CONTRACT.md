@@ -2,12 +2,13 @@
 
 Headless 2D AABB layout engine. Pure functions over `GridState`. Source-of-truth document for **types, operations, invariants, and consumer guidance**.
 
-- **Architectural decisions**: [ADR-0003](../../docs/engineering/decisions/ADR-0003-grid-engine-contract.md)
-- **Source code**: `carryover/packages/grid-engine/src/`（Phase F 提升至 `packages/grid-engine/src/`）
+- **Source code**: `packages/grid-engine/src/`（2026-06-11 自 carryover 提升，target contract 同步落地；MVP 决策详 [ADR-0019](../../docs/engineering/decisions/ADR-0019-mvp-implementation-baseline.md)）
+- **Product 层依据**: [notepage-editing.md](../../docs/product/prd/features/notepage/notepage-editing.md)（algorithm contract 的 product-facing obligations）
 - **Indexed at**: [`docs/engineering/contracts/README.md`](../../docs/engineering/contracts/README.md)
 
-> 文档约定：本 CONTRACT.md 记录的是 engine 对外的**包契约**——types / ops / invariants 与 consumer 应当遵守的使用规则。架构层 induction（"为什么 engine 存在"/"为什么 pure"/"为什么 kind-opaque"等）见 ADR-0003。
-> 演化规则：contract 可随 carryover 提升 / 实装迭代演化；不每次走 ADR supersede（ADR-0003 induction 5）。Breaking change（types / op signature / invariant 承诺）走对应 PR review + 更新本文件；架构 induction 破坏才走 ADR supersede。
+> 文档约定：本 CONTRACT.md 记录的是 engine 对外的**包契约**——types / ops / invariants 与 consumer 应当遵守的使用规则。
+> 历史注记：本文件早期版本引用 [ADR-0003] 等作为架构依据；ADR-0001..0018 已于 2026-05-23 全局 deprecated（仅作 historical trace）。"kind-opaque / pure / dependency-leaf" 等承诺现以本 CONTRACT + 相关 PRD 为准，待新 PRD-informed 架构 ADR 承接。
+> 演化规则：breaking change（types / op signature / invariant 承诺）走 PR review + 更新本文件；架构承诺级变更走新 ADR。
 
 ---
 
@@ -28,34 +29,21 @@ type Block = {
 
 Maps 1:1 to ADR-0002 `blocks` table（`col_span` / `row_span` snake_case 由 ORM 处理）。
 
-### `BlockKind`
-
-**Target contract**：
+### `BlockKind`（2026-06-11 起为现行 contract）
 
 ```ts
 type BlockKind = string;   // open identifier；engine 视为 passthrough tag
 ```
 
-Engine 不要求 exhaustive built-in kinds；不做 `kind → X` lookup（per ADR-0003 induction 3）。
+Engine 不要求 exhaustive built-in kinds；不做 `kind → X` lookup。Kind 语义（default size / render / content）属 block-kind module 层（[blocks.md] shared block contract）。
 
-**Carryover transitional state**：
-
-`carryover/packages/grid-engine/src/types.ts` 现状定义为 closed union：
+### `BlockSize`
 
 ```ts
-type BlockKind =
-  | 'markdown' | 'image' | 'code' | 'callout'
-  | 'math' | 'pdf' | 'jupyter' | 'nn-viz' | 'agent-flow';
+type BlockSize = { colSpan: number; rowSpan: number };
 ```
 
-**这是 carryover 实现细节，不是 contract target**。Consumer 不应依赖 closed union 形态；任何依赖 closed union 的代码（exhaustive switch / kind 枚举遍历 / 等）视为 contract 违反。
-
-**Lift 时机**：closed union → `string` 切换在以下任一时机执行：
-- 第一个外部 plugin author 加新 kind 时（mechanism-driven）
-- Phase F carryover 提升至 `packages/grid-engine/` 时
-- 或更早，如 implementation 需要
-
-切换不构成 ADR-level supersede（engine kind-opaque 是 induction，不依赖 union 形态）。
+Caller（block-kind module / editor host）向 `inferDropIntent` 传入的 proposed size。
 
 ### `GridState`
 
@@ -109,19 +97,22 @@ type DropIntent = {
 
 Day-1 carryover shape：单一 `place / reject` 二分。Frozen DI §3.1 提到的多 intent 类型（`insert-right` / `insert-left` / `swap` / `replace` / `insert-between`）属于 **render-layer affordance**，不在 engine layer；如未来需要，由 editor / UI layer 自己根据 cursor pose + `DropIntent.intent === 'place'` 加工。
 
-### `ValidationResult`
+### `ValidationResult` / `ValidateOptions`
 
 ```ts
 type ValidationResult = { ok: boolean; errors: string[] };
+type ValidateOptions = { gravity?: boolean };   // default true
 ```
 
-`validateState(state)` 返回；CI / property-based test guard 用。
+`validateState(state, opts?)` 返回。检查 bounds / overlap / unique id / span，且当 `opts.gravity !== false` 时检查 gravity stability。用途：CI / property-based test guard / **server 落库前对 client working state 的复验**。
 
 ### `OpOptions`
 
 ```ts
-type OpOptions = { gravity?: boolean };  // default true (Option A; ADR-0003 induction 4)
+type OpOptions = { gravity?: boolean };  // default true (Option A)
 ```
+
+`gravity: false` 是 author-facing 产品功能（notepage 级 gravity toggle，owner ratified 2026-06-11），不只是 test 后门。Gravity-off 的 page 合法持久化非 gravity-stable 布局。
 
 ---
 
@@ -158,7 +149,7 @@ type OpOptions = { gravity?: boolean };  // default true (Option A; ADR-0003 ind
 
 | op | signature | 描述 |
 |---|---|---|
-| `validateState` | `(state) → ValidationResult` | 显式检 invariant；property-based test / CI guard |
+| `validateState` | `(state, opts?) → ValidationResult` | 显式检 invariant（含 gravity stability，可 `{gravity:false}` opt-out）；property test / CI / server 复验 |
 
 ### Gravity
 
@@ -174,26 +165,13 @@ type OpOptions = { gravity?: boolean };  // default true (Option A; ADR-0003 ind
 | `buildOccupancy` | `(state) → Occupancy` | derive matrix from blocks |
 | `totalRows` | `(state) → number` | max(block.row + block.rowSpan) over blocks |
 
-### Exported constants
-
-**Target contract**：
+### Exported constants（2026-06-11 起为现行 contract）
 
 ```ts
 const TOTAL_COLS = 12;
 ```
 
-仅 `TOTAL_COLS`。`DEFAULT_SIZES` **不在 contract target**——per ADR-0003 induction 3 engine kind-opaque，default sizes 是 plugin / caller-side concern，归 `BlockPlugin.defaultSize`（ADR-0014）。
-
-**Carryover transitional state**：
-
-`carryover/packages/grid-engine/src/defaults.ts` 现有 `DEFAULT_SIZES: Record<BlockKind, {colSpan, rowSpan}>` 表（markdown 12×1 / image 6×4 / code 12×4 / 等；frozen DI grid-redesign §6）。**这是 carryover 实现细节，被 `inferDropIntent` 的 transitional signature 消费**。
-
-**Lift 时机**：与 `inferDropIntent` 签名变更同步执行——
-- caller（editor / API endpoint）改成自己做 `kind → BlockPlugin.defaultSize` lookup
-- `inferDropIntent` 签名改为 `(state, cursor, proposedSize)`
-- `DEFAULT_SIZES` 表从 engine package 移除 OR 降级为 dev/test helper（不再 export）
-
-切换 trigger：first plugin author 加新 kind / Phase F lift / 或 ADR-0004 落地的 implementation 阶段，先到先 trigger。
+仅 `TOTAL_COLS`。`DEFAULT_SIZES` 已随 lift 移出 engine——engine kind-opaque，default sizes 归 block-kind module（web 层 `BlockKindModule.defaultSize`）。
 
 ---
 
@@ -223,9 +201,13 @@ NOT (a.col < b.col + b.colSpan AND
 
 ∀ block: `block.colSpan` 和 `block.rowSpan` 是 integers ≥ 1。
 
-### Invariant 4: Gravity-stable (Option A)
+### Invariant 4: Gravity-stable (Option A) — 以 notepage 的 gravity setting 为条件
 
-每个 mutating op 之后，state 满足 `∀ block: NOT canRise(state, block.id)`（除非 caller 显式 `{ gravity: false }` opt-out）。
+Gravity **enabled**（默认）时：每个 mutating op 之后，state 满足 `∀ block: NOT canRise(state, block.id)`。
+
+Gravity **disabled**（author-facing notepage 级 toggle；owner ratified 2026-06-11）时：caller 对所有 ops 传 `{ gravity: false }`，state 可合法包含 floating blocks；invariant 1-3、5-7 仍全部成立。`validateState` 须传 `{ gravity: false }` 与之对应。
+
+历史注记：早期表述 "state is always gravity-stable" 以 toggle 常开为前提；现行 contract 把 stability 条件化到 page 的 gravity setting。
 
 ### Invariant 5: Unique ids
 
@@ -263,11 +245,11 @@ Invariant 6 是行为承诺，invariant 7 是结构约束。Invariant 7 为 inva
 
 ### Hole-fill placement
 
-**Target signature**：caller 把 proposed size 算好传给 engine。Engine 不查 kind→default。
+Caller 把 proposed size 算好传给 engine。Engine 不查 kind→default。
 
 ```
-// caller side (editor / API endpoint):
-proposed = lookupDefaultForKind(blockKind)   // caller does this via BlockPlugin.defaultSize (ADR-0014)
+// caller side (editor host / server):
+proposed = BLOCK_KINDS[blockKind].defaultSize   // block-kind module registry
 
 // engine side:
 inferDropIntent(state, cursorCol, cursorRow, proposed):
@@ -282,8 +264,6 @@ inferDropIntent(state, cursorCol, cursorRow, proposed):
 - 洞 < proposed → 缩到 hole size（不 reject）
 - 洞 = proposed → exact fit
 - 无可放 hole → `{ intent: 'reject', reason: '...' }`
-
-**Carryover transitional state**：当前 `inferDropIntent(state, cursorCol, cursorRow, blockKind)` 内部 `DEFAULT_SIZES[blockKind]` lookup —— 与 target 不符，按 BlockKind / DEFAULT_SIZES 同时机 lift。
 
 ### Gravity (Option A)
 
@@ -330,9 +310,7 @@ canRise(state, blockId):
 
 ## Consumer guidance
 
-按 ADR-0003 induction 6（consumer 拓扑单向）分组：
-
-### Editor shell
+### Editor host（client；MVP: `apps/web`）
 
 Editor 持有 `GridState`，调 mutation ops 后用返回的 new state 重 render。Block 在 DOM 中位置由 theme 决定：
 
@@ -343,41 +321,23 @@ width  = block.colSpan * SLOT_SIZE
 height = block.rowSpan * SLOT_SIZE
 ```
 
-`SLOT_SIZE` 由 theme 决定；engine 不持 slot size（engine theme-agnostic per induction 3）。CSS Grid 用 `grid-template-columns: repeat(totalCols, 1fr)` + 显式 `grid-row-start/end` + `grid-column-start/end`，**不**用 `grid-auto-flow / dense`（per ADR-0003 induction 1 alternatives 否决）。
+`SLOT_SIZE` 由 theme 决定；engine 不持 slot size（theme-agnostic）。`kind → defaultSize` lookup 在 caller side（block-kind module registry），**不**在 engine。
 
-### API endpoint
+### Server 复验（MVP: `apps/server`）
 
-每个 mutation endpoint（ADR-0009 POST `/api/notes/:slug/blocks/:id/{move,resize,delete,...}`）在 DB transaction 内：
-
-```
-1. Load GridState from DB (blocks table → engine Block[])
-2. Call engine op (e.g. moveBlock) → OpResult
-3. If ok: persist new state to DB (per ADR-0002 blocks table updates)
-4. If error: return 4xx; rollback transaction
-```
-
-**Insert endpoint 额外职责（per ADR-0003 induction 3 kind-opaque）**：
+MVP 采用 working-state 整体保存（debounced PUT）。Server 在持久化前用同一份 engine 复验：
 
 ```
-On POST /api/notes/:slug/blocks/insert:
-1. body 含 { kind, cursorCol, cursorRow }
-2. caller (endpoint code) lookup BlockPlugin.defaultSize[kind] → proposed
-   (per ADR-0014 plugin registry)
-3. call engine.inferDropIntent(state, cursorCol, cursorRow, proposed) → intent
-4. if intent.intent === 'reject': return 4xx
-5. call engine.insertBlock(state, { id: generateId(), kind, ...intent }) → OpResult
-6. persist or rollback
+1. body → GridState（blocks + totalCols=12）
+2. validateState(state, { gravity: page.gravityEnabled }) → ValidationResult
+3. ok → transactional persist；否则 422 + errors（不部分 apply）
 ```
 
-`kind → defaultSize` lookup 在 caller side，**不**在 engine。
+未来若改 per-op mutation endpoints（agent/API path 等），同样模式：tx 内 load → engine op → persist or rollback。
 
-### Plugin code
+### Plugin / agent 消费（future）
 
-Via `ctx.engine`（ADR-0014 plugin contract）：**read-only facade**。Plugin 不能直接调 mutation ops；写走 agent dispatch → API endpoint → engine。Facade 暴露的具体方法（`getBlock` / `getNeighbors` / `query` 等）由 ADR-0014 / `block-foundation` package 定义；engine 自身**不**分 read / write export（per ADR-0003 induction 6）。
-
-### Agent dispatch
-
-Via `agentOp.handler`（ADR-0005 + ADR-0014）：handler 拿 `ctx.engine` 读 + 返回 new state；framework 在 tx 内调 engine mutation ops + persist。Handler 不直接调 engine ops，handler 返回 next BlockState；engine ops 由 framework 在持久化 pipeline 内调。
+Plugin 经 capability ctx 以 read-only 形态消费 engine、agent 写路径经 server pipeline——方向见 [plugin-system.md] / [pep.md]（browser vs agent path）；具体 contract 待新 PRD-informed ADR，本 CONTRACT 不预锁。
 
 ---
 
@@ -385,28 +345,23 @@ Via `agentOp.handler`（ADR-0005 + ADR-0014）：handler 拿 `ctx.engine` 读 + 
 
 Internal package；semver 但 contract surface 演化规则：
 
-| 变更类型 | 版本 bump | 是否要 ADR supersede |
+| 变更类型 | 版本 bump | 是否要新 ADR |
 |---|---|---|
 | Type shape 增字段（兼容 add） | minor | 否 |
 | 新 op | minor | 否 |
-| Op signature 修改 | major | 否（如不破 induction） |
-| Invariant 承诺修改（如 Option A → B） | major | **是**（破 induction 4，走 ADR-0003 supersede） |
-| `kind: string` → 关闭 union | major | **是**（破 induction 3，走 ADR-0003 + ADR-0004 supersede） |
+| Op signature 修改 | major | 否（如不破架构承诺） |
+| 架构承诺修改（gravity 语义重定义 / kind-opaque 放弃 / purity 放弃 / `kind` 收回 closed union） | major | **是**（走新 PRD-informed ADR） |
 
-简言：**ADR-0003 锁的是 induction（架构承诺）；CONTRACT 锁的是 surface（types / op set）；surface 演化 ≠ induction 演化**。
+简言：**架构承诺（kind-opaque / pure / leaf / gravity 语义）变更走 ADR；surface（types / op set）演化走本文件 + PR review**。
 
 ---
 
 ## References
 
-- **Architectural decisions**: [ADR-0003](../../docs/engineering/decisions/ADR-0003-grid-engine-contract.md)
-- **DB row mapping**: [ADR-0002](../../docs/engineering/decisions/ADR-0002-substrate-db-backed.md) `blocks` table
-- **Plugin extension model**: [ADR-0004](../../docs/engineering/decisions/ADR-0004-block-plugin-model.md)
-- **Plugin contract `ctx.engine` + `defaultSize`**: [ADR-0014](../../docs/engineering/decisions/ADR-0014-plugin-contract.md)
-- **API style (mutation endpoints)**: [ADR-0009](../../docs/engineering/decisions/ADR-0009-api-style.md)
-- **Agent semantic API**: [ADR-0005](../../docs/engineering/decisions/ADR-0005-agent-semantic-api.md)
-- **Source DI doc**: [`grid-redesign-2026-05-11.md`](../../docs/engineering/design/_frozen/grid-redesign-2026-05-11.md)
-- **Carryover source**: `carryover/packages/grid-engine/src/`（Phase F 提升至本目录 `src/`）
+- **MVP 决策**: [ADR-0019](../../docs/engineering/decisions/ADR-0019-mvp-implementation-baseline.md) + [mvp-scope-2026-06-11.md](../../docs/engineering/design/discussions/mvp-scope-2026-06-11.md)
+- **Product 层依据**: [notepage-editing.md](../../docs/product/prd/features/notepage/notepage-editing.md) / [notepage.md](../../docs/product/prd/features/notepage/notepage.md) / [blocks.md](../../docs/product/prd/features/blocks/blocks.md)
+- **Historical trace（deprecated，不作 authority）**: [ADR-0003] / [ADR-0002] / [ADR-0004] / [ADR-0014]（见 [decisions/README.md](../../docs/engineering/decisions/README.md) global deprecation notice）；source DI [`grid-redesign-2026-05-11.md`](../../docs/engineering/design/_frozen/grid-redesign-2026-05-11.md)
+- **Carryover 原位置**: `carryover/packages/grid-engine/src/`（已提升；carryover 副本仅 history）
 - **Contracts 索引**: [`docs/engineering/contracts/README.md`](../../docs/engineering/contracts/README.md)
 
 ---
@@ -421,3 +376,9 @@ Internal package；semver 但 contract surface 演化规则：
   - **Hole-fill algorithm 伪代码 sync** —— caller-side lookup + engine-side clamp 二阶段分明
   - **Invariant 6 拆 + 加 invariant 7** —— invariant 6 是 pure / determinism / reentrance 行为承诺（显式 list 禁用项：random / Date / globalThis / IO / module-level state）；invariant 7 是 monorepo dep leaf 结构约束；二者关系（结构支撑行为但不充分）写明
   - **API endpoint 段加 insert flow** —— 显式 demo caller side 怎么做 `kind → defaultSize` lookup，把 engine kind-opaque 边界落到 wire-level usage
+- 2026-06-11 lift 落地（MVP Task 2；[ADR-0019] + mvp-scope D7/D8）:
+  - Source 自 carryover 提升至本目录 `src/`；target contract 全部落地为现行（`BlockKind = string` / `inferDropIntent(state, cursor, size)` / `DEFAULT_SIZES` 移出 engine）
+  - `validateState(state, opts?)` 新增 gravity-stability 检查（默认开，`{gravity:false}` opt-out）——承接 server 落库前复验
+  - Invariant 4 条件化：gravity stability 以 notepage 的 author-facing gravity toggle 为条件（owner ratified 2026-06-11）
+  - 清除 ProseMirror / editor-shell / "future ADR-0019-grid-engine" 残留；deprecated ADR 引用全部降级为 historical trace
+  - 测试 44/44 green（carryover 42 + 签名适配 + gravity validate 新增）
