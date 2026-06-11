@@ -12,6 +12,23 @@ import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlit
 // @better-auth/cli from src/auth.ts config — regenerate there, not here.
 export * from './auth-schema';
 
+/**
+ * Workspace organization (owner decision 2026-06-12): a forest of
+ * folders + pages, encoded as data (parent_id / folder_id), never as
+ * runtime DDL. Organization is author-side metadata: the public tree
+ * is a live read-time projection (pruned to public+published pages) —
+ * existence in the public tree is gated by explicit publish/visibility
+ * actions, position is metadata (deliberate, recorded deviation from
+ * strict two-state).
+ */
+export const folders = sqliteTable('folders', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  parentId: text('parent_id'),
+  sortKey: integer('sort_key').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
 export const notepages = sqliteTable('notepages', {
   id: text('id').primaryKey(),
   slug: text('slug').notNull().unique(),
@@ -20,6 +37,8 @@ export const notepages = sqliteTable('notepages', {
     .notNull()
     .default('private'),
   gravityEnabled: integer('gravity_enabled', { mode: 'boolean' }).notNull().default(true),
+  folderId: text('folder_id'),
+  sortKey: integer('sort_key').notNull().default(0),
   publishedDoc: text('published_doc'),
   publishedHtml: text('published_html'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),

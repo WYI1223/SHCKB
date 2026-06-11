@@ -71,6 +71,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type Me = { id: string; role: 'admin' | 'author'; name: string; email: string };
 
+export type TreeFolder = { id: string; name: string; parentId: string | null; sortKey: number };
+export type TreePage = {
+  id: string;
+  slug: string;
+  title: string;
+  visibility: 'private' | 'public';
+  hasPublished: boolean;
+  folderId: string | null;
+  sortKey: number;
+};
+export type PublicTreePage = { slug: string; title: string; folderId: string | null; sortKey: number };
+
 export async function uploadBlob(file: File): Promise<{ hash: string; size: number; mimeType: string }> {
   const res = await fetch('/api/blobs', {
     method: 'POST',
@@ -98,6 +110,22 @@ export const api = {
       '/api/public/notes',
     ),
   listNotepages: () => request<{ notepages: NotepageSummary[] }>('/api/notepages'),
+  getTree: () => request<{ folders: TreeFolder[]; notepages: TreePage[] }>('/api/tree'),
+  getPublicTree: () =>
+    request<{ folders: TreeFolder[]; notepages: PublicTreePage[] }>('/api/public/tree'),
+  createFolder: (name: string, parentId?: string) =>
+    request<{ id: string }>('/api/folders', {
+      method: 'POST',
+      body: JSON.stringify({ name, parentId }),
+    }),
+  renameFolder: (id: string, name: string) =>
+    request<{ ok: true }>(`/api/folders/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  deleteFolder: (id: string) => request<{ ok: true }>(`/api/folders/${id}`, { method: 'DELETE' }),
+  movePage: (id: string, folderId: string | null) =>
+    request<{ ok: true }>(`/api/notepages/${id}/move`, {
+      method: 'POST',
+      body: JSON.stringify({ folderId }),
+    }),
   createNotepage: (title?: string) =>
     request<{ id: string; slug: string }>('/api/notepages', {
       method: 'POST',

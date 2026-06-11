@@ -5,6 +5,7 @@ import type { Db } from './db/client';
 import { createPep } from './pep';
 import { blobRoutes } from './routes/blobs';
 import { notepageRoutes, publicHtmlRoutes } from './routes/notepages';
+import { treeRoutes } from './routes/tree';
 
 export type AppDeps = {
   db: Db;
@@ -32,6 +33,7 @@ export function createApp({ db, auth, blobStore, meta }: AppDeps) {
 
   app.route('/api', notepageRoutes(db));
   app.route('/api', blobRoutes(db, blobStore));
+  app.route('/api', treeRoutes(db));
 
   // Canonical public read route: static HTML rendered at publish time.
   // Outside /api → no PEP; anonymous by design.

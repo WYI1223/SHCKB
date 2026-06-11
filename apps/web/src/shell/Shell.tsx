@@ -9,17 +9,23 @@
  */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { api, type Me, type NotepageSummary } from '../api/client';
+import {
+  api,
+  type Me,
+  type PublicTreePage,
+  type TreeFolder,
+  type TreePage,
+} from '../api/client';
 import { theme } from '../theme/tokens';
 import { Sidebar } from './Sidebar';
 
-export type PublicNote = { slug: string; title: string; publishedAt: number };
-
 type ShellState = {
   me: Me | null | undefined; // undefined = loading
-  pages: NotepageSummary[] | null;
-  publicNotes: PublicNote[] | null;
-  /** Re-fetch the directory (call after create/delete/rename/publish). */
+  /** author forest (authenticated) */
+  tree: { folders: TreeFolder[]; notepages: TreePage[] } | null;
+  /** public projection (anonymous) */
+  publicTree: { folders: TreeFolder[]; notepages: PublicTreePage[] } | null;
+  /** Re-fetch the directory (call after create/delete/rename/publish/move). */
   refresh: () => void;
 };
 
@@ -33,8 +39,8 @@ export function useShell(): ShellState {
 
 export function Shell() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
-  const [pages, setPages] = useState<NotepageSummary[] | null>(null);
-  const [publicNotes, setPublicNotes] = useState<PublicNote[] | null>(null);
+  const [tree, setTree] = useState<ShellState['tree']>(null);
+  const [publicTree, setPublicTree] = useState<ShellState['publicTree']>(null);
   const [collapsed, setCollapsed] = useState(false);
 
   const refresh = useCallback(() => {
@@ -43,8 +49,8 @@ export function Shell() {
       .then(({ user }) => {
         setMe(user);
         return user
-          ? api.listNotepages().then((r) => setPages(r.notepages))
-          : api.listPublicNotes().then((r) => setPublicNotes(r.notes));
+          ? api.getTree().then(setTree)
+          : api.getPublicTree().then(setPublicTree);
       })
       .catch(() => setMe(null));
   }, []);
@@ -54,7 +60,7 @@ export function Shell() {
   }, [refresh]);
 
   return (
-    <ShellContext.Provider value={{ me, pages, publicNotes, refresh }}>
+    <ShellContext.Provider value={{ me, tree, publicTree, refresh }}>
       <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         {!collapsed && <Sidebar />}
         <button
