@@ -6,7 +6,12 @@ import { graphPaper, type Theme } from './themes';
 export const ThemeContext = createContext<Theme>(graphPaper);
 
 export function ThemeProvider({ theme, children }: { theme: Theme; children: ReactNode }) {
-  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={theme}>
+      {theme.globalCss ? <style>{theme.globalCss}</style> : null}
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme(): Theme {

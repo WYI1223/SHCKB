@@ -5,11 +5,31 @@
  * publishedHtml purity depends on Theme being plain data [ADR-0024].
  */
 import type React from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { blueprint } from './blueprint';
 import { stationery } from './stationery';
 import { workbench } from './workbench';
 
-export type Theme = {
+export type BlockFrameProps = { kind: string; blockId: string; children: ReactNode };
+export type CanvasSurfaceProps = { widthPx: number; heightPx: number; children: ReactNode };
+export type PageTitleProps = { title: string };
+
+/** Optional render slots [ADR-0025]: a theme may replace the visual
+ * shell of blocks/canvas/title and ship document-level CSS. Slots must
+ * be deterministic (publishedHtml purity) and renderToStaticMarkup-safe.
+ * Omitted slots fall back to the default rendering — token-only themes
+ * stay valid unchanged. */
+export type ThemeSlots = {
+  BlockFrame?: ComponentType<BlockFrameProps>;
+  CanvasSurface?: ComponentType<CanvasSurfaceProps>;
+  PageTitle?: ComponentType<PageTitleProps>;
+  /** Injected into SPA (via ThemeProvider) and static page head.
+   * Carries @keyframes, pseudo-element decorations, texture. Must
+   * include a prefers-reduced-motion: reduce guard for animations. */
+  globalCss?: string;
+};
+
+export type ThemeTokens = {
   id: string;
   name: string;
   slot: number;
@@ -36,6 +56,8 @@ export type Theme = {
   /** CSS rules for highlight.js token classes (code kind). */
   codeCss: string;
 };
+
+export type Theme = ThemeTokens & ThemeSlots;
 
 const GITHUB_ISH_CODE_CSS = `
 .hljs-keyword, .hljs-selector-tag { color: oklch(45% 0.18 300); }
