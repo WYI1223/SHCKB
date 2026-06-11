@@ -2,17 +2,24 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { EditorPage } from './pages/EditorPage';
-import { ListPage } from './pages/ListPage';
 import { LoginPage } from './pages/LoginPage';
 import { ReadPage } from './pages/ReadPage';
+import { WelcomePane } from './pages/WelcomePane';
+import { Shell } from './shell/Shell';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<ListPage />} />
+        {/* workspace shell: sidebar directory + main pane */}
+        <Route element={<Shell />}>
+          <Route path="/" element={<WelcomePane />} />
+          <Route path="/edit/:id" element={<EditorPage />} />
+          {/* in-app read pane (anonymous browsing inside the shell) */}
+          <Route path="/read/:slug" element={<ReadPage />} />
+        </Route>
+        {/* standalone: login + the clean public share page */}
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/edit/:id" element={<EditorPage />} />
         <Route path="/notes/:slug" element={<ReadPage />} />
       </Routes>
     </BrowserRouter>

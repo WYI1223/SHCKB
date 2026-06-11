@@ -14,6 +14,7 @@ import { blockModule, defaultSizeFor } from '../blocks/registry';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { useGridInteraction } from '../grid/useGridInteraction';
+import { useShell } from '../shell/Shell';
 import { theme } from '../theme/tokens';
 
 const AUTOSAVE_MS = 800;
@@ -40,6 +41,7 @@ export function EditorPage() {
 
 function Editor({ detail }: { detail: NotepageDetail }) {
   const pageId = detail.page.id;
+  const shell = useShell();
   const [title, setTitle] = useState(detail.page.title);
   const [visibility, setVisibility] = useState(detail.page.visibility);
   const [hasPublished, setHasPublished] = useState(detail.page.hasPublished);
@@ -80,6 +82,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         blocks,
       });
       setStatus({ kind: 'saved' });
+      shell.refresh(); // keep sidebar titles/badges current
     } catch (e) {
       if (e instanceof ApiError) {
         setStatus({ kind: 'error', message: e.message, details: e.details });
@@ -116,6 +119,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     const res = await api.publish(pageId);
     setSlug(res.slug);
     setHasPublished(true);
+    shell.refresh();
   }
 
   async function copyLink() {
@@ -128,6 +132,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     const next = visibility === 'public' ? 'private' : 'public';
     await api.setVisibility(pageId, next);
     setVisibility(next);
+    shell.refresh();
   }
 
   return (
@@ -140,14 +145,11 @@ function Editor({ detail }: { detail: NotepageDetail }) {
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
-          padding: '10px 20px',
+          padding: '10px 20px 10px 44px',
           background: theme.chromeBg,
           color: 'white',
         }}
       >
-        <Link to="/" style={{ color: 'oklch(80% 0.02 80)', textDecoration: 'none', fontSize: '13px' }}>
-          ← All notepages
-        </Link>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
