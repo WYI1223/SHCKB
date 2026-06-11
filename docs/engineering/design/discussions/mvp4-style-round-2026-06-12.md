@@ -39,3 +39,4 @@ Hobonichi/Midori 纸质手帐的数字转译。暖奶油/牛皮纸画布（oklch
 8. **碎边 + 翘角**（owner 反馈）：虚线边升级为真撕纸轮廓——SVG feTurbulence+feDisplacementMap（固定 seed，确定性保住）作用于内容下方的背衬层，drop-shadow 跟随碎边轮廓，文字不过滤镜不变形；CanvasSurface 渲染一次共享 filter def。翘角 = 底角斜切阴影元素溢出到桌面（左/右角由 block.id FNV 哈希定，每张纸翘不同角）；hover 时碎边阴影加深。旧底缘锯齿 deckle 伪元素退役（被全周碎边取代）。
 9. **字体 token + 拍立得**（owner 反馈）：fontFamily 进 ThemeTokens（装机字体栈即用；字体文件 = 主题资产管线 future）——手帐用 Segoe Print/楷体手写栈，code 块等宽不受染。image kind 的壳分支为拍立得（BlockFrame 契约的 kind 参数正为 per-kind 壳设计）：白厚卡纸、深底边、深色相纸窗、清洁边缘（硬卡纸不撕边）、倾角 ×1.4。壳 per-kind 可变、内容归 kind 的边界不破。
 10. **拍立得质感**（owner 反馈"效果敷衍"）：三层材料——相纸高光（斜向光带 overlay，hover 漂移 360ms；放在滚动容器外的兄弟层，否则随内容滚走）+ 照片窗内凹（inset shadow + 四角暗角 vignette）+ 卡纸材质（顶光渐变 + 内压线 + 窗下压纹棱线）。reduced-motion 守卫覆盖光带动画。
+11. **拍立得物理修正**（owner）：暗角移除（vignette 是镜头伪影，相纸没有）；反光拆两层同角同步漂移——白卡光带强（带暗侧衬形，垫于照片窗下方故只显在白边框）、照片膜光弱（约 1/3 alpha，有色相纸吸光）。四边内凹阴影保留。

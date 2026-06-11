@@ -123,7 +123,10 @@ function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; 
           className="skb-paper"
           style={{
             // the photo window: dark slate behind the print, recessed
+            // (edge inset shadow only — printed photos have no corner
+            // vignette, owner correction)
             position: 'relative',
+            zIndex: 1,
             width: '100%',
             height: '100%',
             background: 'oklch(30% 0.01 80)',
@@ -136,10 +139,11 @@ function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; 
         >
           {children}
         </div>
-        {/* glass sheen + vignette: fixed over the photo window (a
-            sibling overlay — anything inside the scroll container
-            would scroll away with the content) */}
-        <div aria-hidden className="skb-polaroid-gloss" style={{ position: 'absolute', inset: '10px 10px 30px', pointerEvents: 'none' }} />
+        {/* film sheen over the photo: FAINT (the colored print absorbs
+            light; the white card reflects far more — that stronger
+            band lives on the card layer beneath the window). Sibling
+            overlay: anything inside the scroll container scrolls away. */}
+        <div aria-hidden className="skb-polaroid-gloss" style={{ position: 'absolute', inset: '10px 10px 30px', pointerEvents: 'none', zIndex: 2 }} />
       </div>
     </div>
   );
@@ -292,17 +296,31 @@ const STATIONERY_GLOBAL_CSS = `
 .skb-curl-right { right: 6px; transform: skewX(-9deg) rotate(2.5deg); }
 .skb-curl-left { left: 6px; transform: skewX(9deg) rotate(-2.5deg); }
 .skb-paper { position: relative; z-index: 2; }
-/* polaroid material: glass sheen (diagonal light band) + corner
- * vignette over the recessed photo window; the sheen drifts slightly
- * on hover. Emboss ridge under the window on the card's bottom margin. */
-.skb-polaroid-gloss {
+/* polaroid material (owner physics correction): ONE glossy film over
+ * the whole face — the white card shows the strong reflection (high
+ * albedo; band lives on the card layer, the opaque photo window
+ * covers its center so only the frame shows it), the colored print
+ * shows a much fainter sheen. Both bands share the 115deg angle and
+ * drift together on hover. No vignette — prints don't darken at
+ * corners. */
+.skb-polaroid-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background:
-    linear-gradient(115deg, transparent 36%, oklch(100% 0 0 / 9%) 42%, oklch(100% 0 0 / 17%) 49%, oklch(100% 0 0 / 5%) 55%, transparent 62%) 0 0 / 220% 100%,
-    radial-gradient(120% 120% at 50% 45%, transparent 62%, oklch(0% 0 0 / 16%) 100%);
-  background-position: 18% 0, 0 0;
+    linear-gradient(115deg, transparent 30%, oklch(0% 0 0 / 3%) 37%, oklch(100% 0 0 / 30%) 45%, oklch(0% 0 0 / 4%) 53%, transparent 60%) 0 0 / 220% 100%;
+  background-position: 18% 0;
   transition: background-position 360ms ease;
 }
-.skb-polaroid:hover .skb-polaroid-gloss { background-position: 62% 0, 0 0; }
+.skb-polaroid:hover .skb-polaroid-card::before { background-position: 62% 0; }
+.skb-polaroid-gloss {
+  background:
+    linear-gradient(115deg, transparent 36%, oklch(100% 0 0 / 3%) 42%, oklch(100% 0 0 / 7%) 49%, oklch(100% 0 0 / 2%) 55%, transparent 62%) 0 0 / 220% 100%;
+  background-position: 18% 0;
+  transition: background-position 360ms ease;
+}
+.skb-polaroid:hover .skb-polaroid-gloss { background-position: 62% 0; }
 .skb-polaroid-card::after {
   content: '';
   position: absolute;
@@ -314,7 +332,8 @@ const STATIONERY_GLOBAL_CSS = `
   border-radius: 1px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .skb-polaroid-gloss { transition: none; }
+  .skb-polaroid-gloss,
+  .skb-polaroid-card::before { transition: none; }
 }
 /* Hidden scrollbar + scroll-aware curl hints (owner feedback): the
  * paper "curls" at an edge exactly when more content lies beyond it.
