@@ -1,0 +1,18 @@
+# Run-verification path (mvp-scope D6): exercises the operator-shaped
+# runtime (container + volume-backed sqlite + single artifact serving
+# API and built web) without being the ratified release artifact.
+#
+#   docker compose -f compose.dev.yaml up --build
+#   → http://localhost:8080
+services:
+  shckb:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:3000"
+    volumes:
+      - shckb-data:/data
+
+volumes:
+  shckb-data:
