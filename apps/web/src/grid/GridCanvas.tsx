@@ -6,7 +6,7 @@
  */
 import { totalRows, type Block } from '@skb/grid-engine';
 import { blockModule } from '@skb/block-kinds';
-import { blockCardStyle, canvasBaseplateStyle, theme } from '../theme/tokens';
+import { blockCardStyle, canvasBaseplateStyle, kindHue, useTheme } from '@skb/theme';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
 
@@ -22,6 +22,7 @@ export type GridCanvasProps = {
 };
 
 export function GridCanvas(props: GridCanvasProps) {
+  const theme = useTheme();
   const { interaction, activeId, onActivate } = props;
   const { state, drag } = interaction;
   const rows = totalRows(state) + MIN_ROWS_PADDING;
@@ -40,7 +41,7 @@ export function GridCanvas(props: GridCanvasProps) {
           position: 'relative',
           width: `${state.totalCols * SLOT}px`,
           height: `${rows * SLOT}px`,
-          ...canvasBaseplateStyle(),
+          ...canvasBaseplateStyle(theme),
         }}
       >
         {state.blocks.map((b) => (
@@ -64,10 +65,11 @@ function BlockShell({
   slot,
   pad,
 }: GridCanvasProps & { block: Block; slot: number; pad: number }) {
+  const theme = useTheme();
   const mod = blockModule(block.kind);
   const isActive = activeId === block.id;
   const isResizing = interaction.resize.active && interaction.resize.blockId === block.id;
-  const hue = theme.kindHue(block.kind);
+  const hue = kindHue(theme, block.kind);
 
   return (
     <div
@@ -79,7 +81,7 @@ function BlockShell({
         if (!isActive) onActivate(block.id);
       }}
       style={{
-        ...blockCardStyle(block.kind),
+        ...blockCardStyle(theme, block.kind),
         position: 'absolute',
         left: `${block.col * slot + pad}px`,
         top: `${block.row * slot + pad}px`,
@@ -146,6 +148,7 @@ function BlockBody({
   content: unknown;
   onContentChange: (id: string, content: unknown) => void;
 }) {
+  const theme = useTheme();
   if (!mod) {
     // Unsupported kind: preserve content, never overwrite (blocks.md fallback scenario).
     return (

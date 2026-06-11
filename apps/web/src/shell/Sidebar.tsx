@@ -6,6 +6,7 @@
  */
 import { useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { THEMES } from '@skb/theme';
 import { ApiError, api, importBundle, type TreeFolder } from '../api/client';
 import { theme } from '../theme/tokens';
 import { useShell } from './Shell';
@@ -24,7 +25,7 @@ type PageItem = {
 };
 
 export function Sidebar() {
-  const { me, tree, publicTree, refresh } = useShell();
+  const { me, tree, publicTree, instanceTheme, refresh } = useShell();
   const navigate = useNavigate();
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
@@ -257,6 +258,33 @@ export function Sidebar() {
               + Folder
             </button>
           </div>
+          {me.role === 'admin' && (
+            <select
+              value={instanceTheme}
+              onChange={(e) => {
+                if (!window.confirm('Switch instance theme? All published pages re-render.')) {
+                  e.target.value = instanceTheme;
+                  return;
+                }
+                void api.setInstanceTheme(e.target.value).then(() => refresh());
+              }}
+              aria-label="Instance theme"
+              style={{
+                fontSize: '12px',
+                color: theme.mutedColor,
+                background: 'transparent',
+                border: `1px dashed ${theme.mutedColor}`,
+                borderRadius: '6px',
+                padding: '4px 6px',
+              }}
+            >
+              {Object.values(THEMES).map((t) => (
+                <option key={t.id} value={t.id}>
+                  Theme: {t.name}
+                </option>
+              ))}
+            </select>
+          )}
           {me.role === 'admin' && (
             <div style={{ display: 'flex', gap: '4px' }}>
               <a

@@ -26,6 +26,7 @@ export type NotepageDetail = {
     title: string;
     visibility: 'private' | 'public';
     gravityEnabled: boolean;
+    themeId: string | null;
     hasPublished: boolean;
     updatedAt: number;
   };
@@ -172,5 +173,17 @@ export const api = {
   deleteNotepage: (id: string) =>
     request<{ ok: true }>(`/api/notepages/${id}`, { method: 'DELETE' }),
   getPublicNote: (slug: string) =>
-    request<{ slug: string; doc: PublishedDoc }>(`/api/public/notes/${slug}`),
+    request<{ slug: string; theme: string; doc: PublishedDoc }>(`/api/public/notes/${slug}`),
+  getSettings: () => request<{ theme: string }>('/api/settings'),
+  setInstanceTheme: (theme: string) =>
+    request<{ ok: true; rerendered: number }>('/api/settings/theme', {
+      method: 'PUT',
+      body: JSON.stringify({ theme }),
+    }),
+  setPageTheme: (id: string, themeId: string | null) =>
+    request<{ ok: true }>(`/api/notepages/${id}/theme`, {
+      method: 'POST',
+      body: JSON.stringify({ themeId }),
+    }),
+  getPublicInstance: () => request<{ theme: string }>('/api/public/instance'),
 };

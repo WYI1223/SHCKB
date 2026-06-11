@@ -25,6 +25,8 @@ type ShellState = {
   tree: { folders: TreeFolder[]; notepages: TreePage[] } | null;
   /** public projection (anonymous) */
   publicTree: { folders: TreeFolder[]; notepages: PublicTreePage[] } | null;
+  /** active instance theme id (content surfaces resolve effective theme from it) */
+  instanceTheme: string;
   /** Re-fetch the directory (call after create/delete/rename/publish/move). */
   refresh: () => void;
 };
@@ -41,9 +43,11 @@ export function Shell() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [tree, setTree] = useState<ShellState['tree']>(null);
   const [publicTree, setPublicTree] = useState<ShellState['publicTree']>(null);
+  const [instanceTheme, setInstanceTheme] = useState('graph-paper');
   const [collapsed, setCollapsed] = useState(false);
 
   const refresh = useCallback(() => {
+    api.getPublicInstance().then(({ theme }) => setInstanceTheme(theme)).catch(() => undefined);
     api
       .me()
       .then(({ user }) => {
@@ -60,7 +64,7 @@ export function Shell() {
   }, [refresh]);
 
   return (
-    <ShellContext.Provider value={{ me, tree, publicTree, refresh }}>
+    <ShellContext.Provider value={{ me, tree, publicTree, instanceTheme, refresh }}>
       <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         {!collapsed && <Sidebar />}
         <button

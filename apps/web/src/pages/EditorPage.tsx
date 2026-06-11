@@ -11,6 +11,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
 import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
+import { THEMES, ThemeProvider, graphPaper } from '@skb/theme';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { useGridInteraction } from '../grid/useGridInteraction';
@@ -43,6 +44,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const pageId = detail.page.id;
   const shell = useShell();
   const [title, setTitle] = useState(detail.page.title);
+  const [themeId, setThemeId] = useState(detail.page.themeId);
   const [visibility, setVisibility] = useState(detail.page.visibility);
   const [hasPublished, setHasPublished] = useState(detail.page.hasPublished);
   const [slug, setSlug] = useState(detail.page.slug);
@@ -135,6 +137,14 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     shell.refresh();
   }
 
+  async function pinTheme(next: string | null) {
+    await api.setPageTheme(pageId, next);
+    setThemeId(next);
+  }
+
+  // pin wins; else instance; unknown ids degrade to graph-paper
+  const effective = THEMES[themeId ?? shell.instanceTheme] ?? graphPaper;
+
   return (
     <div>
       <header
@@ -175,6 +185,28 @@ function Editor({ detail }: { detail: NotepageDetail }) {
           />
           Gravity
         </label>
+        <select
+          value={themeId ?? ''}
+          onChange={(e) => void pinTheme(e.target.value === '' ? null : e.target.value)}
+          title="Page theme (instance = follow the instance theme)"
+          aria-label="Page theme"
+          style={{
+            background: 'transparent',
+            color: 'oklch(70% 0.02 80)',
+            border: '1px solid oklch(40% 0.02 80)',
+            borderRadius: '6px',
+            padding: '5px 6px',
+            fontSize: '12px',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="">Theme: instance</option>
+          {Object.values(THEMES).map((t) => (
+            <option key={t.id} value={t.id}>
+              Theme: {t.name} 📌
+            </option>
+          ))}
+        </select>
         <button onClick={toggleVisibility} style={chromeButton(visibility === 'public')}>
           {visibility === 'public' ? 'Public' : 'Private'}
         </button>
@@ -194,6 +226,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         <SaveIndicator status={status} />
       </header>
 
+      <ThemeProvider theme={effective}>
       <HostContext.Provider value={{ uploadBlob }}>
         <GridCanvas
           interaction={interaction}
@@ -210,6 +243,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         />
         <Palette interaction={interaction} />
       </HostContext.Provider>
+      </ThemeProvider>
     </div>
   );
 }
