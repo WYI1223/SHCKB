@@ -97,6 +97,28 @@ export async function uploadBlob(file: File): Promise<{ hash: string; size: numb
   return body as { hash: string; size: number; mimeType: string };
 }
 
+/** Full-restore import (admin, empty instance only) [ADR-0023]. */
+export async function importBundle(file: File): Promise<{
+  ok: true;
+  counts: { folders: number; pages: number; blocks: number; blobs: number };
+}> {
+  const res = await fetch('/api/admin/import', {
+    method: 'POST',
+    body: file,
+    headers: { 'content-type': 'application/zip' },
+  });
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    if (res.status === 401) window.location.href = '/login';
+    throw new ApiError(
+      res.status,
+      typeof body.error === 'string' ? body.error : 'import failed',
+      Array.isArray(body.details) ? (body.details as string[]) : undefined,
+    );
+  }
+  return body as { ok: true; counts: { folders: number; pages: number; blocks: number; blobs: number } };
+}
+
 export const api = {
   signIn: (email: string, password: string) =>
     request<{ user: unknown }>('/api/auth/sign-in/email', {

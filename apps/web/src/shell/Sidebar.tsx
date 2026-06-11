@@ -4,9 +4,9 @@
  * the pruned public projection. Tree assembly happens client-side from
  * the flat lists.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { api, type TreeFolder } from '../api/client';
+import { ApiError, api, importBundle, type TreeFolder } from '../api/client';
 import { theme } from '../theme/tokens';
 import { useShell } from './Shell';
 
@@ -28,6 +28,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
 
   const folders: TreeFolder[] = (me ? tree?.folders : publicTree?.folders) ?? [];
   const pages: PageItem[] = me
@@ -106,6 +107,21 @@ export function Sidebar() {
     setMoveMenuFor(null);
     await api.movePage(p.id, folderId);
     refresh();
+  }
+
+  async function importZip(file: File) {
+    try {
+      const { counts } = await importBundle(file);
+      window.alert(
+        `Import complete: ${counts.pages} pages, ${counts.folders} folders, ${counts.blocks} blocks, ${counts.blobs} blobs.`,
+      );
+      refresh();
+    } catch (err) {
+      const detail = err instanceof ApiError && err.details ? `\n\n${err.details.join('\n')}` : '';
+      window.alert(`Import failed: ${err instanceof Error ? err.message : String(err)}${detail}`);
+    } finally {
+      if (importInput.current) importInput.current.value = '';
+    }
   }
 
   function renderFolder(f: TreeFolder, depth: number): React.JSX.Element {
@@ -242,20 +258,40 @@ export function Sidebar() {
             </button>
           </div>
           {me.role === 'admin' && (
-            <a
-              href="/api/admin/export"
-              download="shckb-export.zip"
-              title="Download a full logical export (git-friendly zip)"
-              style={{
-                ...sideButton(),
-                textAlign: 'center',
-                textDecoration: 'none',
-                border: `1px dashed ${theme.mutedColor}`,
-                borderRadius: '6px',
-              }}
-            >
-              ⤓ Export
-            </a>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <a
+                href="/api/admin/export"
+                download="shckb-export.zip"
+                title="Download a full logical export (git-friendly zip)"
+                style={{
+                  ...sideButton(),
+                  flex: 1,
+                  textAlign: 'center',
+                  textDecoration: 'none',
+                  border: `1px dashed ${theme.mutedColor}`,
+                  borderRadius: '6px',
+                }}
+              >
+                ⤓ Export
+              </a>
+              <button
+                onClick={() => importInput.current?.click()}
+                title="Restore a full export into this instance (empty instance only)"
+                style={{ ...sideButton(), flex: 1, border: `1px dashed ${theme.mutedColor}`, borderRadius: '6px' }}
+              >
+                ⤒ Import
+              </button>
+              <input
+                ref={importInput}
+                type="file"
+                accept=".zip,application/zip"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importZip(file);
+                }}
+              />
+            </div>
           )}
         </div>
       )}
