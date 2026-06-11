@@ -21,6 +21,7 @@ export const notepages = sqliteTable('notepages', {
     .default('private'),
   gravityEnabled: integer('gravity_enabled', { mode: 'boolean' }).notNull().default(true),
   publishedDoc: text('published_doc'),
+  publishedHtml: text('published_html'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });

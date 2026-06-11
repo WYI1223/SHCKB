@@ -1,0 +1,1 @@
+ALTER TABLE `notepages` ADD `published_html` text;

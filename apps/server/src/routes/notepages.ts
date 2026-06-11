@@ -13,6 +13,7 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import type { Db } from '../db/client';
 import { blocks, notepages, type PublishedDoc } from '../db/schema';
+import { NOT_FOUND_HTML, renderPublishedHtml } from '../render/publish-html';
 
 type WorkingBlock = {
   id: string;
@@ -199,8 +200,13 @@ export function notepageRoutes(db: Db) {
       blocks: loadWorkingBlocks(db, page.id),
       publishedAt: Date.now(),
     };
+    // Snapshot is frozen → render reader-grade HTML once, store with it.
     db.update(notepages)
-      .set({ publishedDoc: JSON.stringify(doc), updatedAt: new Date() })
+      .set({
+        publishedDoc: JSON.stringify(doc),
+        publishedHtml: renderPublishedHtml(doc, page.slug),
+        updatedAt: new Date(),
+      })
       .where(eq(notepages.id, page.id))
       .run();
     return c.json({ publishedAt: doc.publishedAt });
@@ -236,5 +242,22 @@ export function notepageRoutes(db: Db) {
     return c.json({ slug: page.slug, doc: JSON.parse(page.publishedDoc) as PublishedDoc });
   });
 
+  return r;
+}
+
+/**
+ * Canonical public read route as static HTML (rendered at publish
+ * time). Mounted outside /api; identical 404 page for missing /
+ * private / unpublished (no-leak).
+ */
+export function publicHtmlRoutes(db: Db) {
+  const r = new Hono();
+  r.get('/notes/:slug', (c) => {
+    const page = db.select().from(notepages).where(eq(notepages.slug, c.req.param('slug'))).get();
+    if (!page || page.visibility !== 'public' || page.publishedHtml === null) {
+      return c.html(NOT_FOUND_HTML, 404);
+    }
+    return c.html(page.publishedHtml);
+  });
   return r;
 }

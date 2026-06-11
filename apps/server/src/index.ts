@@ -44,7 +44,7 @@ Bun.serve({
   port,
   async fetch(req) {
     const url = new URL(req.url);
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/notes/')) {
       return app.fetch(req);
     }
     if (webDist) {
