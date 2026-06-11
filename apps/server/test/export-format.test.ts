@@ -41,3 +41,77 @@ describe('canonical format helpers', () => {
     expect(sanitizeDirName('方法论')).toBe('方法论');
   });
 });
+
+// ----- format migration pipeline (synthetic v1↔v2 pair; production registry stays empty at v1) -----
+
+import { downgradeToVersion, upgradeToVersion, type FormatTransform, type JsonFiles } from '../src/export/migrate-format';
+
+/** Synthetic v2: renames page field title→heading and adds subtitle. */
+const SYNTHETIC: FormatTransform[] = [
+  {
+    to: 2,
+    up(files) {
+      const next: JsonFiles = new Map(files);
+      for (const [path, value] of files) {
+        if (!path.endsWith('.page.json')) continue;
+        const { title, ...rest } = value as { title: string };
+        next.set(path, { heading: title, subtitle: '', ...rest });
+      }
+      return next;
+    },
+    down(files) {
+      const next: JsonFiles = new Map(files);
+      const losses: string[] = [];
+      for (const [path, value] of files) {
+        if (!path.endsWith('.page.json')) continue;
+        const { heading, subtitle, ...rest } = value as { heading: string; subtitle: string };
+        if (subtitle !== '') losses.push(`${path}: subtitle "${subtitle}" dropped (v1 cannot express it)`);
+        next.set(path, { title: heading, ...rest });
+      }
+      return { files: next, losses };
+    },
+  },
+];
+
+function v1Files(): JsonFiles {
+  return new Map<string, unknown>([
+    ['manifest.json', { formatVersion: 1 }],
+    ['tree/a.page.json', { title: 'A', blocks: [] }],
+  ]);
+}
+
+describe('format migration pipeline', () => {
+  test('upgrade applies transforms in order and stamps version', () => {
+    const out = upgradeToVersion(v1Files(), 2, SYNTHETIC);
+    expect((out.get('manifest.json') as { formatVersion: number }).formatVersion).toBe(2);
+    expect(out.get('tree/a.page.json')).toEqual({ heading: 'A', subtitle: '', blocks: [] });
+  });
+
+  test('upgrade to current version is a no-op', () => {
+    const files = v1Files();
+    expect(upgradeToVersion(files, 1, SYNTHETIC)).toBe(files);
+  });
+
+  test('downgrade reverses and reports losses explicitly', () => {
+    const v2 = upgradeToVersion(v1Files(), 2, SYNTHETIC);
+    (v2.get('tree/a.page.json') as { subtitle: string }).subtitle = 'extra';
+    const { files, losses } = downgradeToVersion(v2, 1, SYNTHETIC);
+    expect((files.get('manifest.json') as { formatVersion: number }).formatVersion).toBe(1);
+    expect(files.get('tree/a.page.json')).toEqual({ title: 'A', blocks: [] });
+    expect(losses).toEqual(['tree/a.page.json: subtitle "extra" dropped (v1 cannot express it)']);
+  });
+
+  test('missing transform step throws', () => {
+    expect(() => upgradeToVersion(v1Files(), 3, SYNTHETIC)).toThrow('no upgrade path');
+    expect(() => downgradeToVersion(new Map([['manifest.json', { formatVersion: 3 }]]), 1, SYNTHETIC)).toThrow(
+      'no downgrade path',
+    );
+  });
+
+  test('lossless round trip: up then down restores the original', () => {
+    const original = v1Files();
+    const { files, losses } = downgradeToVersion(upgradeToVersion(original, 2, SYNTHETIC), 1, SYNTHETIC);
+    expect(losses).toEqual([]);
+    expect(files.get('tree/a.page.json')).toEqual(original.get('tree/a.page.json'));
+  });
+});
