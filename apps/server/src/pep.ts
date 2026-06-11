@@ -27,8 +27,9 @@ declare module 'hono' {
   }
 }
 
-/** Paths under /api that the anonymous principal may reach. */
-const ANONYMOUS_PREFIXES = ['/api/public/', '/api/auth/', '/api/health'];
+/** Paths under /api that the anonymous principal may reach.
+ * /api/me is principal introspection: anonymous gets {user: null}. */
+const ANONYMOUS_PREFIXES = ['/api/public/', '/api/auth/', '/api/health', '/api/me'];
 
 export function createPep(auth: Auth): MiddlewareHandler {
   return async (c, next) => {

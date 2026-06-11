@@ -28,7 +28,15 @@ export type ResizeAxis = 'right' | 'bottom' | 'corner' | 'left' | 'top' | 'top-l
 const DRAG_MIME = 'application/x-skb-grid-drag';
 
 export type DragPayload =
-  | { kind: 'move'; sourceId: string }
+  | {
+      kind: 'move';
+      sourceId: string;
+      /** Pixel offset of the grab point inside the block — converted to
+       * cells at dragover/drop so the block lands relative to where the
+       * user grabbed it, not with its top-left snapped to the cursor. */
+      grabPxX: number;
+      grabPxY: number;
+    }
   | { kind: 'insert'; blockKind: string };
 
 export type DragState = {
@@ -174,7 +182,13 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     return {
       draggable: true,
       onDragStart: (e: React.DragEvent) => {
-        const payload: DragPayload = { kind: 'move', sourceId: block.id };
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const payload: DragPayload = {
+          kind: 'move',
+          sourceId: block.id,
+          grabPxX: e.clientX - rect.left,
+          grabPxY: e.clientY - rect.top,
+        };
         e.dataTransfer.setData(DRAG_MIME, JSON.stringify(payload));
         e.dataTransfer.effectAllowed = 'move';
         setDrag({ active: true, payload, cursorCell: null, intent: null });
@@ -182,6 +196,25 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
       onDragEnd: () => {
         setDrag({ active: false, payload: null, cursorCell: null, intent: null });
       },
+    };
+  }
+
+  /**
+   * Anchor for a move: cursor cell minus the grab offset, clamped into
+   * bounds. Preview and drop MUST share this (preview honesty).
+   */
+  function moveAnchor(
+    e: { clientX: number; clientY: number },
+    canvasRect: DOMRect,
+    slotSize: number,
+    payload: Extract<DragPayload, { kind: 'move' }>,
+    block: Block,
+  ): { col: number; row: number } {
+    const col = Math.round((e.clientX - canvasRect.left - payload.grabPxX) / slotSize);
+    const row = Math.round((e.clientY - canvasRect.top - payload.grabPxY) / slotSize);
+    return {
+      col: Math.max(0, Math.min(TOTAL_COLS - block.colSpan, col)),
+      row: Math.max(0, row),
     };
   }
 
@@ -214,17 +247,29 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
         if (payload.kind === 'move') {
           const sourceBlock = stateRef.current.blocks.find((b) => b.id === payload.sourceId);
           if (!sourceBlock) return;
-          // Probe the target area without the source block at its current pos.
-          const withoutSource: GridState = {
-            ...stateRef.current,
-            blocks: stateRef.current.blocks.filter((b) => b.id !== sourceBlock.id),
-          };
-          const probeIntent = inferDropIntent(withoutSource, col, row, {
-            colSpan: sourceBlock.colSpan,
-            rowSpan: sourceBlock.rowSpan,
-          });
-          // Move preserves size regardless of hole-fill clamp.
-          intent = { ...probeIntent, colSpan: sourceBlock.colSpan, rowSpan: sourceBlock.rowSpan };
+          // Probe the REAL op (pure function): the ghost shows exactly
+          // where the block ends up, gravity settling included.
+          const anchor = moveAnchor(e, rect, slotSize, payload, sourceBlock);
+          const probe = moveBlock(stateRef.current, sourceBlock.id, anchor.col, anchor.row, opts());
+          if (probe.ok) {
+            const landed = probe.state.blocks.find((b) => b.id === sourceBlock.id)!;
+            intent = {
+              intent: 'place',
+              col: landed.col,
+              row: landed.row,
+              colSpan: landed.colSpan,
+              rowSpan: landed.rowSpan,
+            };
+          } else {
+            intent = {
+              intent: 'reject',
+              col: anchor.col,
+              row: anchor.row,
+              colSpan: sourceBlock.colSpan,
+              rowSpan: sourceBlock.rowSpan,
+              reason: probe.error,
+            };
+          }
         } else {
           intent = inferDropIntent(stateRef.current, col, row, config.defaultSizeFor(payload.blockKind));
         }
@@ -239,11 +284,17 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
         if (!raw) return;
         const payload = JSON.parse(raw) as DragPayload;
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        const col = Math.floor((e.clientX - rect.left) / slotSize);
-        const row = Math.floor((e.clientY - rect.top) / slotSize);
         if (payload.kind === 'move') {
-          move(payload.sourceId, col, row);
+          const sourceBlock = stateRef.current.blocks.find((b) => b.id === payload.sourceId);
+          if (sourceBlock) {
+            // Same anchor math as the dragover preview — what the ghost
+            // showed is what lands.
+            const anchor = moveAnchor(e, rect, slotSize, payload, sourceBlock);
+            move(payload.sourceId, anchor.col, anchor.row);
+          }
         } else {
+          const col = Math.floor((e.clientX - rect.left) / slotSize);
+          const row = Math.floor((e.clientY - rect.top) / slotSize);
           insertAt(col, row, payload.blockKind);
         }
         setDrag({ active: false, payload: null, cursorCell: null, intent: null });

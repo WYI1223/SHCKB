@@ -1,17 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, type NotepageSummary } from '../api/client';
+import { api, type Me, type NotepageSummary } from '../api/client';
 import { theme } from '../theme/tokens';
 
+type PublicNote = { slug: string; title: string; publishedAt: number };
+
+/**
+ * The directory is visible to everyone (owner decision 2026-06-11):
+ * anonymous readers get the public+published index; the signed-in
+ * author additionally sees private/unpublished pages with controls.
+ */
 export function ListPage() {
+  const [me, setMe] = useState<Me | null | undefined>(undefined); // undefined = loading
   const [pages, setPages] = useState<NotepageSummary[] | null>(null);
+  const [publicNotes, setPublicNotes] = useState<PublicNote[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     api
-      .listNotepages()
-      .then((r) => setPages(r.notepages))
+      .me()
+      .then(({ user }) => {
+        setMe(user);
+        return user
+          ? api.listNotepages().then((r) => setPages(r.notepages))
+          : api.listPublicNotes().then((r) => setPublicNotes(r.notes));
+      })
       .catch((e: Error) => setError(e.message));
   }, []);
 
@@ -33,43 +47,91 @@ export function ListPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <h1 style={{ margin: 0, fontSize: '22px' }}>SHCKB — Notepages</h1>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button
-            onClick={create}
-            style={{
-              background: theme.accent,
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '14px',
-              cursor: 'pointer',
-            }}
-          >
-            + New notepage
-          </button>
-          <button
-            onClick={() => void api.signOut().then(() => (window.location.href = '/login'))}
-            style={{
-              background: 'transparent',
-              color: theme.mutedColor,
-              border: theme.blockBorder,
-              borderRadius: '8px',
-              padding: '8px 12px',
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            Sign out
-          </button>
+          {me ? (
+            <>
+              <button
+                onClick={create}
+                style={{
+                  background: theme.accent,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                + New notepage
+              </button>
+              <button
+                onClick={() => void api.signOut().then(() => (window.location.href = '/'))}
+                style={{
+                  background: 'transparent',
+                  color: theme.mutedColor,
+                  border: theme.blockBorder,
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                Sign out
+              </button>
+            </>
+          ) : me === null ? (
+            <Link
+              to="/login"
+              style={{
+                color: theme.accent,
+                border: `1px solid ${theme.accent}`,
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '13px',
+                textDecoration: 'none',
+              }}
+            >
+              Sign in
+            </Link>
+          ) : null}
         </div>
       </div>
 
       {error && <p style={{ color: theme.danger }}>{error}</p>}
-      {pages === null && !error && <p style={{ color: theme.mutedColor }}>Loading…</p>}
-      {pages?.length === 0 && <p style={{ color: theme.mutedColor }}>No notepages yet. Create the first one.</p>}
+      {me === undefined && !error && <p style={{ color: theme.mutedColor }}>Loading…</p>}
 
+      {/* anonymous: public directory */}
+      {me === null && publicNotes && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {publicNotes.length === 0 && (
+            <p style={{ color: theme.mutedColor }}>Nothing published yet.</p>
+          )}
+          {publicNotes.map((n) => (
+            <a
+              key={n.slug}
+              href={`/notes/${n.slug}`}
+              style={{
+                display: 'block',
+                background: 'white',
+                border: theme.blockBorder,
+                borderRadius: '8px',
+                padding: '12px 16px',
+                fontWeight: 600,
+                color: theme.textColor,
+                textDecoration: 'none',
+              }}
+            >
+              {n.title}
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* author: full directory with controls */}
+      {me && pages?.length === 0 && (
+        <p style={{ color: theme.mutedColor }}>No notepages yet. Create the first one.</p>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {pages?.map((p) => (
+        {me && pages?.map((p) => (
           <div
             key={p.id}
             style={{

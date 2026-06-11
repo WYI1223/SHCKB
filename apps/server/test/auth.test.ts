@@ -57,6 +57,37 @@ describe('auth wire surface', () => {
     expect((await t.app.request('/api/notepages', { method: 'POST' })).status).toBe(401);
     expect((await t.app.request('/api/health')).status).toBe(200);
     expect((await t.app.request('/api/public/notes/nope')).status).toBe(404); // open, clean 404
+    // principal introspection is anonymous-safe
+    const me = await json(await t.app.request('/api/me'));
+    expect(me.user).toBeNull();
+  });
+
+  test('public directory lists only public+published, with published titles', async () => {
+    const t = await createTestContext();
+    const mk = async (title: string) =>
+      json(await t.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title }) }));
+    const pub = await mk('Visible Note');
+    const priv = await mk('Private Note');
+    const unpub = await mk('Public But Unpublished');
+    await t.authed(`/api/notepages/${pub.id}/publish`, { method: 'POST' });
+    await t.authed(`/api/notepages/${pub.id}/visibility`, {
+      method: 'POST',
+      body: JSON.stringify({ visibility: 'public' }),
+    });
+    await t.authed(`/api/notepages/${priv.id}/publish`, { method: 'POST' });
+    await t.authed(`/api/notepages/${unpub.id}/visibility`, {
+      method: 'POST',
+      body: JSON.stringify({ visibility: 'public' }),
+    });
+    // rename pub's working state — directory must keep showing the published title
+    await t.authed(`/api/notepages/${pub.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({ title: 'Renamed In Working', gravityEnabled: true, blocks: [] }),
+    });
+
+    const dir = await json(await t.app.request('/api/public/notes')); // anonymous
+    expect(dir.notes).toHaveLength(1);
+    expect(dir.notes[0]).toMatchObject({ slug: 'visible-note', title: 'Visible Note' });
   });
 
   test('sign-out invalidates the session', async () => {

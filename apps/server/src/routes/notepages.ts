@@ -240,6 +240,22 @@ export function notepageRoutes(db: Db) {
     return c.json({ ok: true });
   });
 
+  // Public directory (owner decision 2026-06-11): anonymous readers
+  // see the index of public+published pages. Titles come from the
+  // PUBLISHED snapshot — working-state renames stay invisible until
+  // re-publish, consistent with the two-state model.
+  r.get('/public/notes', (c) => {
+    const rows = db.select().from(notepages).where(eq(notepages.visibility, 'public')).all();
+    const notes = rows
+      .filter((p) => p.publishedDoc !== null)
+      .map((p) => {
+        const doc = JSON.parse(p.publishedDoc!) as PublishedDoc;
+        return { slug: p.slug, title: doc.title, publishedAt: doc.publishedAt };
+      })
+      .sort((a, b) => b.publishedAt - a.publishedAt);
+    return c.json({ notes });
+  });
+
   // Public read route — anonymous principal; no-leak 404 semantics.
   r.get('/public/notes/:slug', (c) => {
     const page = db.select().from(notepages).where(eq(notepages.slug, c.req.param('slug'))).get();

@@ -44,11 +44,12 @@ describe('scaffold', () => {
     expect(body.schemaVersion).toBeGreaterThanOrEqual(1);
   });
 
-  test('me returns admin principal when authed, 401 anonymous', async () => {
+  test('me returns admin principal when authed, null principal anonymous', async () => {
     const me = await json(await t.authed('/api/me'));
     expect(me.user).toMatchObject({ role: 'admin', email: 'admin@local.test' });
     expect(me.user.token).toBeUndefined();
-    expect((await t.app.request('/api/me')).status).toBe(401);
+    const anon = await json(await t.app.request('/api/me'));
+    expect(anon.user).toBeNull();
   });
 });
 
