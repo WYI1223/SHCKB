@@ -5,6 +5,7 @@ import {
   canvasBaseplateStyle,
   graphPaper,
   ink,
+  isSafeCssColor,
   kindHue,
   sanitizeCustomization,
 } from '../themes';
@@ -61,6 +62,18 @@ describe('theme registry', () => {
     expect(kindHue(graphPaper, 'unknown-kind')).toBe(graphPaper.kindHueFallback);
     expect(blockCardStyle(graphPaper, 'markdown').borderTop).toContain(graphPaper.kindHues.markdown);
     expect(canvasBaseplateStyle(ink).backgroundImage).toContain(ink.dotColor);
+  });
+
+  // Papers flow through PageBackground.color, which the server gates
+  // with isSafeCssColor — a built-in paper that fails the gate would
+  // 400 on every pick. Guard the constraint at the source (M8-D4).
+  test('every curated paper passes the background color gate', () => {
+    for (const t of Object.values(THEMES)) {
+      for (const p of t.papers ?? []) {
+        expect(isSafeCssColor(p.css), `${t.id} paper "${p.id}"`).toBe(true);
+        expect(p.id).not.toBe('__default'); // reserved by the picker UI
+      }
+    }
   });
 });
 

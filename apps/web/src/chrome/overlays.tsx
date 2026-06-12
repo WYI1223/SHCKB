@@ -55,7 +55,24 @@ export type MenuItem =
       indent?: number;
     }
   | { kind: 'separator' }
-  | { kind: 'label'; label: string };
+  | { kind: 'label'; label: string }
+  | {
+      /** Notion-palette row (M8-D4): a finite set of curated options.
+       * With `swatch` an option draws as a color dot, without as a small
+       * named pill. Picking closes the menu like a normal item. */
+      kind: 'choices';
+      label: string;
+      options: ChoiceOption[];
+      onPick: (id: string) => void;
+    };
+
+export type ChoiceOption = {
+  id: string;
+  name: string;
+  /** CSS background for the dot; omitted = text pill. */
+  swatch?: string;
+  selected?: boolean;
+};
 
 /** Cursor point (context menu) or element (popover under its trigger). */
 export type MenuAnchor = { x: number; y: number } | HTMLElement;
@@ -465,6 +482,59 @@ function MenuPanel({ state, close }: { state: MenuState; close: () => void }) {
             return (
               <div key={i} style={{ ...labelStyle(), padding: '5px 12px 3px' }}>
                 {item.label}
+              </div>
+            );
+          }
+          if (item.kind === 'choices') {
+            return (
+              <div key={i} style={{ padding: '5px 12px 6px' }}>
+                <div style={{ ...labelStyle(), paddingBottom: '5px' }}>{item.label}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
+                  {item.options.map((o) => (
+                    <button
+                      key={o.id}
+                      data-menu-item
+                      role="menuitemradio"
+                      aria-checked={o.selected ?? false}
+                      title={o.name}
+                      aria-label={o.name}
+                      onClick={() => {
+                        close();
+                        if (state.restoreFocus instanceof HTMLElement) state.restoreFocus.focus();
+                        item.onPick(o.id);
+                      }}
+                      style={
+                        o.swatch
+                          ? {
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              border: `1px solid ${BENCH.hairlineDark}`,
+                              background: o.swatch,
+                              cursor: 'pointer',
+                              padding: 0,
+                              flexShrink: 0,
+                              boxShadow: o.selected ? `0 0 0 2px ${BENCH.blueBright}` : 'none',
+                            }
+                          : {
+                              fontFamily: BENCH.fontMono,
+                              fontSize: '9px',
+                              letterSpacing: '0.06em',
+                              textTransform: 'lowercase',
+                              color: o.selected ? BENCH.ink : BENCH.inkSoft,
+                              background: o.selected ? 'rgba(91, 168, 196, 0.16)' : 'transparent',
+                              border: `1px solid ${o.selected ? BENCH.blueBright : BENCH.hairlineDark}`,
+                              borderRadius: '2px',
+                              padding: '3px 8px',
+                              cursor: 'pointer',
+                              lineHeight: 1.2,
+                            }
+                      }
+                    >
+                      {o.swatch ? null : o.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             );
           }

@@ -134,6 +134,29 @@ describe('menu', () => {
     expect(pinned.disabled).toBe(true);
   });
 
+  test('choices row: pick closes and fires; selection is announced', async () => {
+    const { api } = mountOverlays();
+    const onPick = vi.fn();
+    api().menu({ x: 20, y: 20 }, [
+      {
+        kind: 'choices',
+        label: 'paper · Galley',
+        options: [
+          { id: '__default', name: 'Theme default', swatch: '#eee', selected: true },
+          { id: 'manila', name: 'Manila', swatch: '#e8dcc0' },
+          { id: 'bare', name: 'Bare' }, // no swatch → text pill
+        ],
+        onPick,
+      },
+    ]);
+    const def = await screen.findByRole('menuitemradio', { name: 'Theme default' });
+    expect(def.getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('menuitemradio', { name: 'Bare' }).textContent).toBe('Bare');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Manila' }));
+    expect(onPick).toHaveBeenCalledWith('manila');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   test('an item may open a follow-up menu (move-to flow)', async () => {
     const { api } = mountOverlays();
     api().menu({ x: 10, y: 10 }, [

@@ -484,4 +484,14 @@ export const stationery: Theme = {
       },
     },
   ],
+
+  // Curated papers (M8-D4): desk-pad tones under the paper slips. Same
+  // curation rule as palettes — slip colors stay untouched, only the
+  // pad beneath them retints.
+  papers: [
+    { id: 'linen', name: 'Linen', css: 'oklch(93.5% 0.02 90)' },
+    { id: 'sage', name: 'Sage', css: 'oklch(92.5% 0.025 150)' },
+    { id: 'denim', name: 'Denim', css: 'oklch(92% 0.025 250)' },
+    { id: 'rose', name: 'Rose', css: 'oklch(93% 0.025 15)' },
+  ],
 };
