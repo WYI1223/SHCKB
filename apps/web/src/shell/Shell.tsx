@@ -1,11 +1,13 @@
 /**
- * Workspace shell (owner decision 2026-06-12): persistent sidebar
- * directory + main pane, Notion-like. UI form factor only — route-class
- * behavior and the standalone public share page are unchanged.
+ * Workspace shell — the paste-up room (ui-fork/free). Three-zone bench:
+ * the rack (directory) on the left, the light table (main pane) center;
+ * the editor adds its own spec sheet rail. Chrome holds ONE fixed
+ * bone/graphite palette regardless of the content theme — the themed
+ * canvas is a sheet on the bench, never the room itself.
  *
  * Auth-aware: authors see the full directory and open the editor in the
- * pane; anonymous visitors see the public directory and read published
- * pages in the pane.
+ * pane; anonymous visitors see the public directory (zero
+ * instrumentation — no blue where a reader stands).
  */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
@@ -16,13 +18,8 @@ import {
   type TreeFolder,
   type TreePage,
 } from '../api/client';
-import {
-  THEMES,
-  ThemeProvider,
-  applyCustomization,
-  graphPaper,
-  type ThemeCustomization,
-} from '@skb/theme';
+import { ThemeProvider, type ThemeCustomization } from '@skb/theme';
+import { BENCH, BenchStyle, benchTheme } from '../chrome/bench';
 import { Sidebar } from './Sidebar';
 
 type ShellState = {
@@ -82,40 +79,50 @@ export function Shell() {
     refresh();
   }, [refresh]);
 
-  // Chrome follows the INSTANCE theme's tokens (owner decision
-  // 2026-06-12, revising M4-D6); content surfaces re-provide the
-  // page's effective theme inside. Operator customization composes
-  // here too — chrome and content read the same effective tokens.
-  const instTheme = applyCustomization(THEMES[instanceTheme] ?? graphPaper, customizations[instanceTheme]);
-
   return (
     <ShellContext.Provider value={{ me, tree, publicTree, instanceTheme, customizations, refresh }}>
-      <ThemeProvider theme={instTheme}>
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: instTheme.fontFamily }}>
-          {!collapsed && <Sidebar />}
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
-            title={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
-            style={{
-              position: 'fixed',
-              left: collapsed ? '8px' : '266px',
-              top: '10px',
-              zIndex: 60,
-              width: '24px',
-              height: '24px',
-              border: 'none',
-              borderRadius: '6px',
-              background: 'transparent',
-              color: instTheme.mutedColor,
-              cursor: 'pointer',
-              fontSize: '14px',
-              lineHeight: 1,
-            }}
-          >
-            {collapsed ? '☰' : '⟨'}
-          </button>
-          <main style={{ flex: 1, minWidth: 0, overflow: 'auto', background: instTheme.canvasBg }}>
+      {/* the bench is the ambient theme: ui-kit primitives and any
+          un-provided surface render in the chrome voice; content
+          surfaces (editor canvas, read pane) re-provide the page's
+          effective theme inside. */}
+      <ThemeProvider theme={benchTheme}>
+        <div
+          className="pu-chrome"
+          style={{
+            display: 'flex',
+            height: '100vh',
+            overflow: 'hidden',
+            fontFamily: BENCH.fontUi,
+            background: BENCH.paper,
+            color: BENCH.ink,
+          }}
+        >
+          <BenchStyle />
+          {collapsed ? (
+            <div
+              style={{
+                width: '30px',
+                flexShrink: 0,
+                borderRight: `1px solid ${BENCH.hairlineDark}`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                paddingTop: '10px',
+              }}
+            >
+              <button
+                onClick={() => setCollapsed(false)}
+                aria-label="Open sidebar"
+                title="Open sidebar"
+                style={railToggleStyle}
+              >
+                ⟩
+              </button>
+            </div>
+          ) : (
+            <Sidebar onCollapse={() => setCollapsed(true)} />
+          )}
+          <main style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paper }} className="pu-scroll">
             <Outlet />
           </main>
         </div>
@@ -123,3 +130,15 @@ export function Shell() {
     </ShellContext.Provider>
   );
 }
+
+const railToggleStyle: React.CSSProperties = {
+  width: '20px',
+  height: '20px',
+  border: 'none',
+  background: 'transparent',
+  color: BENCH.inkFaint,
+  cursor: 'pointer',
+  fontSize: '12px',
+  lineHeight: 1,
+  padding: 0,
+};

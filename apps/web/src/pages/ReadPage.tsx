@@ -16,10 +16,9 @@ import {
   type ThemeCustomization,
 } from '@skb/theme';
 import { api, ApiError, type PublishedDoc } from '../api/client';
-import { useTheme } from '@skb/theme';
+import { BENCH } from '../chrome/bench';
 
 export function ReadPage() {
-  const theme = useTheme();
   const { slug } = useParams<{ slug: string }>();
   const [resp, setResp] = useState<{
     doc: PublishedDoc;
@@ -38,16 +37,21 @@ export function ReadPage() {
       });
   }, [slug]);
 
-  if (notFound) {
-    return (
-      <p style={{ textAlign: 'center', marginTop: '80px', color: theme.mutedColor }}>
-        This page does not exist.
-      </p>
-    );
-  }
-  if (!resp) {
-    return <p style={{ textAlign: 'center', marginTop: '80px', color: theme.mutedColor }}>Loading…</p>;
-  }
+  const message = (text: string) => (
+    <p
+      style={{
+        textAlign: 'center',
+        marginTop: '80px',
+        color: BENCH.inkSoft,
+        fontFamily: BENCH.fontUi,
+        fontSize: '13px',
+      }}
+    >
+      {text}
+    </p>
+  );
+  if (notFound) return message('This page does not exist.');
+  if (!resp) return message('Loading…');
 
   return (
     <ThemeProvider theme={applyCustomization(THEMES[resp.theme] ?? graphPaper, resp.customization)}>

@@ -1,17 +1,26 @@
 /**
- * Sidebar forest (owner decision 2026-06-12): folders + pages as a
- * tree. Author side gets full CRUD affordances; anonymous side renders
- * the pruned public projection. Tree assembly happens client-side from
- * the flat lists.
+ * The rack — folder tree + page list in the bench voice (Paste-Up).
+ * Author side gets full CRUD affordances (hover-revealed, hairline
+ * popovers); the anonymous side renders the pruned public projection
+ * with zero instrumentation. Tree assembly happens client-side from
+ * the flat lists. The admin back office (instance theme, studio,
+ * export/import, blob GC) docks at the rack's foot.
  */
 import { useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { THEMES, useTheme, type Theme } from '@skb/theme';
+import { THEMES } from '@skb/theme';
 import { ApiError, api, importBundle, type TreeFolder } from '../api/client';
+import {
+  BENCH,
+  SectionLabel,
+  benchButtonStyle,
+  benchSelectStyle,
+  labelStyle,
+} from '../chrome/bench';
 import { useShell } from './Shell';
 import { ThemeStudio } from './ThemeStudio';
 
-const SIDEBAR_W = 260;
+const SIDEBAR_W = 248;
 const INDENT = 14;
 
 type PageItem = {
@@ -24,8 +33,7 @@ type PageItem = {
   id?: string; // author side only
 };
 
-export function Sidebar() {
-  const theme = useTheme();
+export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   const { me, tree, publicTree, instanceTheme, customizations, refresh } = useShell();
   const navigate = useNavigate();
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
@@ -126,25 +134,49 @@ export function Sidebar() {
     }
   }
 
+  async function runGc() {
+    if (!window.confirm('Sweep unreferenced blobs from the store?')) return;
+    const { deleted, freedBytes } = await api.gcBlobs();
+    window.alert(`Blob GC: removed ${deleted} blob${deleted === 1 ? '' : 's'}, freed ${formatBytes(freedBytes)}.`);
+  }
+
   function renderFolder(f: TreeFolder, depth: number): React.JSX.Element {
     const isCollapsed = collapsedFolders.has(f.id);
     return (
       <div key={f.id}>
         <div
-          className="skb-row"
-          style={{ ...rowStyle(theme, false), paddingLeft: `${8 + depth * INDENT}px`, cursor: 'pointer' }}
+          className="pu-row"
+          style={{ ...rowStyle(false), paddingLeft: `${10 + depth * INDENT}px`, cursor: 'pointer' }}
           onClick={() => toggleFolder(f.id)}
         >
-          <span style={{ fontSize: '9px', width: '12px', color: theme.mutedColor }}>
+          <span
+            aria-hidden
+            style={{
+              fontFamily: BENCH.fontMono,
+              fontSize: '8px',
+              width: '12px',
+              flexShrink: 0,
+              color: BENCH.inkFaint,
+            }}
+          >
             {isCollapsed ? '▸' : '▾'}
           </span>
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
+          <span
+            style={{
+              flex: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontWeight: 600,
+              letterSpacing: '0.01em',
+            }}
+          >
             {f.name}
           </span>
           {me && (
-            <span className="skb-actions" style={{ display: 'flex', gap: '2px' }}>
+            <span className="pu-actions" style={{ display: 'flex', gap: '1px' }}>
               <RowAction label={`New page in ${f.name}`} onClick={() => void createPage(f.id)}>＋</RowAction>
-              <RowAction label={`New folder in ${f.name}`} onClick={() => void createFolder(f.id)}>📁</RowAction>
+              <RowAction label={`New folder in ${f.name}`} onClick={() => void createFolder(f.id)}>⊞</RowAction>
               <RowAction label={`Rename ${f.name}`} onClick={() => void renameFolder(f)}>✎</RowAction>
               <RowAction label={`Delete ${f.name}`} onClick={() => void deleteFolder(f)} danger>×</RowAction>
             </span>
@@ -165,20 +197,24 @@ export function Sidebar() {
       <div key={p.key} style={{ position: 'relative' }}>
         <NavLink
           to={p.to}
-          className="skb-row"
-          style={({ isActive }) => ({ ...rowStyle(theme, isActive), paddingLeft: `${8 + depth * INDENT + 12}px` })}
+          className="pu-row"
+          style={({ isActive }) => ({ ...rowStyle(isActive), paddingLeft: `${10 + depth * INDENT + 12}px` })}
         >
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {p.title}
           </span>
           {p.badge === 'public' && (
-            <span title="public" style={{ fontSize: '10px', color: 'oklch(60% 0.12 145)' }}>●</span>
+            <span title="published" aria-label="published" style={badgeStyle(BENCH.ink)}>
+              pub
+            </span>
           )}
           {p.badge === 'private' && (
-            <span title="private" style={{ fontSize: '10px', color: theme.mutedColor }}>○</span>
+            <span title="private" aria-label="private" style={badgeStyle(BENCH.inkFaint, true)}>
+              —
+            </span>
           )}
           {me && (
-            <span className="skb-actions" style={{ display: 'flex', gap: '2px' }}>
+            <span className="pu-actions" style={{ display: 'flex', gap: '1px' }}>
               <RowAction
                 label={`Move ${p.title}`}
                 onClick={(e) => {
@@ -215,135 +251,167 @@ export function Sidebar() {
 
   return (
     <aside
+      className="pu-scroll"
       style={{
         width: `${SIDEBAR_W}px`,
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        borderRight: theme.blockBorder,
-        background: theme.canvasBg,
-        padding: '10px 6px',
+        borderRight: `1px solid ${BENCH.hairlineDark}`,
+        background: BENCH.paper,
         overflow: 'auto',
       }}
     >
-      <style>{`
-        .skb-row .skb-actions { visibility: hidden; }
-        .skb-row:hover .skb-actions { visibility: visible; }
-      `}</style>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 6px 10px' }}>
-        <Link to="/" style={{ fontWeight: 700, fontSize: '15px', color: theme.textColor, textDecoration: 'none' }}>
+      {/* shop sign */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '12px 10px 10px 12px',
+          borderBottom: `1px solid ${BENCH.hairline}`,
+        }}
+      >
+        <Link
+          to="/"
+          style={{
+            fontFamily: BENCH.fontMono,
+            fontWeight: 700,
+            fontSize: '13px',
+            letterSpacing: '0.22em',
+            color: BENCH.ink,
+            textDecoration: 'none',
+            flex: 1,
+          }}
+        >
           SHCKB
         </Link>
         {me ? (
           <button
             onClick={() => void api.signOut().then(() => (window.location.href = '/'))}
             title={`Signed in as ${me.email}`}
-            style={sideButton(theme)}
+            style={quietButton}
           >
-            Sign out
+            sign out
           </button>
         ) : me === null ? (
-          <Link to="/login" style={{ ...sideButton(theme), textDecoration: 'none', color: theme.accent }}>
-            Sign in
+          <Link to="/login" style={{ ...quietButton, textDecoration: 'none', color: BENCH.inkSoft }}>
+            sign in
           </Link>
         ) : null}
+        <button onClick={onCollapse} aria-label="Collapse sidebar" title="Collapse sidebar" style={quietButton}>
+          ⟨
+        </button>
       </div>
 
       {me && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button onClick={() => void createPage(null)} style={{ ...newButton(theme), flex: 1 }}>
-              + Page
-            </button>
-            <button onClick={() => void createFolder(null)} style={{ ...newButton(theme), flex: 1 }}>
-              + Folder
-            </button>
-          </div>
-          {me.role === 'admin' && (
-            <select
-              value={instanceTheme}
-              onChange={(e) => {
-                if (!window.confirm('Switch instance theme? All published pages re-render.')) {
-                  e.target.value = instanceTheme;
-                  return;
-                }
-                void api.setInstanceTheme(e.target.value).then(() => refresh());
-              }}
-              aria-label="Instance theme"
-              style={{
-                fontSize: '12px',
-                color: theme.mutedColor,
-                background: 'transparent',
-                border: `1px dashed ${theme.mutedColor}`,
-                borderRadius: '6px',
-                padding: '4px 6px',
-              }}
-            >
-              {Object.values(THEMES).map((t) => (
-                <option key={t.id} value={t.id}>
-                  Theme: {t.name}
-                </option>
-              ))}
-            </select>
-          )}
-          {me.role === 'admin' && (
-            <ThemeStudio themeId={instanceTheme} customizations={customizations} refresh={refresh} />
-          )}
-          {me.role === 'admin' && (
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <a
-                href="/api/admin/export"
-                download="shckb-export.zip"
-                title="Download a full logical export (git-friendly zip)"
-                style={{
-                  ...sideButton(theme),
-                  flex: 1,
-                  textAlign: 'center',
-                  textDecoration: 'none',
-                  border: `1px dashed ${theme.mutedColor}`,
-                  borderRadius: '6px',
-                }}
-              >
-                ⤓ Export
-              </a>
-              <button
-                onClick={() => importInput.current?.click()}
-                title="Restore a full export into this instance (empty instance only)"
-                style={{ ...sideButton(theme), flex: 1, border: `1px dashed ${theme.mutedColor}`, borderRadius: '6px' }}
-              >
-                ⤒ Import
-              </button>
-              <input
-                ref={importInput}
-                type="file"
-                accept=".zip,application/zip"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void importZip(file);
-                }}
-              />
-            </div>
-          )}
+        <div style={{ display: 'flex', gap: '6px', padding: '10px 12px' }}>
+          <button onClick={() => void createPage(null)} className="pu-hoverable" style={{ ...benchButtonStyle(), flex: 1 }}>
+            + page
+          </button>
+          <button onClick={() => void createFolder(null)} className="pu-hoverable" style={{ ...benchButtonStyle(), flex: 1 }}>
+            + folder
+          </button>
+        </div>
+      )}
+      {!me && (
+        <div style={{ padding: '12px 12px 4px' }}>
+          <span style={labelStyle()}>Published pages</span>
         </div>
       )}
 
-      <nav aria-label="Notepages">
+      <nav aria-label="Notepages" style={{ padding: '4px 6px 12px', flex: 1 }}>
         {childFolders(null).map((f) => renderFolder(f, 0))}
         {childPages(null).map((p) => renderPage(p, 0))}
         {me && tree && tree.folders.length === 0 && tree.notepages.length === 0 && (
-          <Empty text="No notepages yet." />
+          <Empty text="The rack is empty — start a page." />
         )}
         {me === null && publicTree && publicTree.notepages.length === 0 && (
           <Empty text="Nothing published yet." />
         )}
       </nav>
-      {/* Properties dock (MVP-6 M6-D2): the editor portals the
-          selection-driven inspector here — under the directory, the
-          3D-engine sidebar pattern. Empty outside the editor. */}
-      <div data-skb-properties-slot style={{ marginTop: 'auto' }} />
+
+      {me?.role === 'admin' && (
+        <div
+          style={{
+            borderTop: `1px solid ${BENCH.hairlineDark}`,
+            padding: '10px 12px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            background: BENCH.paperSunken,
+          }}
+        >
+          <SectionLabel style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>
+            Back office
+          </SectionLabel>
+          <select
+            value={instanceTheme}
+            onChange={(e) => {
+              if (!window.confirm('Switch instance theme? All published pages re-render.')) {
+                e.target.value = instanceTheme;
+                return;
+              }
+              void api.setInstanceTheme(e.target.value).then(() => refresh());
+            }}
+            aria-label="Instance theme"
+            style={benchSelectStyle()}
+          >
+            {Object.values(THEMES).map((t) => (
+              <option key={t.id} value={t.id}>
+                theme · {t.name}
+              </option>
+            ))}
+          </select>
+          <ThemeStudio themeId={instanceTheme} customizations={customizations} refresh={refresh} />
+          <div style={{ display: 'flex', gap: '5px' }}>
+            <a
+              href="/api/admin/export"
+              download="shckb-export.zip"
+              title="Download a full logical export (git-friendly zip)"
+              className="pu-hoverable"
+              style={{ ...benchButtonStyle(), flex: 1, textAlign: 'center', textDecoration: 'none' }}
+            >
+              export
+            </a>
+            <button
+              onClick={() => importInput.current?.click()}
+              title="Restore a full export into this instance (empty instance only)"
+              className="pu-hoverable"
+              style={{ ...benchButtonStyle(), flex: 1 }}
+            >
+              import
+            </button>
+            <button
+              onClick={() => void runGc()}
+              title="Delete blobs no page references any more"
+              className="pu-hoverable"
+              style={{ ...benchButtonStyle(), flex: 1 }}
+            >
+              blob gc
+            </button>
+          </div>
+          <input
+            ref={importInput}
+            type="file"
+            accept=".zip,application/zip"
+            aria-label="Import bundle file"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void importZip(file);
+            }}
+          />
+        </div>
+      )}
     </aside>
   );
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function MoveMenu({
@@ -357,7 +425,6 @@ function MoveMenu({
   onPick: (folderId: string | null) => void;
   onClose: () => void;
 }) {
-  const theme = useTheme();
   // flatten with depth for indented listing
   const flat: Array<{ f: TreeFolder; depth: number }> = [];
   const walk = (parentId: string | null, depth: number) => {
@@ -373,15 +440,17 @@ function MoveMenu({
       key={value ?? '__top'}
       disabled={disabled}
       onClick={() => onPick(value)}
+      className={disabled ? undefined : 'pu-row'}
       style={{
         display: 'block',
         width: '100%',
         textAlign: 'left',
-        padding: `4px 8px 4px ${8 + depth * 12}px`,
+        padding: `4px 10px 4px ${10 + depth * 12}px`,
         border: 'none',
         background: 'transparent',
         fontSize: '12px',
-        color: disabled ? theme.mutedColor : theme.textColor,
+        fontFamily: BENCH.fontUi,
+        color: disabled ? BENCH.inkFaint : BENCH.ink,
         cursor: disabled ? 'default' : 'pointer',
       }}
     >
@@ -397,17 +466,16 @@ function MoveMenu({
         right: '4px',
         top: '24px',
         zIndex: 70,
-        background: 'white',
-        border: theme.blockBorder,
-        borderRadius: '8px',
-        boxShadow: '0 4px 16px oklch(0% 0 0 / 15%)',
+        background: BENCH.paperRaised,
+        border: `1px solid ${BENCH.hairlineDark}`,
+        borderRadius: '2px',
         padding: '4px 0',
-        minWidth: '160px',
+        minWidth: '170px',
         maxHeight: '240px',
         overflow: 'auto',
       }}
     >
-      <div style={{ padding: '2px 8px', fontSize: '10px', color: theme.mutedColor, textTransform: 'uppercase' }}>
+      <div style={{ ...labelStyle(), padding: '3px 10px 5px', borderBottom: `1px solid ${BENCH.hairline}` }}>
         Move to
       </div>
       {item('(Top level)', null, 0, current === null)}
@@ -427,7 +495,6 @@ function RowAction({
   danger?: boolean;
   children: React.ReactNode;
 }) {
-  const theme = useTheme();
   return (
     <button
       aria-label={label}
@@ -442,7 +509,7 @@ function RowAction({
         cursor: 'pointer',
         fontSize: '11px',
         padding: '0 3px',
-        color: danger ? theme.danger : theme.mutedColor,
+        color: danger ? BENCH.red : BENCH.inkSoft,
         lineHeight: 1.4,
       }}
     >
@@ -451,46 +518,47 @@ function RowAction({
   );
 }
 
-function rowStyle(theme: Theme, active: boolean): React.CSSProperties {
+function rowStyle(active: boolean): React.CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',
     gap: '4px',
-    padding: '5px 6px',
-    borderRadius: '6px',
+    padding: '4px 6px',
+    borderRadius: '2px',
     fontSize: '13px',
-    color: theme.textColor,
+    color: BENCH.ink,
     textDecoration: 'none',
-    background: active ? theme.surfaceInsetBg : 'transparent',
+    background: active ? 'rgba(35, 33, 28, 0.08)' : 'transparent',
     fontWeight: active ? 600 : 400,
   };
 }
 
-function sideButton(theme: Theme): React.CSSProperties {
+function badgeStyle(color: string, hollow = false): React.CSSProperties {
   return {
-    background: 'transparent',
-    color: theme.mutedColor,
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    padding: '4px 8px',
+    fontFamily: BENCH.fontMono,
+    fontSize: '8px',
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    color,
+    border: `1px solid ${hollow ? 'transparent' : color}`,
+    borderRadius: '2px',
+    padding: '0 3px',
+    lineHeight: '12px',
+    flexShrink: 0,
   };
 }
 
-function newButton(theme: Theme): React.CSSProperties {
-  return {
-    background: 'transparent',
-    color: theme.mutedColor,
-    border: `1px dashed ${theme.mutedColor}`,
-    borderRadius: '6px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    padding: '6px 8px',
-  };
-}
+const quietButton: React.CSSProperties = {
+  background: 'transparent',
+  color: BENCH.inkFaint,
+  border: 'none',
+  fontFamily: BENCH.fontMono,
+  fontSize: '10px',
+  letterSpacing: '0.06em',
+  cursor: 'pointer',
+  padding: '2px 4px',
+};
 
 function Empty({ text }: { text: string }) {
-  const theme = useTheme();
-  return <p style={{ color: theme.mutedColor, fontSize: '12px', padding: '4px 10px' }}>{text}</p>;
+  return <p style={{ color: BENCH.inkFaint, fontSize: '12px', padding: '6px 10px', fontStyle: 'italic' }}>{text}</p>;
 }

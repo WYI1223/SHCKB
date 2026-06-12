@@ -1,13 +1,15 @@
 /**
- * Theme-agnostic editing chrome lifted from the prototype: delete
- * button, resize handles (4 edges + 2 corners), drop ghost, resize
- * preview.
+ * Editing chrome on the sheet — every mark here is author-only
+ * instrumentation, so it follows the two-channel rule: non-photo blue
+ * for placement/resize marks, registration red only for "this will
+ * not work" (invalid drop) and the destructive delete. Marks reveal on
+ * hover (.pu-mark) — the sheet stays quiet until the hand approaches.
  */
 import type { Block } from '@skb/grid-engine';
-import { useTheme } from '@skb/theme';
+import { BENCH } from '../chrome/bench';
 import type { Interaction, ResizeAxis } from './useGridInteraction';
 
-const HANDLE_BG = 'oklch(60% 0.12 240 / 70%)';
+const HANDLE_BG = 'rgba(91, 168, 196, 0.85)'; // non-photo blue, near-solid
 
 export function DeleteButton({ onClick }: { onClick: () => void }) {
   return (
@@ -16,18 +18,19 @@ export function DeleteButton({ onClick }: { onClick: () => void }) {
       onPointerDown={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onDragStart={(e) => e.preventDefault()}
+      className="pu-mark"
       style={{
         position: 'absolute',
-        top: '4px',
-        right: '4px',
-        width: '18px',
-        height: '18px',
+        top: '-15px',
+        right: '2px',
+        width: '14px',
+        height: '14px',
         border: 'none',
-        background: 'oklch(55% 0.18 25 / 80%)',
-        color: 'white',
-        borderRadius: '50%',
+        background: 'transparent',
+        color: BENCH.red,
         cursor: 'pointer',
         fontSize: '12px',
+        fontFamily: BENCH.fontMono,
         lineHeight: 1,
         padding: 0,
         display: 'flex',
@@ -36,6 +39,7 @@ export function DeleteButton({ onClick }: { onClick: () => void }) {
         zIndex: 5,
       }}
       aria-label="Delete block"
+      title="Delete block"
     >
       ×
     </button>
@@ -67,22 +71,23 @@ function ResizeHandle({
   };
   let style: React.CSSProperties;
   if (axis === 'right') {
-    style = { ...common, right: 0, top: '50%', transform: 'translateY(-50%)', width: '6px', height: '24px', borderRadius: '3px 0 0 3px' };
+    style = { ...common, right: '-2px', top: '50%', transform: 'translateY(-50%)', width: '4px', height: '22px' };
   } else if (axis === 'left') {
-    style = { ...common, left: 0, top: '50%', transform: 'translateY(-50%)', width: '6px', height: '24px', borderRadius: '0 3px 3px 0' };
+    style = { ...common, left: '-2px', top: '50%', transform: 'translateY(-50%)', width: '4px', height: '22px' };
   } else if (axis === 'bottom') {
-    style = { ...common, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '24px', height: '6px', borderRadius: '3px 3px 0 0' };
+    style = { ...common, bottom: '-2px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '4px' };
   } else if (axis === 'top') {
-    style = { ...common, top: 0, left: '50%', transform: 'translateX(-50%)', width: '24px', height: '6px', borderRadius: '0 0 3px 3px' };
+    style = { ...common, top: '-2px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '4px' };
   } else if (axis === 'corner') {
-    style = { ...common, bottom: 0, right: 0, width: '10px', height: '10px', borderRadius: '3px 0 0 0' };
+    style = { ...common, bottom: '-2px', right: '-2px', width: '9px', height: '9px' };
   } else {
-    style = { ...common, top: 0, left: 0, width: '10px', height: '10px', borderRadius: '0 0 3px 0' };
+    style = { ...common, top: '-2px', left: '-2px', width: '9px', height: '9px' };
   }
   return (
     <div
       onPointerDown={(e) => interaction.beginResize(e, block, axis, slot)}
       onDragStart={(e) => e.preventDefault()}
+      className="pu-mark"
       style={style}
       aria-label={`Resize ${axis}`}
     />
@@ -128,9 +133,8 @@ export function DropGhost({
         top: `${intent.row * slotSize + padding}px`,
         width: `${Math.max(intent.colSpan, 1) * slotSize - 2 * padding}px`,
         height: `${Math.max(intent.rowSpan, 1) * slotSize - 2 * padding}px`,
-        border: valid ? '2px dashed oklch(60% 0.15 145)' : '2px dashed oklch(60% 0.20 25)',
-        background: valid ? 'oklch(80% 0.10 145 / 22%)' : 'oklch(80% 0.15 25 / 22%)',
-        borderRadius: '6px',
+        border: valid ? `1px dashed ${BENCH.blue}` : `1px dashed ${BENCH.red}`,
+        background: valid ? BENCH.blueWash : BENCH.redWash,
         pointerEvents: 'none',
         zIndex: 3,
       }}
@@ -148,7 +152,6 @@ export function ResizePreview({
   slotSize: number;
   padding: number;
 }) {
-  const theme = useTheme();
   const { resize } = interaction;
   if (!resize.active || resize.blockId === null) return null;
   return (
@@ -159,10 +162,9 @@ export function ResizePreview({
         top: `${resize.previewRow * slotSize + padding}px`,
         width: `${resize.previewW * slotSize - 2 * padding}px`,
         height: `${resize.previewH * slotSize - 2 * padding}px`,
-        border: `2px dashed ${theme.accent}`,
-        borderRadius: '6px',
+        border: `1px dashed ${BENCH.blue}`,
+        background: BENCH.blueWash,
         pointerEvents: 'none',
-        background: 'oklch(70% 0.10 240 / 15%)',
         zIndex: 3,
       }}
       data-skb-resize-preview
