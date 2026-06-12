@@ -157,11 +157,97 @@ function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; 
   );
 }
 
-function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: BlockFrameProps) {
+/** 'card' shell: clean white card stock — no torn edge, no curl; the
+ * washi tape stays (it is the pinning, not the paper). */
+function CardFrame({ kind, blockId, colSpan, tape, children }: { kind: string; blockId: string; colSpan: number; tape: string; children: ReactNode }) {
+  const tilt = tiltOf(blockId, colSpan).toFixed(3);
+  return (
+    <div
+      className="skb-block skb-paper-slip"
+      data-kind={kind}
+      style={{ position: 'relative', width: '100%', height: '100%', transform: `rotate(${tilt}deg)` }}
+    >
+      <div
+        aria-hidden
+        className="skb-washi"
+        style={{
+          position: 'absolute',
+          top: '-7px',
+          left: '50%',
+          width: '64px',
+          height: '15px',
+          transform: `translateX(-50%) rotate(${(-Number(tilt) * 1.7).toFixed(3)}deg)`,
+          background: tape,
+          opacity: 0.78,
+          boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
+          zIndex: 3,
+        }}
+      />
+      <div
+        className="skb-paper"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          padding: '10px 8px 8px',
+          overflow: 'auto',
+          fontSize: '14px',
+          lineHeight: 1.55,
+          borderRadius: '3px',
+          boxShadow:
+            'inset 0 0 0 1px oklch(93% 0.008 95), 0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** 'bare' shell: no paper at all — the content itself lies on the
+ * desk with a slight tilt and shadow (for image: just the photo). */
+function BareFrame({ kind, blockId, colSpan, children }: { kind: string; blockId: string; colSpan: number; children: ReactNode }) {
+  const tilt = tiltOf(blockId, colSpan).toFixed(3);
+  return (
+    <div
+      className="skb-block skb-bare"
+      data-kind={kind}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        transform: `rotate(${tilt}deg)`,
+        overflow: 'auto',
+        fontSize: '14px',
+        lineHeight: 1.55,
+        filter: 'drop-shadow(0 3px 7px oklch(38% 0.04 60 / 30%))',
+        scrollbarWidth: 'none',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, shell, children }: BlockFrameProps) {
   const t = useTheme();
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
   const tape = t.kindHues[kind] ?? t.kindHueFallback;
   const curl = curlSideOf(blockId);
+  // Author-picked shell (M6-D3); unknown ids fall through to default.
+  if (shell === 'card') {
+    return (
+      <CardFrame kind={kind} blockId={blockId} colSpan={colSpan} tape={tape}>
+        {children}
+      </CardFrame>
+    );
+  }
+  if (shell === 'bare') {
+    return (
+      <BareFrame kind={kind} blockId={blockId} colSpan={colSpan}>
+        {children}
+      </BareFrame>
+    );
+  }
   if (kind === 'image') {
     return (
       <PolaroidFrame blockId={blockId} colSpan={colSpan} tape={tape}>

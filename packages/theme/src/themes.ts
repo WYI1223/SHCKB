@@ -7,6 +7,22 @@
 import type React from 'react';
 import type { ComponentType, ReactNode } from 'react';
 
+/** Author-picked page background (MVP-6 M6-D4): a free color and/or a
+ * blob-store image. Surfaces interpret it — deep-slot themes decide
+ * how it composes with their own drawing (theme sovereignty). */
+export type PageBackground = { color?: string; blobHash?: string };
+
+/** A theme-curated block shell variant (MVP-6 M6-D3): the author picks
+ * WITHIN what the theme offers — never free shell styling (same
+ * discipline as palette variants). `id` is persisted in block.shell;
+ * never rename. */
+export type ShellOption = {
+  id: string;
+  name: string;
+  /** Kinds this option applies to; omitted = every kind. */
+  kinds?: string[];
+};
+
 export type BlockFrameProps = {
   kind: string;
   blockId: string;
@@ -15,9 +31,17 @@ export type BlockFrameProps = {
    * geometry). */
   colSpan: number;
   rowSpan: number;
+  /** Author-picked shell option id; null/unknown = the theme's default
+   * shell (a theme update may remove an option — pages keep rendering). */
+  shell?: string | null;
   children: ReactNode;
 };
-export type CanvasSurfaceProps = { widthPx: number; heightPx: number; children: ReactNode };
+export type CanvasSurfaceProps = {
+  widthPx: number;
+  heightPx: number;
+  background?: PageBackground | null;
+  children: ReactNode;
+};
 export type PageTitleProps = { title: string };
 
 /** Optional render slots [ADR-0025]: a theme may replace the visual
@@ -102,7 +126,21 @@ export type Theme = ThemeTokens &
     palettes?: PaletteVariant[];
     /** Tokens open for direct operator override; omitted = all locked. */
     customizableTokens?: OverridableTokenKey[];
+    /** Block shell variants the theme curates (M6-D3); omitted = the
+     * default shell is the only shell. */
+    shellOptions?: ShellOption[];
   };
+
+/** Shell options applicable to a kind under a theme. */
+export function shellOptionsFor(theme: Theme, kind: string): ShellOption[] {
+  return (theme.shellOptions ?? []).filter((o) => !o.kinds || o.kinds.includes(kind));
+}
+
+/** Public blob URL (server contract, [ADR-0022]) — surfaces resolve
+ * background images from it. */
+export function publicBlobUrl(hash: string): string {
+  return `/api/public/blobs/${hash}`;
+}
 
 /** Pure function: base tokens → palette variant tokens → whitelist-
  * filtered overrides. Slots, identity, and geometry pass through

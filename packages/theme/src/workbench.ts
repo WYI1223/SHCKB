@@ -102,4 +102,8 @@ export const workbench: Theme = {
     },
   ],
   customizableTokens: ['fontFamily', 'accent'],
+  // Interpreted by DefaultBlockFrame (generic shells for token-only
+  // themes): 'flat' drops the card chrome — content sits directly on
+  // the canvas.
+  shellOptions: [{ id: 'flat', name: 'Flat' }],
 };
