@@ -36,7 +36,6 @@ export function ThemeStudio({
   if (!theme) return null;
   const hasPalettes = (theme.palettes ?? []).length > 0;
   const fontOpen = theme.customizableTokens?.includes('fontFamily') ?? false;
-  if (!hasPalettes && !fontOpen) return null;
 
   const current = customizations[themeId];
 
@@ -68,6 +67,13 @@ export function ThemeStudio({
       <span style={{ fontSize: '10px', color: ui.mutedColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
         Theme studio · {theme.name}
       </span>
+      {!hasPalettes && !fontOpen && (
+        // Always visible (discoverability — owner couldn't find the
+        // studio under a theme that curates nothing): say WHY it's empty.
+        <span style={{ fontSize: '11px', color: ui.mutedColor }}>
+          This theme curates no palettes or open tokens yet.
+        </span>
+      )}
       {hasPalettes && (
         <UiPaletteSwatches
           variants={(theme.palettes ?? []).map((p) => ({
