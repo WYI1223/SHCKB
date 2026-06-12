@@ -464,6 +464,14 @@ export const stationery: Theme = {
   PageTitle: StationeryPageTitle,
   globalCss: STATIONERY_GLOBAL_CSS,
 
+  // Curated shells (M6-D3) — the ids StationeryBlockFrame branches on.
+  // Declaring them here is what makes the Properties inspector offer
+  // them; the frame branch alone is invisible to the host.
+  shellOptions: [
+    { id: 'card', name: 'Card' },
+    { id: 'bare', name: 'Bare' },
+  ],
+
   // Unlocked by the render-time-token refactor (MVP-6 M6-D6). Curation
   // rule for THIS theme: never retune paper-surface colors (blockBg
   // and friends) — the torn-edge backing and scroll-curl gradients in

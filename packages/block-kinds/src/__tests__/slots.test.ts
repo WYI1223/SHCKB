@@ -71,6 +71,22 @@ describe('author appearance (MVP-6 M6-D3/D4)', () => {
     expect(bare).not.toContain('class="skb-washi"');
   });
 
+  test('every declared shell option actually changes the rendered markup (declaration ↔ implementation)', () => {
+    // regression guard: stationery shipped card/bare branches without
+    // declaring shellOptions — the inspector showed nothing (owner
+    // caught it). A declared option whose render equals the default is
+    // the same class of bug from the other side.
+    const themes = [graphPaper, stationery];
+    for (const t of themes) {
+      const def = renderStaticPage(DOC, 's', t);
+      for (const o of t.shellOptions ?? []) {
+        const out = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: o.id }] }, 's', t);
+        expect(out, `${t.id}/${o.id} must differ from the default shell`).not.toBe(def);
+      }
+    }
+    expect(stationery.shellOptions?.map((o) => o.id)).toEqual(['card', 'bare']);
+  });
+
   test('page background: color replaces canvas, image layers as cover', () => {
     const html = renderStaticPage(
       { ...DOC, background: { color: 'oklch(90% 0.05 200)', blobHash: 'a'.repeat(64) } },
