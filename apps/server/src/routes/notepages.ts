@@ -384,5 +384,17 @@ export function publicHtmlRoutes(db: Db) {
     }
     return c.html(page.publishedHtml);
   });
+
+  // First-class page permalink (M9-D1): pagelink marks store only the
+  // pageId and render /p/:id — this 302 resolves to the CURRENT slug,
+  // so renames never break inter-page links. Same no-leak 404 as the
+  // slug route (private/unpublished/missing are indistinguishable).
+  r.get('/p/:id', (c) => {
+    const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
+    if (!page || page.visibility !== 'public' || page.publishedHtml === null) {
+      return c.html(NOT_FOUND_HTML, 404);
+    }
+    return c.redirect(`/notes/${encodeURIComponent(page.slug)}`, 302);
+  });
   return r;
 }

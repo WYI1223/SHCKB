@@ -13,9 +13,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
-import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
+import { blockModule, defaultSizeFor, HostContext, type HostServices } from '@skb/block-kinds';
 import { THEMES, ThemeProvider, applyCustomization, graphPaper, type PageBackground } from '@skb/theme';
 import { BENCH, labelStyle, pressButtonStyle, stampStyle } from '../chrome/bench';
+import { useOverlays } from '../chrome/overlays';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { Properties, type Selection } from '../grid/Properties';
@@ -48,6 +49,22 @@ export function EditorPage() {
 function Editor({ detail }: { detail: NotepageDetail }) {
   const pageId = detail.page.id;
   const shell = useShell();
+  const overlays = useOverlays();
+
+  // Host capability surface for block kinds (plugin seam). listPages +
+  // promptText are the M9 stress-test additions — kinds reach the page
+  // directory and host dialogs only through here, never via chrome.
+  const hostServices = useMemo<HostServices>(
+    () => ({
+      uploadBlob,
+      listPages: async () => {
+        const { notepages } = await api.getTree();
+        return notepages.filter((p) => p.id !== pageId).map((p) => ({ id: p.id, title: p.title }));
+      },
+      promptText: (opts) => overlays.prompt(opts),
+    }),
+    [pageId, overlays],
+  );
   const [title, setTitle] = useState(detail.page.title);
   const [themeId, setThemeId] = useState(detail.page.themeId);
   const [visibility, setVisibility] = useState(detail.page.visibility);
@@ -364,7 +381,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         )}
 
         {/* ---- bench row: tray · light table · spec sheet ---- */}
-        <HostContext.Provider value={{ uploadBlob }}>
+        <HostContext.Provider value={hostServices}>
           <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
             <Palette interaction={interaction} />
             <div className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }}>

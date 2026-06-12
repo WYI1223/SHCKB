@@ -7,11 +7,14 @@ import type { BlockSize } from '@skb/grid-engine';
 import { codeModule } from './code';
 import { imageModule } from './image';
 import { markdownModule } from './markdown';
+import { richtextModule } from './richtext';
 import type { BlockKindModule } from './types';
 
 export const BLOCK_KINDS: Record<string, BlockKindModule<never>> = {
   // Content type erased at the registry boundary; modules are internally typed.
   markdown: markdownModule as unknown as BlockKindModule<never>,
+  // richtext coexists with markdown (M9-D1) — future standalone plugin
+  richtext: richtextModule as unknown as BlockKindModule<never>,
   image: imageModule as unknown as BlockKindModule<never>,
   code: codeModule as unknown as BlockKindModule<never>,
 };

@@ -13,6 +13,12 @@ export default defineConfig({
         // where the server serves both web and API).
         changeOrigin: false,
       },
+      // page permalinks (M9): /p/:id 302s to /notes/:slug on the server;
+      // anchor regex so /public-ish asset paths never match.
+      '^/p/.+': {
+        target: process.env.SHCKB_API_TARGET ?? 'http://localhost:3000',
+        changeOrigin: false,
+      },
     },
   },
 });

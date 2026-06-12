@@ -44,9 +44,20 @@ export type BlockKindModule<C = unknown> = {
 };
 
 /** Host capabilities injected by the embedding app — the seed of the
- * plugin host API. EditViews must reach the host ONLY through this. */
+ * plugin host API. EditViews must reach the host ONLY through this.
+ *
+ * The optional members are findings from the M9 plugin stress test
+ * (richtext): capabilities a real plugin needed that the contract
+ * lacked. Optional so older/leaner hosts stay valid — modules must
+ * degrade (hide the affordance) when one is absent. */
 export type HostServices = {
   uploadBlob: (file: File) => Promise<{ hash: string; size: number; mimeType: string }>;
+  /** Author-side page directory — link pickers (M9 finding: plugins
+   * cannot reach the host's tree state). */
+  listPages?: () => Promise<Array<{ id: string; title: string }>>;
+  /** Host-rendered modal text prompt (M9 finding: plugins must never
+   * own window.* dialogs, and chrome overlays are host-private). */
+  promptText?: (opts: { title: string; message?: string; initial?: string }) => Promise<string | null>;
 };
 
 export const HostContext = createContext<HostServices | null>(null);
