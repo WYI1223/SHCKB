@@ -36,6 +36,8 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 
 未来可能的 extension type（owner-driven 加 sub-PRD 或独立 folder，**不**预写）：keyboard binding plugin / gesture plugin / palette form factor plugin / export adapter / import source / AI provider / etc.
 
+**Presentation extension 三档注记（owner ratified 2026-06-12）**：theme-system 的层占据模型把 presentation plugin 分三档覆盖度——**材质包**（L3，纯数据 token 覆盖）/ **主题包**（L2，完整 Theme 模块）/ **UI 包**（L1，chrome/页面骨架重代码）。同一插件可占多层；同层单选不合并；vanilla 地板不可卸。三档的 lifecycle / register / capability 仍走本 PRD 通用机制，占层语义与覆盖度契约归 [theme-system.md](../theme-system/theme-system.md) 层占据模型段。开放节奏随契约强度分层：材质包（数据，sanitize 即可）最早，UI 包（chrome 槽位契约最后冻结）最晚。
+
 **注意**：**Auth subsystem 不走 plugin extension type pattern**——它走 **4-layer abstraction**（L1 Auth subsystem + L2 AuthAdapter interface = SHCKB-owned stable；L3 AuthAdapter implementation 跟 storage/search/backup adapter 一个 pattern；L4 provider options 是 operator config）。详 [authentication.md] cross-cutting invariants 段 4-layer diagram + [auth-setup-2026-05-17.md discussion record](../../../../engineering/design/discussions/auth-setup-2026-05-17.md) Section F（terminology sharpen）+ Section G（cross-subsystem modular pattern symmetry）。Plugin-system 跟 authentication subsystem 通过 `ctx.user`（capability ctx 字段，per [ADR-0011]）协同；不通过 plugin extension type。
 
 ## Plugin vs operator-pluggable（关键 scope 边界）
@@ -176,3 +178,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 - 2026-05-17 **pass 4 — authentication pass 4 round 4 sync**：cross-folder ref + future extension type note + plugin vs operator-pluggable 表 全 sync 4-layer 新术语（AuthAdapter implementation L3 + provider options L4）；详 discussion record Section F + G
 - 2026-05-17 **pass 5 — 切换机制 sharpen** (per reviewer post-6a95eaa catch；详 discussion record Section G "Reviewer follow-up: pattern variants" 子段)：旧"切换机制"行写成 uniform "导出→重新安装→导入"，对 plugin/theme 不成立，对 auth/storage/search/backup/DB 也只对 L3 replacement 成立。新表述拆 (a) L4 option add/enable 是 config + redeploy + coexist (不触发 export-redeploy-import); (b) L3 replacement 才走 migration workflow。判定段同步加 nuance
 - 2026-06-12 **远期方向注记**：owner 口头裁定——"不破 algorithm core" 锁现阶段不动，但标记远期 engine 级扩展点候选（非 12 列画布 / 可堆叠 block，难点 = engine 语义覆写）；届时独立 engine-extension PRD pass + 新 ADR；默认形态永远 12 列。详 mvp7-scope-2026-06-12.md M7-D5
+- 2026-06-12 **presentation extension 三档注记**：theme-system 层占据模型 ratified（材质包 L3 / 主题包 L2 / UI 包 L1；同层单选；vanilla 不可卸）；本 PRD 加 cross-ref，lifecycle 仍走通用机制。详 theme-system.md 层占据模型段 + mvp7-scope-2026-06-12.md M7-D8

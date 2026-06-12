@@ -104,6 +104,28 @@ scope:      attr ∈ presentation domain（visual / chrome / form factor / state
 | **L2 Theme default** | 3 built-in theme 各自定义 | User 选了一个 built-in theme | lego-studs 用凸点 baseplate + bar resize handle；bento-canvas 用隐藏 baseplate + dot handle；**仅 presentation attribute** |
 | **L3 Plugin new theme** | Third-party / Phase 2+ ship（Day-1 reserved，contract 不 M2 lock）| User 装了第三方 theme 且 active | my-theme override **presentation attribute only**；fork lego-studs 后改 palette form / handle visual；**interaction semantics 始终归 framework / future interaction extension type，不能 override** |
 
+### 层占据模型（layer occupancy；owner ratified 2026-06-12）
+
+Cascade 的层间 fall-through 语义不变；变的是**每层由谁提供**：任何 theme/presentation plugin 可声明占据 L1 / L2 / L3 中的一层或多层，user 按层组合不同插件（如 A 插件的 L3 配色 + B 插件的 L2+L1）。
+
+```
+attr = L3(占据者) ?? L2(占据者) ?? L1(占据者) ?? vanilla(framework，不可卸)
+```
+
+- **Vanilla 地板不可抽走**：framework default 永远垫在最底层；任何占据者卸载/损坏，下层接住，页面照常渲染（与 palette 变体移除时的降级纪律同源）。插件"占据 L1"= 声明基底级 + 坐最低插件优先级，不是替换 vanilla。L0b 的 a11y 兜底与 switcher fallback path 依赖此条。
+- **同层单选，不合并**：同一层多个候选 = user 单选其一；栈深恒为 3+地板。**同层多包自由堆叠 considered-and-rejected**（2026-06-12）：QA 面组合爆炸（任意两包 globalCss 即可打特异性战争），工程灾难；固定栈深把冲突面收回常数。
+- **包内多层自治**：一个插件占多层（如 L2+L1）时，其内部层间协调归包作者；framework 只保证层间 fall-through 语义，不替包做一致性 QA。
+
+**三档覆盖度契约**（占层资格由覆盖度决定；档位越低代码越重、契约越强、开放越晚——与放权节奏注记自洽）：
+
+| 档 | 可占的层 | 性质 | 契约强度 | 现状对应 |
+|---|---|---|---|---|
+| **材质包**（sparse 覆盖） | L3 | 纯数据：token 子集 / 配色 / 字体 | 最弱（sanitize 白名单；叠错最坏是难看） | operator 主题自定义 = 系统自生成的 L3（MVP-5 [ADR-0026]） |
+| **主题包**（完整内容主题） | L2（可顺带 L3） | 数据 + 槽位代码：完整 Theme 模块 | 中（registry + 槽位契约 + 未来 a11y harness） | 5 个 built-in theme |
+| **UI 包**（chrome / 页面骨架） | L1（可顺带 L2+L3） | 重代码：整套 chrome 结构 | 最强（chrome 槽位契约，**最后冻结**，见放权方向注记） | MVP-7 三个 UI 分叉分支 = L1 候选形态样本 |
+
+数据/代码二分给 L0 enforcement 一个干净分界：数据档（材质包）走宽松校验即可安全开放；代码档（主题包/UI 包）走 contract + harness。多包 globalCss 的 CSS 交互是 Minecraft 资源包模型没有的固有风险——同层单选 + 层间 fall-through 把它限制在最多 3 份 css 的固定叠序内。
+
 ### Fork vs Compose（cascade model 下自然支持）
 
 | Path | Cascade 表达 |
@@ -294,3 +316,4 @@ PRD 是 product truth。以下 ADRs 是 downstream 技术决策，**必须 align
 
 - 2026-05-16 initial draft（reframe round）；theme 抽出独立 folder（原 notepage/notepage-themes.md + plugin-system/new-theme.md 合并）；承载 4-layer cascade model（L0 hard invariants / L1 framework default / L2 theme default / L3 plugin new theme）+ per-attribute override + fork-friendly；显式 audience split（user-view / author-view）；surface ADR debts: ADR-0016 carrier / L0 enforcement layer / override ordering / ADR-0014 ThemePlugin specialization / ADR-0003 theme-agnostic cross-ref
 - 2026-06-12 **放权方向注记**：owner 口头裁定——chrome 结构与页面骨架大概率放权（"插件作者尽量不给太多限制"）；当前 token-only 跟随是实现进度非产品立场；chrome 结构槽位契约待 MVP-7 UI 分叉研究积累形态样本后再冻结。详 mvp7-scope-2026-06-12.md M7-D5
+- 2026-06-12 **层占据模型 ratified**：owner 裁定——cascade 各层由插件占据（一层或多层）、user 按层组合；vanilla 地板不可卸；同层单选不合并（同层多包自由堆叠 considered-and-rejected：工程灾难）；三档覆盖度契约（材质包 L3 / 主题包 L2 / UI 包 L1）。源于 Minecraft 资源包模型讨论（fall-through 吸收、自由堆叠拒绝、数据/代码二分入 enforcement 框架）。详 mvp7-scope-2026-06-12.md M7-D8
