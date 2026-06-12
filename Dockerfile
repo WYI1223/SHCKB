@@ -9,6 +9,7 @@ COPY package.json bun.lock tsconfig.base.json ./
 COPY packages/grid-engine/package.json packages/grid-engine/
 COPY packages/theme/package.json packages/theme/
 COPY packages/block-kinds/package.json packages/block-kinds/
+COPY packages/ui-kit/package.json packages/ui-kit/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 RUN bun install --frozen-lockfile
@@ -22,12 +23,14 @@ COPY package.json bun.lock tsconfig.base.json ./
 COPY packages/grid-engine/package.json packages/grid-engine/
 COPY packages/theme/package.json packages/theme/
 COPY packages/block-kinds/package.json packages/block-kinds/
+COPY packages/ui-kit/package.json packages/ui-kit/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 RUN bun install --frozen-lockfile --production
 COPY packages/grid-engine ./packages/grid-engine
 COPY packages/theme ./packages/theme
 COPY packages/block-kinds ./packages/block-kinds
+COPY packages/ui-kit ./packages/ui-kit
 COPY apps/server/src ./apps/server/src
 COPY apps/server/drizzle ./apps/server/drizzle
 COPY apps/server/package.json ./apps/server/
