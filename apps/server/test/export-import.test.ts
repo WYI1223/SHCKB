@@ -46,7 +46,7 @@ describe('buildExport', () => {
     expect([...bundle.blobs.keys()]).toEqual([seeded.hash]);
 
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(3);
+    expect(manifest.formatVersion).toBe(4);
     expect(manifest.counts).toEqual({ folders: 1, pages: 2, blocks: 2, blobs: 1 });
     expect(manifest.pages).toEqual(['tree/A/page-one.page.json', 'tree/page-two.page.json']);
 
@@ -271,7 +271,7 @@ describe('format v2 (theme data)', () => {
 
     const bundle = buildExport(src.db, src.blobStore, OPTS);
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(3);
+    expect(manifest.formatVersion).toBe(4);
     expect(manifest.settings).toEqual({ theme: 'ink' });
     const p2 = JSON.parse(bundle.files.get('tree/page-two.page.json')!);
     expect(p2.themeId).toBe('graph-paper');
@@ -399,5 +399,71 @@ describe('format v3 (theme customization, MVP-5)', () => {
     expect((await json(await dst.authed('/api/settings'))).customizations).toEqual({
       'graph-paper': { overrides: { accent: 'oklch(50% 0.2 0)' } }, // canvasBg + unknown theme filtered
     });
+  });
+});
+
+describe('format v4 (author appearance, MVP-6)', () => {
+  test('appearance round-trips; downgrade to v3 lossy-explicit; v3 bundle upgrades clean', async () => {
+    const src = await freshContext();
+    const seeded = await seedInstance(src, src.blobStore);
+    await src.authed(`/api/notepages/${seeded.p1}/background`, {
+      method: 'POST',
+      body: JSON.stringify({ background: { color: '#ffd9a0', blobHash: seeded.hash } }),
+    });
+    const detail = await json(await src.authed(`/api/notepages/${seeded.p1}`));
+    await src.authed(`/api/notepages/${seeded.p1}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: detail.page.title,
+        gravityEnabled: detail.page.gravityEnabled,
+        blocks: detail.blocks.map((b: { id: string }, i: number) => ({ ...b, shell: i === 0 ? 'flat' : null })),
+      }),
+    });
+    await src.authed(`/api/notepages/${seeded.p1}/publish`, { method: 'POST' });
+
+    const v4 = buildExport(src.db, src.blobStore, OPTS);
+    const p1 = JSON.parse(v4.files.get('tree/A/page-one.page.json')!);
+    expect(p1.background).toEqual({ color: '#ffd9a0', blobHash: seeded.hash });
+    expect(p1.blocks.some((b: { shell: string | null }) => b.shell === 'flat')).toBe(true);
+    expect(p1.published.background).toEqual({ color: '#ffd9a0', blobHash: seeded.hash });
+
+    // round trip preserves appearance byte-identically
+    const dst = await freshContext();
+    expect(importBundle(dst.db, dst.blobStore, v4).ok).toBe(true);
+    const again = buildExport(dst.db, dst.blobStore, OPTS);
+    for (const [p, text] of v4.files) expect(again.files.get(p)).toBe(text);
+
+    // downgrade: appearance dropped with explicit losses (working + published)
+    const parsed = new Map([...v4.files].map(([p, t]) => [p, JSON.parse(t) as unknown]));
+    const { files: v3files, losses } = downgradeToVersion(parsed, 3);
+    expect(losses.some((l) => l.includes('page background dropped'))).toBe(true);
+    expect(losses.some((l) => l.includes('shell "flat" dropped'))).toBe(true);
+    expect(losses.some((l) => l.includes('published background dropped'))).toBe(true);
+    const v3p1 = v3files.get('tree/A/page-one.page.json') as { background?: unknown; blocks: Array<{ shell?: unknown }> };
+    expect('background' in v3p1).toBe(false);
+    expect(v3p1.blocks.every((b) => !('shell' in b))).toBe(true);
+
+    // the v3 bundle imports into this build via the real up transform
+    const dst2 = await freshContext();
+    const v3bundle = { files: new Map([...v3files].map(([p, v]) => [p, JSON.stringify(v)])), blobs: v4.blobs };
+    expect(importBundle(dst2.db, dst2.blobStore, v3bundle).ok).toBe(true);
+    const detail2 = await json(await dst2.authed(`/api/notepages/${seeded.p1}`));
+    expect(detail2.page.background).toBeNull();
+  });
+
+  test('background blob missing from the bundle is rejected', async () => {
+    const src = await freshContext();
+    await seedInstance(src, src.blobStore);
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const p1 = JSON.parse(bundle.files.get('tree/A/page-one.page.json')!);
+    p1.background = { blobHash: '0'.repeat(64) };
+    bundle.files.set('tree/A/page-one.page.json', JSON.stringify(p1));
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+      expect(result.details!.some((d) => d.includes('background.blobHash'))).toBe(true);
+    }
   });
 });

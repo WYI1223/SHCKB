@@ -42,6 +42,12 @@ function parsePage(path: string, value: unknown, errors: string[]): ExportPage |
   if (p.visibility !== 'private' && p.visibility !== 'public') return e('visibility must be private|public');
   if (typeof p.gravityEnabled !== 'boolean') return e('missing gravityEnabled');
   if (p.themeId !== null && typeof p.themeId !== 'string') return e('themeId must be a string or null');
+  if (p.background !== null && p.background !== undefined) {
+    const b = p.background as Record<string, unknown>;
+    if (typeof b !== 'object') return e('background must be an object or null');
+    if (b.color !== undefined && typeof b.color !== 'string') return e('background.color must be a string');
+    if (b.blobHash !== undefined && typeof b.blobHash !== 'string') return e('background.blobHash must be a string');
+  }
   if (typeof p.sortKey !== 'number') return e('missing sortKey');
   if (typeof p.createdAt !== 'number' || typeof p.updatedAt !== 'number') return e('missing timestamps');
   if (p.published !== null) {
@@ -68,7 +74,8 @@ function parsePage(path: string, value: unknown, errors: string[]): ExportPage |
       typeof b.row !== 'number' ||
       typeof b.colSpan !== 'number' ||
       typeof b.rowSpan !== 'number' ||
-      !('content' in b)
+      !('content' in b) ||
+      (b.shell !== undefined && b.shell !== null && typeof b.shell !== 'string')
     ) {
       return e('malformed block');
     }
@@ -160,6 +167,16 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
     );
     if (!v.ok) errors.push(`${path}: layout invariant violation — ${v.errors.join('; ')}`);
   }
+  // background blob references must arrive in the bundle (the export
+  // enumerates them via blob-refs, so a complete bundle always has them)
+  const bundledHashes = new Set(manifest.blobs.map((m) => m.hash));
+  for (const { path, page } of pages) {
+    const hash = page.background?.blobHash;
+    if (hash !== undefined && !bundledHashes.has(hash)) {
+      errors.push(`${path}: background.blobHash ${hash} not in bundle blobs`);
+    }
+  }
+
   // blob integrity: every manifest blob must arrive with matching content
   for (const m of manifest.blobs) {
     const bytes = input.blobs.get(m.hash);
@@ -233,6 +250,7 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
           visibility: page.visibility,
           gravityEnabled: page.gravityEnabled,
           themeId: page.themeId,
+          background: page.background == null ? null : JSON.stringify(page.background),
           folderId,
           sortKey: page.sortKey,
           publishedDoc: published === null ? null : JSON.stringify(published),
@@ -251,6 +269,7 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
             row: b.row,
             colSpan: b.colSpan,
             rowSpan: b.rowSpan,
+            shell: b.shell ?? null,
             content: JSON.stringify(b.content ?? null),
           })
           .run();

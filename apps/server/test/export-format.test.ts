@@ -21,8 +21,8 @@ describe('collectHashLikeStrings', () => {
 import { canonicalJson, sanitizeDirName, FORMAT_VERSION } from '../src/export/format';
 
 describe('canonical format helpers', () => {
-  test('FORMAT_VERSION is 3', () => {
-    expect(FORMAT_VERSION).toBe(3);
+  test('FORMAT_VERSION is 4', () => {
+    expect(FORMAT_VERSION).toBe(4);
   });
 
   test('canonicalJson: 2-space pretty print, trailing LF, no CR', () => {

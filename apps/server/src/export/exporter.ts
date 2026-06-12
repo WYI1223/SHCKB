@@ -97,6 +97,7 @@ export function buildExport(
       visibility: p.visibility,
       gravityEnabled: p.gravityEnabled,
       themeId: p.themeId,
+      background: p.background === null ? null : (JSON.parse(p.background) as ExportPage['background']),
       sortKey: p.sortKey,
       createdAt: p.createdAt.getTime(),
       updatedAt: p.updatedAt.getTime(),
@@ -110,6 +111,7 @@ export function buildExport(
           row: b.row,
           colSpan: b.colSpan,
           rowSpan: b.rowSpan,
+          shell: b.shell,
           content: JSON.parse(b.content) as unknown,
         })),
     };
