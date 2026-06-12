@@ -7,7 +7,7 @@
 import type { BlobStore } from '../blobstore';
 import type { Db } from '../db/client';
 import { blobs, blocks, folders, notepages, type PublishedDoc } from '../db/schema';
-import { instanceThemeId } from '../settings';
+import { instanceThemeId, themeCustomizations } from '../settings';
 import { referencedBlobHashes } from './blob-refs';
 import {
   FORMAT_VERSION,
@@ -136,7 +136,18 @@ export function buildExport(
     appVersion: opts.appVersion,
     exportedAt: opts.exportedAt,
     counts: { folders: folderRows.length, pages: pageRows.length, blocks: blockRows.length, blobs: blobOut.size },
-    settings: { theme: instanceThemeId(db) },
+    settings: (() => {
+      // themeId keys sorted: settings storage order must not leak into
+      // the canonical bytes (determinism invariant).
+      const custom = themeCustomizations(db);
+      const keys = Object.keys(custom).sort();
+      return keys.length === 0
+        ? { theme: instanceThemeId(db) }
+        : {
+            theme: instanceThemeId(db),
+            themeCustomization: Object.fromEntries(keys.map((k) => [k, custom[k]!])),
+          };
+    })(),
     pages: [...pagePaths].sort(),
     blobs: manifestBlobs,
   };

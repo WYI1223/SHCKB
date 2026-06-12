@@ -2,12 +2,16 @@ import { describe, expect, test } from 'vitest';
 import {
   DEFAULT_THEME_ID,
   THEMES,
+  applyCustomization,
   blockCardStyle,
   canvasBaseplateStyle,
   graphPaper,
   ink,
   kindHue,
+  sanitizeCustomization,
 } from '../themes';
+import { workbench } from '../workbench';
+import { blueprint } from '../blueprint';
 
 describe('theme registry', () => {
   test('default theme is graph-paper and registered', () => {
@@ -57,5 +61,58 @@ describe('theme registry', () => {
     expect(kindHue(graphPaper, 'unknown-kind')).toBe(graphPaper.kindHueFallback);
     expect(blockCardStyle(graphPaper, 'markdown').borderTop).toContain(graphPaper.kindHues.markdown);
     expect(canvasBaseplateStyle(ink).backgroundImage).toContain(ink.dotColor);
+  });
+});
+
+describe('theme customization (M5-D3)', () => {
+  test('palette variant applies its tokens, keeps identity and geometry', () => {
+    const warm = applyCustomization(workbench, { paletteId: 'warm' });
+    expect(warm.id).toBe('workbench');
+    expect(warm.accent).toBe(workbench.palettes![0]!.tokens.accent);
+    expect(warm.slot).toBe(workbench.slot);
+    expect(warm.blockRadius).toBe(workbench.blockRadius);
+  });
+
+  test('curated variants never carry geometry tokens', () => {
+    for (const t of Object.values(THEMES)) {
+      for (const p of t.palettes ?? []) {
+        for (const k of ['id', 'name', 'slot', 'pad', 'dotSize', 'blockRadius']) {
+          expect(k in p.tokens, `${t.id}/${p.id} must not retune ${k}`).toBe(false);
+        }
+      }
+    }
+  });
+
+  test('overrides apply only for whitelisted tokens', () => {
+    const out = applyCustomization(graphPaper, {
+      overrides: { accent: 'oklch(50% 0.2 0)', canvasBg: 'red' as never },
+    });
+    expect(out.accent).toBe('oklch(50% 0.2 0)');
+    expect(out.canvasBg).toBe(graphPaper.canvasBg); // not whitelisted → ignored
+  });
+
+  test('unknown paletteId and empty customization are no-ops', () => {
+    expect(applyCustomization(workbench, { paletteId: 'nope' })).toBe(workbench);
+    expect(applyCustomization(workbench, {})).toBe(workbench);
+    expect(applyCustomization(workbench, undefined)).toBe(workbench);
+  });
+
+  test('variant + override compose, override wins', () => {
+    const out = applyCustomization(workbench, {
+      paletteId: 'forest',
+      overrides: { accent: 'oklch(40% 0.1 10)' },
+    });
+    expect(out.canvasBg).toBe(workbench.palettes![1]!.tokens.canvasBg);
+    expect(out.accent).toBe('oklch(40% 0.1 10)');
+  });
+
+  test('sanitizeCustomization drops unknown ids/keys, null when empty', () => {
+    expect(sanitizeCustomization(workbench, { paletteId: 'warm' })).toEqual({ paletteId: 'warm' });
+    expect(sanitizeCustomization(workbench, { paletteId: 'nope' })).toBeNull();
+    expect(
+      sanitizeCustomization(graphPaper, { overrides: { accent: ' x ', canvasBg: 'red', slot: 99 } }),
+    ).toEqual({ overrides: { accent: 'x' } });
+    expect(sanitizeCustomization(graphPaper, 'garbage')).toBeNull();
+    expect(sanitizeCustomization(blueprint, { paletteId: 'sepia' })).toEqual({ paletteId: 'sepia' });
   });
 });

@@ -15,8 +15,8 @@ import { buildExport } from '../export/exporter';
 import { FORMAT_VERSION, canonicalJson } from '../export/format';
 import { downgradeToVersion } from '../export/migrate-format';
 import { importBundle, type ImportInput } from '../export/importer';
-import { instanceThemeId, rerenderAllPublished, setSetting } from '../settings';
-import { THEMES } from '@skb/theme';
+import { instanceThemeId, rerenderAllPublished, setSetting, themeCustomizations } from '../settings';
+import { THEMES, sanitizeCustomization } from '@skb/theme';
 
 const requireAdmin: MiddlewareHandler = async (c, next) => {
   const user = c.get('user');
@@ -30,7 +30,7 @@ export function adminRoutes(db: Db, blobStore: BlobStore, meta: { version: strin
 
   // Instance settings: any authenticated user may read; only admin
   // writes (theme switch re-renders every published page [ADR-0024]).
-  r.get('/settings', (c) => c.json({ theme: instanceThemeId(db) }));
+  r.get('/settings', (c) => c.json({ theme: instanceThemeId(db), customizations: themeCustomizations(db) }));
   r.put('/settings/theme', requireAdmin, async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { theme?: unknown };
     if (typeof body.theme !== 'string' || !(body.theme in THEMES)) {
@@ -39,6 +39,40 @@ export function adminRoutes(db: Db, blobStore: BlobStore, meta: { version: strin
     setSetting(db, 'theme', body.theme);
     const rerendered = rerenderAllPublished(db);
     return c.json({ ok: true, rerendered });
+  });
+
+  // Theme customization (MVP-5 M5-D3): operator picks within what the
+  // theme curates — whitelist filtering is the contract, not advice.
+  // Any accepted write re-renders all published pages (same invariant
+  // as a theme switch: publishedHtml must never go stale).
+  r.put('/settings/theme-customization', requireAdmin, async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { themeId?: unknown; customization?: unknown };
+    if (typeof body.themeId !== 'string' || !(body.themeId in THEMES)) {
+      return c.json({ error: `unknown theme; available: ${Object.keys(THEMES).join(', ')}` }, 400);
+    }
+    const theme = THEMES[body.themeId]!;
+    const all = themeCustomizations(db);
+    if (body.customization === null || body.customization === undefined) {
+      delete all[body.themeId];
+    } else {
+      const clean = sanitizeCustomization(theme, body.customization);
+      if (!clean) {
+        return c.json(
+          {
+            error: 'no valid customization fields',
+            details: [
+              `palettes: ${(theme.palettes ?? []).map((p) => p.id).join(', ') || '(none)'}`,
+              `customizable tokens: ${(theme.customizableTokens ?? []).join(', ') || '(none)'}`,
+            ],
+          },
+          422,
+        );
+      }
+      all[body.themeId] = clean;
+    }
+    setSetting(db, 'themeCustomization', JSON.stringify(all));
+    const rerendered = rerenderAllPublished(db);
+    return c.json({ ok: true, rerendered, customizations: all });
   });
 
   r.get('/admin/export', (c) => {

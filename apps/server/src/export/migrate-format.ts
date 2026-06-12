@@ -64,6 +64,40 @@ export const FORMAT_TRANSFORMS: FormatTransform[] = [
       return { files: next, losses };
     },
   },
+  {
+    // v3: operator theme customization in manifest.settings (MVP-5 M5-D3)
+    to: 3,
+    up(files) {
+      // v2 bundles simply have no customization — absence IS the v3
+      // encoding for "none"; nothing to add, nothing to reorder.
+      return new Map(files);
+    },
+    down(files) {
+      const next: JsonFiles = new Map();
+      const losses: string[] = [];
+      for (const [path, value] of files) {
+        if (path === 'manifest.json') {
+          const m = value as Record<string, unknown> & {
+            settings?: { theme?: string; themeCustomization?: Record<string, unknown> };
+          };
+          if (m.settings?.themeCustomization !== undefined) {
+            for (const themeId of Object.keys(m.settings.themeCustomization)) {
+              losses.push(
+                `manifest.json: theme customization for "${themeId}" dropped (v2 has no themeCustomization)`,
+              );
+            }
+            const { themeCustomization: _dropped, ...settings } = m.settings;
+            next.set(path, { ...m, settings });
+          } else {
+            next.set(path, m);
+          }
+        } else {
+          next.set(path, value);
+        }
+      }
+      return { files: next, losses };
+    },
+  },
 ];
 
 function versionOf(files: JsonFiles): number {

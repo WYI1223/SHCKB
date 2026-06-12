@@ -10,9 +10,10 @@
  *   tree/<folder dirs…>/<slug>.page.json
  *   blobs/<sha256>            (zip layer; not part of the JSON file map)
  */
+import type { ThemeCustomization } from '@skb/theme';
 import type { PublishedDoc } from '../db/schema';
 
-export const FORMAT_VERSION = 2;
+export const FORMAT_VERSION = 3;
 
 export type ExportManifest = {
   formatVersion: number;
@@ -20,8 +21,9 @@ export type ExportManifest = {
   appVersion: string;
   exportedAt: number; // the ONLY export-time field anywhere in the bundle
   counts: { folders: number; pages: number; blocks: number; blobs: number };
-  /** Instance-level settings (v2+): currently just the theme. */
-  settings: { theme: string };
+  /** Instance-level settings: theme (v2+) + operator theme
+   * customization keyed by themeId (v3+, omitted when empty). */
+  settings: { theme: string; themeCustomization?: Record<string, ThemeCustomization> };
   pages: string[]; // page file paths, lexicographically sorted
   blobs: Array<{ hash: string; mimeType: string; size: number; createdAt: number }>; // sorted by hash
 };

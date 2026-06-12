@@ -33,6 +33,7 @@
         "@skb/block-kinds": "workspace:*",
         "@skb/grid-engine": "workspace:*",
         "@skb/theme": "workspace:*",
+        "@skb/ui-kit": "workspace:*",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-router-dom": "^6.30.0",
@@ -52,6 +53,7 @@
       "dependencies": {
         "@skb/grid-engine": "workspace:*",
         "@skb/theme": "workspace:*",
+        "@skb/ui-kit": "workspace:*",
         "highlight.js": "^11.10.0",
         "mdast-util-to-string": "^4.0.0",
         "react-markdown": "^9.0.3",
@@ -86,6 +88,24 @@
       "devDependencies": {
         "@types/react": "^18.3.20",
         "react": "^18.3.1",
+        "typescript": "~5.6.0",
+        "vitest": "^4.1.5",
+      },
+      "peerDependencies": {
+        "react": "^18.0.0",
+      },
+    },
+    "packages/ui-kit": {
+      "name": "@skb/ui-kit",
+      "version": "0.0.0",
+      "dependencies": {
+        "@skb/theme": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/react": "^18.3.20",
+        "@types/react-dom": "^18.3.7",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
         "typescript": "~5.6.0",
         "vitest": "^4.1.5",
       },
@@ -328,6 +348,8 @@
     "@skb/shckb-web": ["@skb/shckb-web@workspace:apps/web"],
 
     "@skb/theme": ["@skb/theme@workspace:packages/theme"],
+
+    "@skb/ui-kit": ["@skb/ui-kit@workspace:packages/ui-kit"],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
