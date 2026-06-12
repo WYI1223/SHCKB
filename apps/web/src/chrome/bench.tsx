@@ -179,6 +179,7 @@ const BENCH_CSS = `
   .pu-row .pu-actions { visibility: hidden; }
   .pu-row:hover .pu-actions, .pu-row:focus-within .pu-actions { visibility: visible; }
   .pu-hoverable:hover { border-color: ${BENCH.blue} !important; color: ${BENCH.ink} !important; }
+  .pu-menu-item:hover, .pu-menu-item:focus-visible { background: rgba(35, 33, 28, 0.07); outline: none; }
   .pu-press:hover { background: #000; }
   .pu-block .pu-mark { opacity: 0; transition: opacity 100ms linear; }
   .pu-block:hover .pu-mark, .pu-block[data-pu-active='true'] .pu-mark { opacity: 1; }

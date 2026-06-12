@@ -63,6 +63,9 @@ export type GridOps = {
     changes: { col?: number; row?: number; colSpan?: number; rowSpan?: number },
   ) => void;
   remove: (id: string) => void;
+  /** Pointer-free insert (context menu, M8-D3) — same clamp/reject path
+   * as a palette drop at that cell. */
+  insertAt: (col: number, row: number, kind: string) => void;
 };
 
 export type Interaction = {
@@ -197,7 +200,7 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     setState(engineDelete(stateRef.current, id, opts()));
   }
 
-  const ops: GridOps = { move, transform, remove };
+  const ops: GridOps = { move, transform, remove, insertAt };
 
   function blockDragProps(block: Block) {
     return {

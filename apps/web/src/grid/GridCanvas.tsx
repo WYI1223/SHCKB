@@ -7,9 +7,10 @@
  * mounts its EditView (block-markdown.md performance boundary).
  */
 import { totalRows, type Block } from '@skb/grid-engine';
-import { blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
+import { BLOCK_KINDS, blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
 import { resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
 import { BENCH } from '../chrome/bench';
+import { useOverlays } from '../chrome/overlays';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
 
@@ -32,6 +33,7 @@ export type GridCanvasProps = {
 
 export function GridCanvas(props: GridCanvasProps) {
   const theme = useTheme();
+  const overlays = useOverlays();
   const { interaction, activeId, onActivate } = props;
   const { state, drag } = interaction;
   const rows = totalRows(state) + MIN_ROWS_PADDING;
@@ -63,6 +65,22 @@ export function GridCanvas(props: GridCanvasProps) {
         <div
           data-skb-canvas
           {...interaction.canvasDropProps(SLOT)}
+          onContextMenu={(e) => {
+            // empty-sheet right-click = insert at the cursor cell (M8-D3);
+            // block right-clicks stop before reaching here.
+            e.preventDefault();
+            const rect = e.currentTarget.getBoundingClientRect();
+            const col = Math.floor((e.clientX - rect.left) / SLOT);
+            const row = Math.floor((e.clientY - rect.top) / SLOT);
+            overlays.menu(
+              { x: e.clientX, y: e.clientY },
+              Object.values(BLOCK_KINDS).map((mod) => ({
+                label: `${mod.glyph} ${mod.label}`,
+                onSelect: () => interaction.ops.insertAt(col, row, mod.kind),
+              })),
+              { header: 'insert block' },
+            );
+          }}
           style={{
             position: 'relative',
             width: `${state.totalCols * SLOT}px`,
@@ -95,6 +113,7 @@ function BlockShell({
   pad,
 }: GridCanvasProps & { block: Block; slot: number; pad: number }) {
   const theme = useTheme();
+  const overlays = useOverlays();
   const mod = blockModule(block.kind);
   const isActive = activeId === block.id;
   const isResizing = interaction.resize.active && interaction.resize.blockId === block.id;
@@ -114,6 +133,29 @@ function BlockShell({
       onClick={(e) => {
         e.stopPropagation();
         if (!isActive) onActivate(block.id);
+      }}
+      onContextMenu={(e) => {
+        // active block keeps the native menu (copy/paste belongs to the
+        // edit surface); inactive blocks get the chrome menu.
+        e.stopPropagation();
+        if (isActive) return;
+        e.preventDefault();
+        overlays.menu(
+          { x: e.clientX, y: e.clientY },
+          [
+            { label: 'edit', onSelect: () => onActivate(block.id) },
+            { kind: 'separator' },
+            {
+              label: 'delete',
+              danger: true,
+              onSelect: () => {
+                interaction.ops.remove(block.id);
+                onBlockDeleted(block.id);
+              },
+            },
+          ],
+          { header: `${mod ? mod.label : block.kind} · ${block.colSpan}×${block.rowSpan}` },
+        );
       }}
       style={{
         position: 'absolute',
