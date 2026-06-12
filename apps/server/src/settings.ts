@@ -6,7 +6,14 @@
  * a future build — pages must keep rendering).
  */
 import { eq } from 'drizzle-orm';
-import { DEFAULT_THEME_ID, THEMES, type Theme } from '@skb/theme';
+import {
+  DEFAULT_THEME_ID,
+  THEMES,
+  applyCustomization,
+  sanitizeCustomization,
+  type Theme,
+  type ThemeCustomization,
+} from '@skb/theme';
 import type { Db } from './db/client';
 import { notepages, settings, type NotepageRow, type PublishedDoc } from './db/schema';
 import { renderStaticPage } from './render/publish-html';
@@ -24,9 +31,34 @@ export function instanceThemeId(db: Db): string {
   return v !== null && v in THEMES ? v : DEFAULT_THEME_ID;
 }
 
+/** Operator theme customization, keyed by themeId (MVP-5 M5-D3).
+ * Stored values are re-sanitized on read: a theme update may have
+ * removed a variant or closed a token — stale choices degrade silently
+ * instead of failing pages. */
+export function themeCustomizations(db: Db): Record<string, ThemeCustomization> {
+  const raw = getSetting(db, 'themeCustomization');
+  if (raw === null) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (typeof parsed !== 'object' || parsed === null) return {};
+  const out: Record<string, ThemeCustomization> = {};
+  for (const [themeId, c] of Object.entries(parsed)) {
+    const theme = THEMES[themeId];
+    if (!theme) continue;
+    const clean = sanitizeCustomization(theme, c);
+    if (clean) out[themeId] = clean;
+  }
+  return out;
+}
+
 export function effectiveTheme(db: Db, page: Pick<NotepageRow, 'themeId'>): Theme {
   const id = page.themeId !== null && page.themeId in THEMES ? page.themeId : instanceThemeId(db);
-  return THEMES[id] ?? THEMES[DEFAULT_THEME_ID]!;
+  const base = THEMES[id] ?? THEMES[DEFAULT_THEME_ID]!;
+  return applyCustomization(base, themeCustomizations(db)[base.id]);
 }
 
 /** Re-render every published page with its effective theme — the

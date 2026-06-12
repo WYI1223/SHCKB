@@ -9,6 +9,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { THEMES, useTheme, type Theme } from '@skb/theme';
 import { ApiError, api, importBundle, type TreeFolder } from '../api/client';
 import { useShell } from './Shell';
+import { ThemeStudio } from './ThemeStudio';
 
 const SIDEBAR_W = 260;
 const INDENT = 14;
@@ -25,7 +26,7 @@ type PageItem = {
 
 export function Sidebar() {
   const theme = useTheme();
-  const { me, tree, publicTree, instanceTheme, refresh } = useShell();
+  const { me, tree, publicTree, instanceTheme, customizations, refresh } = useShell();
   const navigate = useNavigate();
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
@@ -284,6 +285,9 @@ export function Sidebar() {
                 </option>
               ))}
             </select>
+          )}
+          {me.role === 'admin' && (
+            <ThemeStudio themeId={instanceTheme} customizations={customizations} refresh={refresh} />
           )}
           {me.role === 'admin' && (
             <div style={{ display: 'flex', gap: '4px' }}>

@@ -8,3 +8,4 @@ export {
   type UiTextInputProps,
   type UiToggleProps,
 } from './primitives';
+export { UiPaletteSwatches, type UiPaletteSwatchesProps } from './UiPaletteSwatches';

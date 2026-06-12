@@ -16,7 +16,13 @@ import {
   type TreeFolder,
   type TreePage,
 } from '../api/client';
-import { THEMES, ThemeProvider, graphPaper } from '@skb/theme';
+import {
+  THEMES,
+  ThemeProvider,
+  applyCustomization,
+  graphPaper,
+  type ThemeCustomization,
+} from '@skb/theme';
 import { Sidebar } from './Sidebar';
 
 type ShellState = {
@@ -27,6 +33,9 @@ type ShellState = {
   publicTree: { folders: TreeFolder[]; notepages: PublicTreePage[] } | null;
   /** active instance theme id (content surfaces resolve effective theme from it) */
   instanceTheme: string;
+  /** operator theme customization, keyed by themeId (M5-D3); authors
+   * get the full map, anonymous visitors only the instance theme's */
+  customizations: Record<string, ThemeCustomization>;
   /** Re-fetch the directory (call after create/delete/rename/publish/move). */
   refresh: () => void;
 };
@@ -44,17 +53,27 @@ export function Shell() {
   const [tree, setTree] = useState<ShellState['tree']>(null);
   const [publicTree, setPublicTree] = useState<ShellState['publicTree']>(null);
   const [instanceTheme, setInstanceTheme] = useState('graph-paper');
+  const [customizations, setCustomizations] = useState<Record<string, ThemeCustomization>>({});
   const [collapsed, setCollapsed] = useState(false);
 
   const refresh = useCallback(() => {
-    api.getPublicInstance().then(({ theme }) => setInstanceTheme(theme)).catch(() => undefined);
+    api
+      .getPublicInstance()
+      .then(({ theme, customization }) => {
+        setInstanceTheme(theme);
+        if (customization) setCustomizations((c) => ({ ...c, [theme]: customization }));
+      })
+      .catch(() => undefined);
     api
       .me()
       .then(({ user }) => {
         setMe(user);
-        return user
-          ? api.getTree().then(setTree)
-          : api.getPublicTree().then(setPublicTree);
+        if (user) {
+          // authors see all themes in pickers — fetch the full map
+          api.getSettings().then(({ customizations: all }) => setCustomizations(all)).catch(() => undefined);
+          return api.getTree().then(setTree);
+        }
+        return api.getPublicTree().then(setPublicTree);
       })
       .catch(() => setMe(null));
   }, []);
@@ -65,11 +84,12 @@ export function Shell() {
 
   // Chrome follows the INSTANCE theme's tokens (owner decision
   // 2026-06-12, revising M4-D6); content surfaces re-provide the
-  // page's effective theme inside.
-  const instTheme = THEMES[instanceTheme] ?? graphPaper;
+  // page's effective theme inside. Operator customization composes
+  // here too — chrome and content read the same effective tokens.
+  const instTheme = applyCustomization(THEMES[instanceTheme] ?? graphPaper, customizations[instanceTheme]);
 
   return (
-    <ShellContext.Provider value={{ me, tree, publicTree, instanceTheme, refresh }}>
+    <ShellContext.Provider value={{ me, tree, publicTree, instanceTheme, customizations, refresh }}>
       <ThemeProvider theme={instTheme}>
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: instTheme.fontFamily }}>
           {!collapsed && <Sidebar />}

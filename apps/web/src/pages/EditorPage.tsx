@@ -11,7 +11,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
 import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
-import { THEMES, ThemeProvider, graphPaper, useTheme } from '@skb/theme';
+import { THEMES, ThemeProvider, applyCustomization, graphPaper, useTheme } from '@skb/theme';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { ToolPanel } from '../grid/ToolPanel';
@@ -142,8 +142,14 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     setThemeId(next);
   }
 
-  // pin wins; else instance; unknown ids degrade to graph-paper
-  const effective = THEMES[themeId ?? shell.instanceTheme] ?? graphPaper;
+  // pin wins; else instance; unknown ids degrade to graph-paper.
+  // Operator customization composes on top (same applyCustomization
+  // the server uses at publish time — edit preview matches public).
+  const effectiveId = themeId ?? shell.instanceTheme;
+  const effective = applyCustomization(
+    THEMES[effectiveId] ?? graphPaper,
+    shell.customizations[effectiveId],
+  );
 
   return (
     <ThemeProvider theme={effective}>

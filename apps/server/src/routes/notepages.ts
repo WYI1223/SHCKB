@@ -15,7 +15,7 @@ import type { Db } from '../db/client';
 import { blocks, notepages, type PublishedDoc } from '../db/schema';
 import { THEMES } from '@skb/theme';
 import { NOT_FOUND_HTML, renderStaticPage } from '../render/publish-html';
-import { effectiveTheme } from '../settings';
+import { effectiveTheme, themeCustomizations } from '../settings';
 
 type WorkingBlock = {
   id: string;
@@ -281,9 +281,13 @@ export function notepageRoutes(db: Db) {
     return c.json({ notes });
   });
 
-  // Anonymous instance metadata: the active theme (readers' SPA shell
-  // renders public pages with it).
-  r.get('/public/instance', (c) => c.json({ theme: effectiveTheme(db, { themeId: null }).id }));
+  // Anonymous instance metadata: the active theme + its operator
+  // customization (readers' SPA shell composes them locally — same
+  // applyCustomization the server uses for static HTML).
+  r.get('/public/instance', (c) => {
+    const id = effectiveTheme(db, { themeId: null }).id;
+    return c.json({ theme: id, customization: themeCustomizations(db)[id] ?? null });
+  });
 
   // Public read route — anonymous principal; no-leak 404 semantics.
   r.get('/public/notes/:slug', (c) => {
@@ -291,9 +295,11 @@ export function notepageRoutes(db: Db) {
     if (!page || page.visibility !== 'public' || page.publishedDoc === null) {
       return c.json(NOT_FOUND, 404);
     }
+    const themeId = effectiveTheme(db, page).id;
     return c.json({
       slug: page.slug,
-      theme: effectiveTheme(db, page).id,
+      theme: themeId,
+      customization: themeCustomizations(db)[themeId] ?? null,
       doc: JSON.parse(page.publishedDoc) as PublishedDoc,
     });
   });

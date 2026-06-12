@@ -1,4 +1,5 @@
 /** Typed fetch wrappers for the notepage API (plan contract C3). */
+import type { ThemeCustomization } from '@skb/theme';
 
 export type NotepageSummary = {
   id: string;
@@ -173,17 +174,26 @@ export const api = {
   deleteNotepage: (id: string) =>
     request<{ ok: true }>(`/api/notepages/${id}`, { method: 'DELETE' }),
   getPublicNote: (slug: string) =>
-    request<{ slug: string; theme: string; doc: PublishedDoc }>(`/api/public/notes/${slug}`),
-  getSettings: () => request<{ theme: string }>('/api/settings'),
+    request<{ slug: string; theme: string; customization: ThemeCustomization | null; doc: PublishedDoc }>(
+      `/api/public/notes/${slug}`,
+    ),
+  getSettings: () =>
+    request<{ theme: string; customizations: Record<string, ThemeCustomization> }>('/api/settings'),
   setInstanceTheme: (theme: string) =>
     request<{ ok: true; rerendered: number }>('/api/settings/theme', {
       method: 'PUT',
       body: JSON.stringify({ theme }),
     }),
+  setThemeCustomization: (themeId: string, customization: ThemeCustomization | null) =>
+    request<{ ok: true; rerendered: number; customizations: Record<string, ThemeCustomization> }>(
+      '/api/settings/theme-customization',
+      { method: 'PUT', body: JSON.stringify({ themeId, customization }) },
+    ),
   setPageTheme: (id: string, themeId: string | null) =>
     request<{ ok: true }>(`/api/notepages/${id}/theme`, {
       method: 'POST',
       body: JSON.stringify({ themeId }),
     }),
-  getPublicInstance: () => request<{ theme: string }>('/api/public/instance'),
+  getPublicInstance: () =>
+    request<{ theme: string; customization: ThemeCustomization | null }>('/api/public/instance'),
 };
