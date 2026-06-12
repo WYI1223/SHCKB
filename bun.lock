@@ -33,6 +33,7 @@
         "@skb/block-kinds": "workspace:*",
         "@skb/grid-engine": "workspace:*",
         "@skb/theme": "workspace:*",
+        "@skb/ui-kit": "workspace:*",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-router-dom": "^6.30.0",
@@ -52,6 +53,7 @@
       "dependencies": {
         "@skb/grid-engine": "workspace:*",
         "@skb/theme": "workspace:*",
+        "@skb/ui-kit": "workspace:*",
         "highlight.js": "^11.10.0",
         "mdast-util-to-string": "^4.0.0",
         "react-markdown": "^9.0.3",

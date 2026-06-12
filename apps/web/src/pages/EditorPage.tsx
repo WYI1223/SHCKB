@@ -14,6 +14,7 @@ import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
 import { THEMES, ThemeProvider, graphPaper, useTheme } from '@skb/theme';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
+import { ToolPanel } from '../grid/ToolPanel';
 import { useGridInteraction } from '../grid/useGridInteraction';
 import { useShell } from '../shell/Shell';
 
@@ -241,6 +242,12 @@ function Editor({ detail }: { detail: NotepageDetail }) {
           }
         />
         <Palette interaction={interaction} />
+        <ToolPanel
+          interaction={interaction}
+          activeId={activeId}
+          contents={contents}
+          onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
+        />
       </HostContext.Provider>
     </div>
     </ThemeProvider>

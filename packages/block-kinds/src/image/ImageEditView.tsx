@@ -1,7 +1,8 @@
 /**
  * Active-block editing surface: pick/replace the image (uploads to the
- * content-addressed blob store) + edit alt text. Replacing the image
- * yields a new hash — published snapshots keep the old one.
+ * content-addressed blob store). Alt text lives in the host's tool
+ * panel (ImageTools, MVP-5). Replacing the image yields a new hash —
+ * published snapshots keep the old one.
  */
 import { useRef, useState } from 'react';
 import { useTheme } from '@skb/theme';
@@ -56,21 +57,6 @@ export function ImageEditView({ content, onChange }: BlockViewProps<ImageContent
             const f = e.target.files?.[0];
             if (f) void pick(f);
             e.target.value = '';
-          }}
-        />
-        <input
-          value={content.alt}
-          onChange={(e) => onChange({ ...content, alt: e.target.value })}
-          placeholder="Alt text (describe the image)"
-          aria-label="Alt text"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            border: theme.blockBorder,
-            borderRadius: '6px',
-            padding: '5px 8px',
-            fontSize: '12px',
-            color: theme.textColor,
           }}
         />
       </div>

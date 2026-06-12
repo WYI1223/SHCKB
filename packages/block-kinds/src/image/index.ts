@@ -2,6 +2,7 @@ import type { BlockKindModule } from '../types';
 import { coerceContent, createContent, extractText, type ImageContent } from './image';
 import { ImageEditView } from './ImageEditView';
 import { ImageRenderView } from './ImageRenderView';
+import { AltTextTool } from './ImageTools';
 
 export const imageModule: BlockKindModule<ImageContent> = {
   kind: 'image',
@@ -12,6 +13,7 @@ export const imageModule: BlockKindModule<ImageContent> = {
   EditView: ImageEditView,
   RenderView: ImageRenderView,
   extractText,
+  tools: [{ id: 'alt', label: 'Alt', View: AltTextTool }],
 };
 
 export { coerceContent, type ImageContent };

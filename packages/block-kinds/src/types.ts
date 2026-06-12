@@ -13,6 +13,19 @@ export type BlockViewProps<C = unknown> = {
   onChange: (next: C) => void;
 };
 
+/** Same surface as a view: tools edit the active block's content. */
+export type BlockToolProps<C = unknown> = BlockViewProps<C>;
+
+/** A control the module contributes to the host's tool panel (MVP-5
+ * M5-D4 split: the module owns WHAT the tool is, the host owns WHERE
+ * the panel lives and how it looks). Compose ui-kit primitives; reach
+ * host capabilities only through useHost(). */
+export type BlockTool<C = unknown> = {
+  id: string;
+  label: string;
+  View: ComponentType<BlockToolProps<C>>;
+};
+
 export type BlockKindModule<C = unknown> = {
   kind: string;
   label: string;
@@ -25,6 +38,9 @@ export type BlockKindModule<C = unknown> = {
   RenderView: ComponentType<{ content: C }>;
   /** Plain text for search/export, derived from content (not DOM). */
   extractText: (content: C) => string;
+  /** Tools for the active block, rendered in the host's tool panel.
+   *  Editing-surface only — never reachable from RenderView. */
+  tools?: Array<BlockTool<C>>;
 };
 
 /** Host capabilities injected by the embedding app — the seed of the

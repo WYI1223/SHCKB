@@ -8,6 +8,7 @@
 import type { BlockKindModule } from '../types';
 import { CodeEditView } from './CodeEditView';
 import { CodeRenderView } from './CodeRenderView';
+import { LanguageTool } from './CodeTools';
 import { coerceContent, createContent, extractText, type CodeContent } from './code';
 
 export const codeModule: BlockKindModule<CodeContent> = {
@@ -19,6 +20,7 @@ export const codeModule: BlockKindModule<CodeContent> = {
   EditView: CodeEditView,
   RenderView: CodeRenderView,
   extractText,
+  tools: [{ id: 'language', label: 'Language', View: LanguageTool }],
 };
 
 export { coerceContent, type CodeContent };
