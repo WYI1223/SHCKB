@@ -1,5 +1,5 @@
 /** Typed fetch wrappers for the notepage API (plan contract C3). */
-import type { ThemeCustomization } from '@skb/theme';
+import type { PageBackground, ThemeCustomization } from '@skb/theme';
 
 export type NotepageSummary = {
   id: string;
@@ -17,6 +17,8 @@ export type WorkingBlock = {
   row: number;
   colSpan: number;
   rowSpan: number;
+  /** Theme shell option id (M6-D3); null = the theme's default shell. */
+  shell?: string | null;
   content: unknown;
 };
 
@@ -28,6 +30,7 @@ export type NotepageDetail = {
     visibility: 'private' | 'public';
     gravityEnabled: boolean;
     themeId: string | null;
+    background: PageBackground | null;
     hasPublished: boolean;
     updatedAt: number;
   };
@@ -193,6 +196,11 @@ export const api = {
     request<{ ok: true }>(`/api/notepages/${id}/theme`, {
       method: 'POST',
       body: JSON.stringify({ themeId }),
+    }),
+  setPageBackground: (id: string, background: PageBackground | null) =>
+    request<{ ok: true }>(`/api/notepages/${id}/background`, {
+      method: 'POST',
+      body: JSON.stringify({ background }),
     }),
   getPublicInstance: () =>
     request<{ theme: string; customization: ThemeCustomization | null }>('/api/public/instance'),

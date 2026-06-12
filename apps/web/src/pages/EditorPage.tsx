@@ -7,14 +7,15 @@
  * save time.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
 import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
-import { THEMES, ThemeProvider, applyCustomization, graphPaper, useTheme } from '@skb/theme';
+import { THEMES, ThemeProvider, applyCustomization, graphPaper, useTheme, type PageBackground } from '@skb/theme';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
-import { ToolPanel } from '../grid/ToolPanel';
+import { Properties, type Selection } from '../grid/Properties';
 import { useGridInteraction } from '../grid/useGridInteraction';
 import { useShell } from '../shell/Shell';
 
@@ -49,13 +50,27 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const [hasPublished, setHasPublished] = useState(detail.page.hasPublished);
   const [slug, setSlug] = useState(detail.page.slug);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // Selection model (M6-D1): page is the default selection; activating
+  // a block selects it. The Properties inspector keys off this.
+  const [selection, setSelection] = useState<Selection>({ type: 'page' });
+  const activeId = selection.type === 'block' ? selection.blockId : null;
   const [status, setStatus] = useState<SaveStatus>({ kind: 'saved' });
   const [contents, setContents] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(detail.blocks.map((b) => [b.id, b.content])),
   );
+  const [shells, setShells] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(detail.blocks.map((b) => [b.id, b.shell ?? null])),
+  );
+  const [background, setBackground] = useState<PageBackground | null>(detail.page.background);
   const contentsRef = useRef(contents);
   contentsRef.current = contents;
+  const shellsRef = useRef(shells);
+  shellsRef.current = shells;
+
+  const setActiveId = useCallback(
+    (id: string | null) => setSelection(id ? { type: 'block', blockId: id } : { type: 'page' }),
+    [],
+  );
 
   const interaction = useGridInteraction({
     initialBlocks: useMemo(() => detail.blocks.map(({ content: _c, ...geom }) => geom), [detail.blocks]),
@@ -75,6 +90,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     setStatus({ kind: 'saving' });
     const blocks: WorkingBlock[] = interaction.state.blocks.map((b) => ({
       ...b,
+      shell: shellsRef.current[b.id] ?? null,
       content: contentsRef.current[b.id] ?? null,
     }));
     try {
@@ -105,7 +121,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [save, contents]);
+  }, [save, contents, shells]);
 
   // Escape deactivates the active block (focus-leave → preview).
   useEffect(() => {
@@ -114,7 +130,22 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [setActiveId]);
+
+  // Properties dock anchor (Sidebar renders it; collapse re-creates it).
+  const [propsAnchor, setPropsAnchor] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const find = () => setPropsAnchor(document.querySelector<HTMLElement>('[data-skb-properties-slot]'));
+    find();
+    const mo = new MutationObserver(find);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
   }, []);
+
+  async function changeBackground(bg: PageBackground | null) {
+    await api.setPageBackground(pageId, bg);
+    setBackground(bg);
+  }
 
   async function publish() {
     await save();
@@ -237,23 +268,41 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         <GridCanvas
           interaction={interaction}
           contents={contents}
+          shells={shells}
+          background={background}
           activeId={activeId}
           onActivate={setActiveId}
           onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
-          onBlockDeleted={(blockId) =>
+          onBlockDeleted={(blockId) => {
             setContents((c) => {
               const { [blockId]: _gone, ...rest } = c;
               return rest;
-            })
-          }
+            });
+            setShells((s) => {
+              const { [blockId]: _gone, ...rest } = s;
+              return rest;
+            });
+            setSelection({ type: 'page' });
+          }}
         />
         <Palette interaction={interaction} />
-        <ToolPanel
-          interaction={interaction}
-          activeId={activeId}
-          contents={contents}
-          onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
-        />
+        {/* Properties inspector, docked under the sidebar directory
+            (M6-D2) — portal keeps it inside this editor's theme + host
+            context while living in the shell's DOM. */}
+        {propsAnchor &&
+          createPortal(
+            <Properties
+              selection={selection}
+              interaction={interaction}
+              contents={contents}
+              shells={shells}
+              background={background}
+              onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
+              onShellChange={(blockId, shell) => setShells((s) => ({ ...s, [blockId]: shell }))}
+              onBackgroundChange={(bg) => void changeBackground(bg)}
+            />,
+            propsAnchor,
+          )}
       </HostContext.Provider>
     </div>
     </ThemeProvider>
