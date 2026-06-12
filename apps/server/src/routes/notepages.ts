@@ -13,7 +13,8 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import type { Db } from '../db/client';
 import { blobs as blobsTable, blocks, notepages, type PublishedDoc } from '../db/schema';
-import { THEMES } from '@skb/theme';
+import { THEMES, isSafeCssColor } from '@skb/theme';
+import { safeParse } from '../json';
 import { NOT_FOUND_HTML, renderStaticPage } from '../render/publish-html';
 import { effectiveTheme, themeCustomizations } from '../settings';
 
@@ -109,7 +110,8 @@ function loadWorkingBlocks(db: Db, notepageId: string): WorkingBlock[] {
       colSpan: row.colSpan,
       rowSpan: row.rowSpan,
       shell: row.shell,
-      content: JSON.parse(row.content) as unknown,
+      // corrupt content degrades to null — the rest of the page loads
+      content: safeParse<unknown>(row.content, null),
     }));
 }
 
@@ -154,7 +156,7 @@ export function notepageRoutes(db: Db) {
         visibility: page.visibility,
         gravityEnabled: page.gravityEnabled,
         themeId: page.themeId,
-        background: page.background !== null ? (JSON.parse(page.background) as PageBackground) : null,
+        background: page.background !== null ? safeParse<PageBackground | null>(page.background, null) : null,
         hasPublished: page.publishedDoc !== null,
         updatedAt: page.updatedAt.getTime(),
       },
@@ -217,7 +219,7 @@ export function notepageRoutes(db: Db) {
       gravityEnabled: page.gravityEnabled,
       // appearance enters the snapshot (M6-D3/D4): publishedHtml stays
       // a pure function of (doc, slug, effective theme)
-      background: page.background !== null ? (JSON.parse(page.background) as PageBackground) : null,
+      background: page.background !== null ? safeParse<PageBackground | null>(page.background, null) : null,
       blocks: loadWorkingBlocks(db, page.id),
       publishedAt: Date.now(),
     };
@@ -261,11 +263,14 @@ export function notepageRoutes(db: Db) {
 
     db.update(notepages).set({ themeId, updatedAt: new Date() }).where(eq(notepages.id, page.id)).run();
     if (page.publishedDoc !== null) {
-      const doc = JSON.parse(page.publishedDoc) as PublishedDoc;
-      db.update(notepages)
-        .set({ publishedHtml: renderStaticPage(doc, page.slug, effectiveTheme(db, { themeId })) })
-        .where(eq(notepages.id, page.id))
-        .run();
+      // corrupt snapshot: pin still lands, stale HTML stays (re-publish heals)
+      const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
+      if (doc !== null) {
+        db.update(notepages)
+          .set({ publishedHtml: renderStaticPage(doc, page.slug, effectiveTheme(db, { themeId })) })
+          .where(eq(notepages.id, page.id))
+          .run();
+      }
     }
     return c.json({ ok: true });
   });
@@ -286,7 +291,9 @@ export function notepageRoutes(db: Db) {
       const b = body.background as Record<string, unknown>;
       const out: PageBackground = {};
       if (b.color !== undefined) {
-        if (typeof b.color !== 'string' || b.color.trim() === '') return c.json({ error: 'invalid color' }, 400);
+        if (typeof b.color !== 'string' || b.color.trim() === '' || !isSafeCssColor(b.color.trim())) {
+          return c.json({ error: 'color must be a plain CSS color value' }, 400);
+        }
         out.color = b.color.trim();
       }
       if (b.blobHash !== undefined) {
@@ -326,9 +333,11 @@ export function notepageRoutes(db: Db) {
     const notes = rows
       .filter((p) => p.publishedDoc !== null)
       .map((p) => {
-        const doc = JSON.parse(p.publishedDoc!) as PublishedDoc;
-        return { slug: p.slug, title: doc.title, publishedAt: doc.publishedAt };
+        // per-row: one corrupt snapshot must not take down the directory
+        const doc = safeParse<PublishedDoc | null>(p.publishedDoc!, null);
+        return doc === null ? null : { slug: p.slug, title: doc.title, publishedAt: doc.publishedAt };
       })
+      .filter((n): n is NonNullable<typeof n> => n !== null)
       .sort((a, b) => b.publishedAt - a.publishedAt);
     return c.json({ notes });
   });
@@ -347,12 +356,14 @@ export function notepageRoutes(db: Db) {
     if (!page || page.visibility !== 'public' || page.publishedDoc === null) {
       return c.json(NOT_FOUND, 404);
     }
+    const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
+    if (doc === null) return c.json({ error: 'published snapshot is corrupt — re-publish the page' }, 500);
     const themeId = effectiveTheme(db, page).id;
     return c.json({
       slug: page.slug,
       theme: themeId,
       customization: themeCustomizations(db)[themeId] ?? null,
-      doc: JSON.parse(page.publishedDoc) as PublishedDoc,
+      doc,
     });
   });
 

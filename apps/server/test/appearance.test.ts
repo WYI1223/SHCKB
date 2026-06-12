@@ -63,6 +63,18 @@ describe('author appearance', () => {
         .status,
     ).toBe(400);
 
+    // non-color CSS smuggling refused (M1): extra properties, url(), markup
+    for (const evil of ['red; background-image: url(https://x/y)', 'url(javascript:1)', 'blue}</style>']) {
+      expect(
+        (
+          await ctx.authed(`/api/notepages/${p.id}/background`, {
+            method: 'POST',
+            body: JSON.stringify({ background: { color: evil } }),
+          })
+        ).status,
+      ).toBe(400);
+    }
+
     // set a color: working state only — the public page must NOT change yet
     const ok = await ctx.authed(`/api/notepages/${p.id}/background`, {
       method: 'POST',
@@ -101,5 +113,26 @@ describe('author appearance', () => {
     expect(gc.deleted).toBe(0);
     const blob = await ctx.app.request(`http://localhost/api/public/blobs/${hash}`);
     expect(blob.status).toBe(200);
+  });
+
+  test('GC keeps a blob referenced ONLY by the published snapshot background (T3)', async () => {
+    const ctx = await createTestContext();
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 9, 8, 7, 6]);
+    const up = await ctx.authed('/api/blobs', { method: 'POST', body: png, headers: { 'content-type': 'image/png' } });
+    const { hash } = await json(up);
+
+    const p = await json(await ctx.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Snap' }) }));
+    await ctx.authed(`/api/notepages/${p.id}/background`, {
+      method: 'POST',
+      body: JSON.stringify({ background: { blobHash: hash } }),
+    });
+    // publish promotes the background into the snapshot…
+    await ctx.authed(`/api/notepages/${p.id}/publish`, { method: 'POST' });
+    // …then the WORKING background is cleared: the snapshot is now the only reference
+    await ctx.authed(`/api/notepages/${p.id}/background`, { method: 'POST', body: JSON.stringify({ background: null }) });
+
+    const gc = await json(await ctx.authed('/api/admin/blobs/gc', { method: 'POST' }));
+    expect(gc.deleted).toBe(0); // deleting it would break the live public page
+    expect((await ctx.app.request(`http://localhost/api/public/blobs/${hash}`)).status).toBe(200);
   });
 });

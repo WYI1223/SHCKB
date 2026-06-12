@@ -104,6 +104,27 @@ function newBlockId(): string {
   return `b_${Date.now().toString(36)}_${insertSeq}`;
 }
 
+/**
+ * Anchor for a move: cursor cell minus the grab offset, clamped into
+ * bounds. Preview (dragover) and drop MUST share this — what the ghost
+ * shows is what lands (preview honesty). Pure and exported for tests
+ * (T4, mvp7 review).
+ */
+export function moveAnchor(
+  point: { clientX: number; clientY: number },
+  canvasRect: { left: number; top: number },
+  slotSize: number,
+  grab: { grabPxX: number; grabPxY: number },
+  block: { colSpan: number },
+): { col: number; row: number } {
+  const col = Math.round((point.clientX - canvasRect.left - grab.grabPxX) / slotSize);
+  const row = Math.round((point.clientY - canvasRect.top - grab.grabPxY) / slotSize);
+  return {
+    col: Math.max(0, Math.min(TOTAL_COLS - block.colSpan, col)),
+    row: Math.max(0, row),
+  };
+}
+
 export function useGridInteraction(config: GridInteractionConfig): Interaction {
   const [state, setState] = useState<GridState>(() => ({
     blocks: config.initialBlocks,
@@ -196,25 +217,6 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
       onDragEnd: () => {
         setDrag({ active: false, payload: null, cursorCell: null, intent: null });
       },
-    };
-  }
-
-  /**
-   * Anchor for a move: cursor cell minus the grab offset, clamped into
-   * bounds. Preview and drop MUST share this (preview honesty).
-   */
-  function moveAnchor(
-    e: { clientX: number; clientY: number },
-    canvasRect: DOMRect,
-    slotSize: number,
-    payload: Extract<DragPayload, { kind: 'move' }>,
-    block: Block,
-  ): { col: number; row: number } {
-    const col = Math.round((e.clientX - canvasRect.left - payload.grabPxX) / slotSize);
-    const row = Math.round((e.clientY - canvasRect.top - payload.grabPxY) / slotSize);
-    return {
-      col: Math.max(0, Math.min(TOTAL_COLS - block.colSpan, col)),
-      row: Math.max(0, row),
     };
   }
 

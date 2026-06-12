@@ -21,6 +21,13 @@ export type AppDeps = {
 export function createApp({ db, auth, blobStore, meta }: AppDeps) {
   const app = new Hono();
 
+  // Last-resort guard: an unexpected throw must answer in the API's
+  // {error} shape, not as a bare 500 (mvp7 review E1).
+  app.onError((err, c) => {
+    console.error(`[error] ${c.req.method} ${c.req.path}:`, err);
+    return c.json({ error: 'internal error' }, 500);
+  });
+
   app.use('/api/*', createPep(auth));
 
   // better-auth wire surface (sign-in/sign-out/session); signup is

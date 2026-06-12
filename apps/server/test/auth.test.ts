@@ -3,7 +3,7 @@ import { createApp } from '../src/app';
 import { ensureFirstAdmin } from '../src/bootstrap';
 import { createAuth } from '../src/auth';
 import { createDb } from '../src/db/client';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, TEST_SECRET, createTestContext, json } from './helpers';
+import { ADMIN_EMAIL, ADMIN_PASSWORD, TEST_SECRET, createTestContext, json, signIn } from './helpers';
 
 describe('bootstrap (internet-exposed mode)', () => {
   test('refuses to start with empty user table and no admin env', async () => {
@@ -102,5 +102,49 @@ describe('auth wire surface', () => {
     const t = await createTestContext();
     const me = await json(await t.authed('/api/me'));
     expect(Object.keys(me.user).sort()).toEqual(['email', 'id', 'name', 'role']);
+  });
+});
+
+describe('role gate — requireAdmin (T2, mvp7 review)', () => {
+  test('author role: settings writes and the whole admin surface are 403', async () => {
+    const t = await createTestContext();
+    // create an author the same way bootstrap creates the admin: a
+    // transient signup-enabled auth instance (never mounted)
+    const transient = createAuth(t.db, { secret: TEST_SECRET, allowSignUp: true });
+    await transient.api.signUpEmail({
+      body: { email: 'author@local.test', password: 'author-password-1', name: 'Author' },
+    });
+    const cookie = await signIn(t.app, 'author@local.test', 'author-password-1');
+    const asAuthor = (path: string, init?: RequestInit) =>
+      t.app.request(`http://localhost${path}`, {
+        ...init,
+        headers: { cookie, 'content-type': 'application/json', ...(init?.headers ?? {}) },
+      });
+
+    const me = await json(await asAuthor('/api/me'));
+    expect(me.user.role).toBe('author');
+
+    // authoring stays open; settings read stays open
+    expect((await asAuthor('/api/notepages')).status).toBe(200);
+    expect((await asAuthor('/api/settings')).status).toBe(200);
+
+    // every role-gated write answers 403 for the author principal
+    const gated: Array<[string, RequestInit]> = [
+      ['/api/settings/theme', { method: 'PUT', body: JSON.stringify({ theme: 'ink' }) }],
+      [
+        '/api/settings/theme-customization',
+        { method: 'PUT', body: JSON.stringify({ themeId: 'workbench', customization: { paletteId: 'warm' } }) },
+      ],
+      ['/api/admin/export', {}],
+      ['/api/admin/import', { method: 'POST' }],
+      ['/api/admin/blobs/gc', { method: 'POST' }],
+    ];
+    for (const [path, init] of gated) {
+      const res = await asAuthor(path, init);
+      expect(`${path} → ${res.status}`).toBe(`${path} → 403`);
+    }
+
+    // the admin still passes the same gates (the gate discriminates, not blocks)
+    expect((await t.authed('/api/admin/export')).status).toBe(200);
   });
 });

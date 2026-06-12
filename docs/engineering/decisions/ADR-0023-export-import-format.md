@@ -39,7 +39,7 @@ blobs/<sha256>           # content-addressed，文件名即校验和
 3. **有损必须显式**：down() 必须枚举丢弃的每项数据，静默丢失是缺陷。
 4. 与 [ADR-0020] 不矛盾：危险的从来不是降级，是原地改唯一副本。格式降级产出新文件，原数据不动，旧实例 import 校验照常把关。这给了产品**唯一保数据的降级路径**（优于恢复备份）。
 
-v1 阶段 production registry 为空；管线机器由合成 transform 对测透。
+v1 阶段 production registry 为空；管线机器由合成 transform 对测透。（状态更新 2026-06-12：registry 已有真实成对 transform——v2 主题钉选、v3 主题自定义、v4 外观轴，本条仅存历史语境。）
 
 ### 3. Blob 引用契约（新增 content 契约）
 

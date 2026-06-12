@@ -2,6 +2,13 @@
  * Reader/preview rendering: the image fills the block, preserving
  * aspect ratio. Missing asset → alt-text fallback box (block-image.md
  * missing-asset behavior), never a broken page.
+ *
+ * Boundary (mvp7 review C-img): the styled fallback box needs the
+ * onError event, so it only appears where React runs (editor + SPA
+ * reader). Published static HTML degrades to the browser-native alt
+ * text — acceptable because the blob GC reference contract [ADR-0023]
+ * keeps published blobs alive; a broken image there means file-system
+ * level loss, not normal operation.
  */
 import { useState } from 'react';
 import { useTheme } from '@skb/theme';

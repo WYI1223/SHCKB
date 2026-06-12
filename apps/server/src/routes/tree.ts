@@ -16,6 +16,7 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import type { Db } from '../db/client';
 import { folders, notepages, type PublishedDoc } from '../db/schema';
+import { safeParse } from '../json';
 
 const NOT_FOUND = { error: 'not found' } as const;
 
@@ -151,7 +152,9 @@ export function treeRoutes(db: Db) {
       .filter((p) => p.publishedDoc !== null)
       .map((p) => ({
         slug: p.slug,
-        title: (JSON.parse(p.publishedDoc!) as PublishedDoc).title,
+        // corrupt snapshot: fall back to the working title rather than
+        // dropping the page from the public tree (HTML route still serves it)
+        title: safeParse<PublishedDoc | null>(p.publishedDoc!, null)?.title ?? p.title,
         folderId: p.folderId,
         sortKey: p.sortKey,
       }));

@@ -17,6 +17,7 @@ import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { Properties, type Selection } from '../grid/Properties';
 import { useGridInteraction } from '../grid/useGridInteraction';
+import { useAutosave } from '../hooks/useAutosave';
 import { useShell } from '../shell/Shell';
 
 const AUTOSAVE_MS = 800;
@@ -83,10 +84,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   });
 
   // ----- autosave (debounced) -----
-  const firstRun = useRef(true);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const save = useCallback(async () => {
+  const save = useCallback(async (): Promise<boolean> => {
     setStatus({ kind: 'saving' });
     const blocks: WorkingBlock[] = interaction.state.blocks.map((b) => ({
       ...b,
@@ -101,27 +99,23 @@ function Editor({ detail }: { detail: NotepageDetail }) {
       });
       setStatus({ kind: 'saved' });
       shell.refresh(); // keep sidebar titles/badges current
+      return true;
     } catch (e) {
       if (e instanceof ApiError) {
         setStatus({ kind: 'error', message: e.message, details: e.details });
       } else {
         setStatus({ kind: 'error', message: 'network error — changes not saved' });
       }
+      return false;
     }
   }, [pageId, title, interaction.state, interaction.gravityEnabled]);
 
-  useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false;
-      return;
-    }
-    setStatus((s) => (s.kind === 'error' ? s : { kind: 'dirty' }));
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => void save(), AUTOSAVE_MS);
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
-  }, [save, contents, shells]);
+  useAutosave({
+    save,
+    deps: [contents, shells],
+    ms: AUTOSAVE_MS,
+    onDirty: () => setStatus((s) => (s.kind === 'error' ? s : { kind: 'dirty' })),
+  });
 
   // Escape deactivates the active block (focus-leave → preview).
   useEffect(() => {
@@ -142,35 +136,56 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     return () => mo.disconnect();
   }, []);
 
+  // Header/inspector actions surface failures in the save indicator —
+  // a failed publish must never read as success (E2, mvp7 review).
+  async function runAction(label: string, fn: () => Promise<void>) {
+    try {
+      await fn();
+    } catch (e) {
+      const message = e instanceof ApiError ? `${label}: ${e.message}` : `${label} failed — network error`;
+      setStatus({ kind: 'error', message, details: e instanceof ApiError ? e.details : undefined });
+    }
+  }
+
   async function changeBackground(bg: PageBackground | null) {
-    await api.setPageBackground(pageId, bg);
-    setBackground(bg);
+    await runAction('background', async () => {
+      await api.setPageBackground(pageId, bg);
+      setBackground(bg);
+    });
   }
 
   async function publish() {
-    await save();
-    const res = await api.publish(pageId);
-    setSlug(res.slug);
-    setHasPublished(true);
-    shell.refresh();
+    if (!(await save())) return; // unsaved working state must not promote stale data
+    await runAction('publish', async () => {
+      const res = await api.publish(pageId);
+      setSlug(res.slug);
+      setHasPublished(true);
+      shell.refresh();
+    });
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(`${window.location.origin}/notes/${slug}`);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 1500);
+    await runAction('copy link', async () => {
+      await navigator.clipboard.writeText(`${window.location.origin}/notes/${slug}`);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    });
   }
 
   async function toggleVisibility() {
     const next = visibility === 'public' ? 'private' : 'public';
-    await api.setVisibility(pageId, next);
-    setVisibility(next);
-    shell.refresh();
+    await runAction('visibility', async () => {
+      await api.setVisibility(pageId, next);
+      setVisibility(next);
+      shell.refresh();
+    });
   }
 
   async function pinTheme(next: string | null) {
-    await api.setPageTheme(pageId, next);
-    setThemeId(next);
+    await runAction('theme pin', async () => {
+      await api.setPageTheme(pageId, next);
+      setThemeId(next);
+    });
   }
 
   // pin wins; else instance; unknown ids degrade to graph-paper.

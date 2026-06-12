@@ -165,6 +165,21 @@ export function publicBlobUrl(hash: string): string {
   return `/api/public/blobs/${hash}`;
 }
 
+/** Override values land verbatim inside a published page's <style> block
+ * (block-kinds/static.ts), so a value containing `</` could close the tag
+ * and inject markup. No legitimate CSS value contains `</`. */
+function isSafeCssValue(v: string): boolean {
+  return !v.includes('</');
+}
+
+/** Author-picked background colors land in inline styles and published
+ * HTML. Accept plain CSS color syntax only — no property smuggling
+ * (`;`), no blocks/tags, no url()/expression(). Single truth source:
+ * the background endpoint AND the importer validate through this. */
+export function isSafeCssColor(v: string): boolean {
+  return v.length <= 128 && !/[;{}<>]/.test(v) && !/url\s*\(|expression\s*\(/i.test(v);
+}
+
 /** Pure function: base tokens → palette variant tokens → whitelist-
  * filtered overrides. Slots, identity, and geometry pass through
  * untouched. Unknown paletteIds and non-whitelisted override keys are
@@ -175,7 +190,12 @@ export function applyCustomization(base: Theme, c?: ThemeCustomization | null): 
   const allowed = new Set(base.customizableTokens ?? []);
   const overrides: Partial<Record<OverridableTokenKey, string>> = {};
   for (const [k, v] of Object.entries(c.overrides ?? {})) {
-    if (allowed.has(k as OverridableTokenKey) && typeof v === 'string' && v.trim() !== '') {
+    if (
+      allowed.has(k as OverridableTokenKey) &&
+      typeof v === 'string' &&
+      v.trim() !== '' &&
+      isSafeCssValue(v)
+    ) {
       overrides[k as OverridableTokenKey] = v;
     }
   }
@@ -197,7 +217,12 @@ export function sanitizeCustomization(base: Theme, raw: unknown): ThemeCustomiza
     const allowed = new Set(base.customizableTokens ?? []);
     const overrides: Partial<Record<OverridableTokenKey, string>> = {};
     for (const [k, v] of Object.entries(r.overrides)) {
-      if (allowed.has(k as OverridableTokenKey) && typeof v === 'string' && v.trim() !== '') {
+      if (
+        allowed.has(k as OverridableTokenKey) &&
+        typeof v === 'string' &&
+        v.trim() !== '' &&
+        isSafeCssValue(v)
+      ) {
         overrides[k as OverridableTokenKey] = v.trim();
       }
     }

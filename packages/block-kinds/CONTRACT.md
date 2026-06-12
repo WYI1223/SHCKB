@@ -55,7 +55,11 @@ kind 在 content JSON 中引用 blob **必须用小写 hex sha256 原文**。这
 
 ## BlockFrame shell 契约（MVP-6 [ADR-0027]，owner 反馈修订）
 
-`Theme.shells` = `Record<id, {name, kinds?, Frame}>`——**声明即实现**：每个壳选项自带 Frame 组件，"声明了没实现"是类型错误、"实现了没声明"不可达（两处手写同步的 bug 类被结构性消灭）。host 经 `resolveBlockFrame(theme, kind, shell)` 解析：选择有效 → 壳自己的 Frame；未知 id / kind 不适用 / null → 主题默认 Frame（主题升级移除选项时页面照常渲染）。id 持久化于 blocks.shell 与导出格式 v4，永不改名。通用壳（如 `FlatShellFrame`）由 theme 包提供，主题在 shells map 里引用即策展。
+`Theme.shells` = `Record<id, {name, kinds?, Frame}>`——**声明即实现**：每个壳选项自带 Frame 组件，"声明了没实现"是类型错误、"实现了没声明"不可达（两处手写同步的 bug 类被结构性消灭）。此保证只覆盖 **author 可选壳**——主题默认 Frame 内部按 kind 分派渲染形态（如 stationery 对 image 出 Polaroid）不是壳选项，不受此契约约束。host 经 `resolveBlockFrame(theme, kind, shell)` 解析：选择有效 → 壳自己的 Frame；未知 id / kind 不适用 / null → 主题默认 Frame（主题升级移除选项时页面照常渲染）。id 持久化于 blocks.shell 与导出格式 v4，永不改名。通用壳（如 `FlatShellFrame`）由 theme 包提供，主题在 shells map 里引用即策展。
+
+## 降级行为的运行环境边界（mvp7 review C-img）
+
+依赖浏览器事件（如 `<img onError>`）的降级 UI **只在 React 运行处生效**（编辑器 + SPA 读页）；publish 静态 HTML 无水合，降级为浏览器原生行为（图裂 → alt 文本）。这被接受的前提是 blob 引用契约（[ADR-0023]）保证已发布引用的 blob 不被 GC——静态页图裂只可能源自文件系统级丢失。kind 作者新增此类降级时须意识到这条边界。
 
 ## Registry
 

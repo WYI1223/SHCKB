@@ -16,6 +16,7 @@ import {
 } from '@skb/theme';
 import type { Db } from './db/client';
 import { notepages, settings, type NotepageRow, type PublishedDoc } from './db/schema';
+import { safeParse } from './json';
 import { renderStaticPage } from './render/publish-html';
 
 export function getSetting(db: Db, key: string): string | null {
@@ -67,7 +68,10 @@ export function rerenderAllPublished(db: Db): number {
   let n = 0;
   for (const page of db.select().from(notepages).all()) {
     if (page.publishedDoc === null) continue;
-    const doc = JSON.parse(page.publishedDoc) as PublishedDoc;
+    // per-row: one corrupt snapshot keeps its stale HTML; the rest of
+    // the instance still re-renders (re-publish heals the bad page)
+    const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
+    if (doc === null) continue;
     db.update(notepages)
       .set({ publishedHtml: renderStaticPage(doc, page.slug, effectiveTheme(db, page)) })
       .where(eq(notepages.id, page.id))
