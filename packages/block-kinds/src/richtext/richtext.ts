@@ -10,10 +10,35 @@
  * host app's chrome.
  */
 
+export type RichtextSpacing = 'compact' | 'normal' | 'relaxed';
+
 export type RichtextContent = {
   /** ProseMirror doc JSON for the schema in schema.ts. */
   doc: PmNode;
+  /** Block-level line spacing (M9-D3); absent = normal. */
+  spacing?: RichtextSpacing;
 };
+
+/** Spacing id → line-height, shared by edit and render surfaces. */
+export const SPACING_LINE_HEIGHT: Record<RichtextSpacing, number> = {
+  compact: 1.3,
+  normal: 1.55,
+  relaxed: 1.85,
+};
+
+/** Fixed text-color palette (M9-D3) — Notion-style finite choices.
+ * Persisted into the doc as plain CSS colors, so they survive theme
+ * switches; the render walker re-validates before painting. */
+export const COLOR_PALETTE: Array<{ id: string; name: string; css: string }> = [
+  { id: 'grey', name: 'Grey', css: 'oklch(55% 0 0)' },
+  { id: 'brown', name: 'Brown', css: 'oklch(50% 0.06 60)' },
+  { id: 'red', name: 'Red', css: 'oklch(55% 0.18 25)' },
+  { id: 'orange', name: 'Orange', css: 'oklch(62% 0.14 60)' },
+  { id: 'green', name: 'Green', css: 'oklch(55% 0.12 150)' },
+  { id: 'blue', name: 'Blue', css: 'oklch(55% 0.12 250)' },
+  { id: 'purple', name: 'Purple', css: 'oklch(55% 0.14 300)' },
+  { id: 'pink', name: 'Pink', css: 'oklch(62% 0.14 350)' },
+];
 
 /** Raw PM JSON shapes — structural, not imported from prosemirror. */
 export type PmNode = {
@@ -38,7 +63,11 @@ export function coerceContent(raw: unknown): RichtextContent {
   if (raw && typeof raw === 'object' && 'doc' in raw) {
     const doc = (raw as { doc: unknown }).doc;
     if (doc && typeof doc === 'object' && (doc as PmNode).type === 'doc') {
-      return { doc: doc as PmNode };
+      const spacing = (raw as { spacing?: unknown }).spacing;
+      return {
+        doc: doc as PmNode,
+        ...(spacing === 'compact' || spacing === 'normal' || spacing === 'relaxed' ? { spacing } : {}),
+      };
     }
   }
   return createContent();

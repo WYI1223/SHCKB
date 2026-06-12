@@ -62,6 +62,9 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         return notepages.filter((p) => p.id !== pageId).map((p) => ({ id: p.id, title: p.title }));
       },
       promptText: (opts) => overlays.prompt(opts),
+      // the universal menu face on loan (M9-D3): HostMenuItem mirrors
+      // the chrome MenuItem shape, so this is a pass-through
+      menu: (anchor, items, opts) => overlays.menu(anchor, items, opts),
     }),
     [pageId, overlays],
   );

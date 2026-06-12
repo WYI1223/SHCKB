@@ -53,6 +53,8 @@ export type MenuItem =
       disabled?: boolean;
       /** tree-ish lists (move-to folders) indent without nesting menus */
       indent?: number;
+      /** toggle state (M9-D3: format menus) — renders a leading ✓ */
+      checked?: boolean;
     }
   | { kind: 'separator' }
   | { kind: 'label'; label: string }
@@ -542,7 +544,8 @@ function MenuPanel({ state, close }: { state: MenuState; close: () => void }) {
             <button
               key={i}
               data-menu-item
-              role="menuitem"
+              role={item.checked !== undefined ? 'menuitemcheckbox' : 'menuitem'}
+              aria-checked={item.checked}
               disabled={item.disabled}
               onClick={() => {
                 close(); // close first so onSelect may open a follow-up menu
@@ -551,7 +554,9 @@ function MenuPanel({ state, close }: { state: MenuState; close: () => void }) {
               }}
               className={item.disabled ? undefined : 'pu-menu-item'}
               style={{
-                display: 'block',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
                 width: '100%',
                 textAlign: 'left',
                 padding: `5px 12px 5px ${12 + (item.indent ?? 0) * 12}px`,
@@ -566,7 +571,12 @@ function MenuPanel({ state, close }: { state: MenuState; close: () => void }) {
                 textOverflow: 'ellipsis',
               }}
             >
-              {item.label}
+              {item.checked !== undefined && (
+                <span aria-hidden style={{ width: '12px', flexShrink: 0, color: BENCH.blue }}>
+                  {item.checked ? '✓' : ''}
+                </span>
+              )}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
             </button>
           );
         })}

@@ -43,6 +43,28 @@ export type BlockKindModule<C = unknown> = {
   tools?: Array<BlockTool<C>>;
 };
 
+/** Menu vocabulary a module may hand to the host (M9-D3 finding #3):
+ * the universal panel face is the HOST's visual sovereignty — plugins
+ * describe items, the host draws them. Mirrors the chrome overlay menu
+ * shape (item / separator / label / choices) without importing it. */
+export type HostMenuItem =
+  | {
+      kind?: 'item';
+      label: string;
+      onSelect: () => void;
+      danger?: boolean;
+      disabled?: boolean;
+      checked?: boolean;
+    }
+  | { kind: 'separator' }
+  | { kind: 'label'; label: string }
+  | {
+      kind: 'choices';
+      label: string;
+      options: Array<{ id: string; name: string; swatch?: string; selected?: boolean }>;
+      onPick: (id: string) => void;
+    };
+
 /** Host capabilities injected by the embedding app — the seed of the
  * plugin host API. EditViews must reach the host ONLY through this.
  *
@@ -58,6 +80,10 @@ export type HostServices = {
   /** Host-rendered modal text prompt (M9 finding: plugins must never
    * own window.* dialogs, and chrome overlays are host-private). */
   promptText?: (opts: { title: string; message?: string; initial?: string }) => Promise<string | null>;
+  /** Host-rendered universal menu (M9-D3 finding: in-content menus must
+   * wear the SAME panel face as the chrome context menus — owner
+   * ruling). Anchor is a viewport point. */
+  menu?: (anchor: { x: number; y: number }, items: HostMenuItem[], opts?: { header?: string }) => void;
 };
 
 export const HostContext = createContext<HostServices | null>(null);

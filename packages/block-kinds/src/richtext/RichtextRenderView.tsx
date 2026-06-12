@@ -6,9 +6,9 @@
  * here; unknown nodes degrade to their children (content preserved).
  */
 import type { ReactNode } from 'react';
-import { useTheme } from '@skb/theme';
+import { isSafeCssColor, useTheme } from '@skb/theme';
 import type { PmMark, PmNode, RichtextContent } from './richtext';
-import { extractText } from './richtext';
+import { extractText, SPACING_LINE_HEIGHT } from './richtext';
 
 export function RichtextRenderView({ content }: { content: RichtextContent }) {
   const theme = useTheme();
@@ -18,7 +18,12 @@ export function RichtextRenderView({ content }: { content: RichtextContent }) {
   return (
     <div
       className="skb-rt"
-      style={{ fontSize: '14px', lineHeight: 1.55, color: theme.textColor, overflowWrap: 'anywhere' }}
+      style={{
+        fontSize: '14px',
+        lineHeight: SPACING_LINE_HEIGHT[content.spacing ?? 'normal'],
+        color: theme.textColor,
+        overflowWrap: 'anywhere',
+      }}
     >
       <style>{`
         .skb-rt > :first-child { margin-top: 0; }
@@ -76,6 +81,12 @@ function applyMarks(text: string, marks: PmMark[]): ReactNode {
       case 'code':
         out = <code>{out}</code>;
         break;
+      case 'color': {
+        // palette values only, but re-validate: docs travel via import
+        const c = typeof mark.attrs?.color === 'string' ? mark.attrs.color : '';
+        if (isSafeCssColor(c)) out = <span style={{ color: c }}>{out}</span>;
+        break;
+      }
       case 'link': {
         const href = typeof mark.attrs?.href === 'string' ? mark.attrs.href : '';
         // reject javascript: etc. — only http(s), mailto, and relative

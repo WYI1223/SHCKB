@@ -71,6 +71,18 @@ export const richtextSchema = new Schema({
       parseDOM: [{ tag: 'code' }],
       toDOM: () => ['code', 0],
     },
+    /** Text color (M9-D3) — values come from the module's fixed palette
+     * (COLOR_PALETTE); render side re-validates with isSafeCssColor. */
+    color: {
+      attrs: { color: {} },
+      parseDOM: [
+        {
+          style: 'color',
+          getAttrs: (value) => ({ color: value }),
+        },
+      ],
+      toDOM: (mark) => ['span', { style: `color: ${mark.attrs.color as string}` }, 0],
+    },
     /** External link — plain href. */
     link: {
       attrs: { href: {} },

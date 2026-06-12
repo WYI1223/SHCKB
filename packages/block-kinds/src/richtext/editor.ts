@@ -48,6 +48,10 @@ export type EditorHandle = {
   selectionEmpty: () => boolean;
   /** True while the PM surface owns focus (bubble visibility). */
   hasFocus: () => boolean;
+  /** Apply (css color) or clear (null) the color mark on the selection. */
+  setColor: (color: string | null) => void;
+  /** Color of the selection's first colored text, if any. */
+  activeColor: () => string | null;
   /** Viewport coords spanning the selection — bubble anchor. */
   selectionCoords: () => { x: number; top: number; bottom: number } | null;
   /** Viewport coords of a doc position — slash-menu anchor. */
@@ -65,6 +69,11 @@ export function mountEditor(opts: {
   /** "/" typed — the host component opens its floating block menu at
    * this doc position (Notion affordance, module-owned UI). */
   onSlash?: (pos: number) => void;
+  /** A mouse gesture settled on a non-empty selection (drag-select
+   * mouseup, or right-click on a selection) — open the format menu.
+   * Right-clicks arrive with `viaContextMenu` so the caller knows the
+   * native menu was suppressed. */
+  onSelectionMenu?: (point: { x: number; y: number }, viaContextMenu: boolean) => void;
 }): EditorHandle {
   let doc: PmModelNode;
   try {
@@ -115,6 +124,26 @@ export function mountEditor(opts: {
       // fires BEFORE insertion: the "/" lands at [from, from+1)
       if (text === '/' && opts.onSlash) opts.onSlash(from);
       return false; // never consume — the character still types
+    },
+    handleDOMEvents: {
+      // drag-select settles → format menu at the pointer (M9-D3)
+      mouseup(v, e) {
+        if (!opts.onSelectionMenu) return false;
+        const point = { x: e.clientX, y: e.clientY };
+        // selection state settles after the event — defer one tick
+        setTimeout(() => {
+          if (!v.isDestroyed && !v.state.selection.empty) opts.onSelectionMenu!(point, false);
+        }, 0);
+        return false;
+      },
+      // right-click on a selection re-enters the same menu; empty
+      // selection keeps the native menu (copy/paste belongs there)
+      contextmenu(v, e) {
+        if (!opts.onSelectionMenu || v.state.selection.empty) return false;
+        e.preventDefault();
+        opts.onSelectionMenu({ x: e.clientX, y: e.clientY }, true);
+        return true;
+      },
     },
   });
 
@@ -203,6 +232,31 @@ export function mountEditor(opts: {
     selectionEmpty: () => view.state.selection.empty,
 
     hasFocus: () => view.hasFocus(),
+
+    setColor: (color) => {
+      const { from, to, empty } = view.state.selection;
+      if (empty) return;
+      const tr = view.state.tr.removeMark(from, to, schema.marks.color);
+      if (color !== null) tr.addMark(from, to, schema.marks.color.create({ color }));
+      view.dispatch(tr);
+      view.focus();
+    },
+
+    activeColor: () => {
+      const { from, to, empty, $from } = view.state.selection;
+      if (empty) {
+        const m = schema.marks.color.isInSet(view.state.storedMarks ?? $from.marks());
+        return m ? (m.attrs.color as string) : null;
+      }
+      let found: string | null = null;
+      view.state.doc.nodesBetween(from, to, (node) => {
+        if (found) return false;
+        const m = schema.marks.color.isInSet(node.marks);
+        if (m) found = m.attrs.color as string;
+        return true;
+      });
+      return found;
+    },
 
     selectionCoords: () => {
       const { from, to, empty } = view.state.selection;

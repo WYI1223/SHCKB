@@ -1,39 +1,45 @@
 /**
- * Active-block editing surface, Notion-style (M9-D2): no fixed chrome
- * on the block — a floating bubble bar rises over the text selection
- * (marks, turn-into, links) and a "/" slash menu offers block types at
- * the caret. All floating panels are MODULE-OWNED portals (plugin
- * posture: host overlays are unreachable, a plugin ships its own
- * editing chrome). Host reach stays HostServices-only: promptText for
- * the URL dialog, listPages for the page picker; absent capability =
- * hidden affordance.
+ * Active-block editing surface (M9-D2/D3). All in-content menus wear
+ * the HOST's universal panel face via HostServices.menu (owner ruling:
+ * vertical, unified with the context menus — a plugin describes items,
+ * the host draws the panel):
+ *   - drag-select mouseup / right-click on a selection → format menu
+ *     (marks with ✓, turn-into pills, color swatches, spacing pills,
+ *     link + page link);
+ *   - "/" at the caret → insert menu (block types, page link).
+ * The only module-owned float left is the page picker (it needs a
+ * filter input, which the menu face deliberately doesn't host).
+ * Degradation rule: absent host capability = hidden affordance.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '@skb/theme';
 import { UiTextInput } from '@skb/ui-kit';
 import { useHost } from '../types';
+import type { HostMenuItem } from '../types';
 import type { EditorHandle, ToolbarCommand } from './editor';
 import type { BlockViewProps } from '../types';
-import { coerceContent, type RichtextContent } from './richtext';
+import { COLOR_PALETTE, SPACING_LINE_HEIGHT, coerceContent, type PmNode, type RichtextContent, type RichtextSpacing } from './richtext';
 
 type Anchor = { x: number; top: number; bottom: number };
 
-type Overlay =
-  | { kind: 'slash'; pos: number; highlight: number }
-  | { kind: 'pagepicker'; anchor: Anchor }
-  | null;
+const TURN_INTO: Array<{ id: ToolbarCommand; name: string }> = [
+  { id: 'h1', name: 'H1' },
+  { id: 'h2', name: 'H2' },
+  { id: 'h3', name: 'H3' },
+  { id: 'bullet_list', name: '• list' },
+  { id: 'ordered_list', name: '1. list' },
+  { id: 'blockquote', name: '❝ quote' },
+];
 
-type SlashItem = { label: string; hint: string; run: 'pagepicker' | ToolbarCommand };
-
-const SLASH_ITEMS: SlashItem[] = [
-  { label: 'Heading 1', hint: '#', run: 'h1' },
-  { label: 'Heading 2', hint: '##', run: 'h2' },
-  { label: 'Heading 3', hint: '###', run: 'h3' },
-  { label: 'Bullet list', hint: '-', run: 'bullet_list' },
-  { label: 'Numbered list', hint: '1.', run: 'ordered_list' },
-  { label: 'Quote', hint: '>', run: 'blockquote' },
-  { label: 'Link to page', hint: '⛓', run: 'pagepicker' },
+const SLASH_ITEMS: Array<{ label: string; run: ToolbarCommand | 'pagepicker' }> = [
+  { label: 'Heading 1', run: 'h1' },
+  { label: 'Heading 2', run: 'h2' },
+  { label: 'Heading 3', run: 'h3' },
+  { label: 'Bullet list', run: 'bullet_list' },
+  { label: 'Numbered list', run: 'ordered_list' },
+  { label: 'Quote', run: 'blockquote' },
+  { label: 'Link to page…', run: 'pagepicker' },
 ];
 
 export function RichtextEditView({ content, onChange }: BlockViewProps<RichtextContent>) {
@@ -43,14 +49,30 @@ export function RichtextEditView({ content, onChange }: BlockViewProps<RichtextC
   const handleRef = useRef<EditorHandle | null>(null);
   const [, setTick] = useState(0);
   const tick = useCallback(() => setTick((t) => t + 1), []);
-  const [overlay, setOverlay] = useState<Overlay>(null);
-  const overlayRef = useRef<Overlay>(null);
-  overlayRef.current = overlay;
+  const [picker, setPicker] = useState<Anchor | null>(null);
 
-  // Initial content only: while mounted, this editor owns the doc.
-  const initialDoc = useRef(coerceContent(content).doc);
+  // While mounted, this editor owns the content. Doc lives in PM;
+  // spacing is block-level module state — both rejoin on every change.
+  const initial = useRef(coerceContent(content));
+  const lastDoc = useRef<PmNode>(initial.current.doc);
+  const [spacing, setSpacingState] = useState<RichtextSpacing>(initial.current.spacing ?? 'normal');
+  const spacingRef = useRef(spacing);
+  spacingRef.current = spacing;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  const emit = useCallback(() => {
+    onChangeRef.current({
+      doc: lastDoc.current,
+      ...(spacingRef.current !== 'normal' ? { spacing: spacingRef.current } : {}),
+    });
+  }, []);
+
+  function setSpacing(s: RichtextSpacing) {
+    setSpacingState(s);
+    spacingRef.current = s;
+    emit();
+  }
 
   useEffect(() => {
     let dead = false;
@@ -59,10 +81,14 @@ export function RichtextEditView({ content, onChange }: BlockViewProps<RichtextC
       if (dead || !mountRef.current) return;
       handle = mountEditor({
         place: mountRef.current,
-        doc: initialDoc.current,
-        onDocChanged: (docJson) => onChangeRef.current({ doc: docJson } as RichtextContent),
+        doc: initial.current.doc,
+        onDocChanged: (docJson) => {
+          lastDoc.current = docJson as PmNode;
+          emit();
+        },
         onTick: tick,
-        onSlash: (pos) => setOverlay({ kind: 'slash', pos, highlight: 0 }),
+        onSlash: (pos) => openSlashMenu(pos),
+        onSelectionMenu: (point) => openFormatMenu(point),
       });
       handleRef.current = handle;
       handle.focus();
@@ -73,68 +99,102 @@ export function RichtextEditView({ content, onChange }: BlockViewProps<RichtextC
       handle?.destroy();
       handleRef.current = null;
     };
-  }, [tick]);
-
-  // Floating anchors live in viewport coords — follow scroll/resize/focus.
-  useEffect(() => {
-    const opts = { capture: true, passive: true } as const;
-    window.addEventListener('scroll', tick, opts);
-    window.addEventListener('resize', tick);
-    document.addEventListener('focusin', tick);
-    return () => {
-      window.removeEventListener('scroll', tick, opts);
-      window.removeEventListener('resize', tick);
-      document.removeEventListener('focusin', tick);
-    };
-  }, [tick]);
-
-  // Slash-menu keyboard: capture-phase so PM never sees the navigation.
-  useEffect(() => {
-    if (overlay?.kind !== 'slash') return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        setOverlay(null);
-      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        e.stopPropagation();
-        const delta = e.key === 'ArrowDown' ? 1 : -1;
-        setOverlay((o) =>
-          o?.kind === 'slash' ? { ...o, highlight: (o.highlight + delta + SLASH_ITEMS.length) % SLASH_ITEMS.length } : o,
-        );
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        e.stopPropagation();
-        const o = overlayRef.current;
-        if (o?.kind === 'slash') runSlashItem(SLASH_ITEMS[o.highlight]!, o.pos);
-      } else if (e.key.length === 1 || e.key === 'Backspace') {
-        // typing continues in the doc — a moved caret invalidates the menu
-        setOverlay(null);
-      }
-    };
-    window.addEventListener('keydown', onKey, { capture: true });
-    return () => window.removeEventListener('keydown', onKey, { capture: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlay?.kind]);
+  }, [tick, emit]);
 
-  const h = handleRef.current;
-  const active = h?.active();
+  function openSlashMenu(slashPos: number) {
+    const h = handleRef.current;
+    if (!h || !host.menu) return;
+    const at = h.posCoords(slashPos + 1);
+    if (!at) return;
+    host.menu(
+      { x: at.x, y: at.bottom + 4 },
+      SLASH_ITEMS.filter((it) => it.run !== 'pagepicker' || host.listPages).map<HostMenuItem>((item) => ({
+        label: item.label,
+        onSelect: () => {
+          const handle = handleRef.current;
+          if (!handle) return;
+          handle.deleteRange(slashPos, slashPos + 1); // remove the typed "/"
+          if (item.run === 'pagepicker') {
+            const anchor = handle.posCoords(slashPos);
+            setPicker(anchor ?? { x: at.x, top: at.top, bottom: at.bottom });
+          } else {
+            handle.exec(item.run);
+          }
+        },
+      })),
+      { header: 'insert' },
+    );
+  }
 
-  function runSlashItem(item: SlashItem, slashPos: number) {
-    const handle = handleRef.current;
-    if (!handle) return;
-    handle.deleteRange(slashPos, slashPos + 1); // remove the typed "/"
-    if (item.run === 'pagepicker') {
-      const anchor = handle.posCoords(slashPos) ?? { x: 100, top: 100, bottom: 120 };
-      setOverlay({ kind: 'pagepicker', anchor });
-    } else {
-      setOverlay(null);
-      handle.exec(item.run);
+  function openFormatMenu(point: { x: number; y: number }) {
+    const h = handleRef.current;
+    if (!h || !host.menu || h.selectionEmpty()) return;
+    const active = h.active();
+    const currentColor = h.activeColor();
+
+    const items: HostMenuItem[] = [
+      { label: 'Bold', checked: active.strong, onSelect: () => h.exec('strong') },
+      { label: 'Italic', checked: active.em, onSelect: () => h.exec('em') },
+      { label: 'Inline code', checked: active.code, onSelect: () => h.exec('code') },
+      { kind: 'separator' },
+      {
+        kind: 'choices',
+        label: 'turn into',
+        options: TURN_INTO.map((t) => ({ id: t.id, name: t.name, selected: active[t.id] })),
+        onPick: (id) => h.exec(id as ToolbarCommand),
+      },
+      {
+        kind: 'choices',
+        label: 'color',
+        options: [
+          { id: '__default', name: 'Default', swatch: theme.textColor, selected: currentColor === null },
+          ...COLOR_PALETTE.map((c) => ({ id: c.id, name: c.name, swatch: c.css, selected: currentColor === c.css })),
+        ],
+        onPick: (id) => {
+          if (id === '__default') h.setColor(null);
+          else {
+            const c = COLOR_PALETTE.find((p) => p.id === id);
+            if (c) h.setColor(c.css);
+          }
+        },
+      },
+      {
+        kind: 'choices',
+        label: 'spacing',
+        options: (['compact', 'normal', 'relaxed'] as const).map((s) => ({
+          id: s,
+          name: s,
+          selected: spacingRef.current === s,
+        })),
+        onPick: (id) => setSpacing(id as RichtextSpacing),
+      },
+    ];
+
+    const tail: HostMenuItem[] = [];
+    if (host.promptText) {
+      tail.push({
+        label: active.link ? 'Edit link…' : 'Link…',
+        onSelect: () => void editLink(),
+      });
     }
+    if (host.listPages) {
+      tail.push({
+        label: 'Link to page…',
+        checked: active.pagelink,
+        onSelect: () => {
+          const sel = h.selectionCoords();
+          if (sel) setPicker(sel);
+        },
+      });
+    }
+    if (tail.length > 0) items.push({ kind: 'separator' }, ...tail);
+
+    host.menu(point, items, { header: 'text' });
   }
 
   async function editLink() {
+    const h = handleRef.current;
     if (!h || !host.promptText || h.selectionEmpty()) return;
     const href = await host.promptText({
       title: 'link',
@@ -144,10 +204,6 @@ export function RichtextEditView({ content, onChange }: BlockViewProps<RichtextC
     if (href === null) return;
     h.setLink(href.trim() === '' ? null : href.trim());
   }
-
-  // Bubble: selection present, PM (or a module panel) focused, no other overlay.
-  const selCoords = h && !h.selectionEmpty() ? h.selectionCoords() : null;
-  const bubbleVisible = !!selCoords && overlay === null && (h?.hasFocus() ?? false);
 
   return (
     <div className="skb-rt-edit" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -160,7 +216,7 @@ export function RichtextEditView({ content, onChange }: BlockViewProps<RichtextC
         .skb-rt-edit .ProseMirror blockquote { margin: 0.5em 0; padding-left: 10px; border-left: 3px solid ${theme.hairline}; color: ${theme.quoteColor}; }
         .skb-rt-edit .ProseMirror a { color: ${theme.accent}; }
         .skb-rt-edit .ProseMirror > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before {
-          content: 'Write — or "/" for blocks, "##" for headings…';
+          content: 'Write — or "/" for blocks, select text to format…';
           color: ${theme.mutedColor};
           position: absolute;
           pointer-events: none;
@@ -169,84 +225,26 @@ export function RichtextEditView({ content, onChange }: BlockViewProps<RichtextC
 
       <div
         ref={mountRef}
-        style={{ flex: 1, minHeight: 0, overflow: 'auto', fontSize: '14px', lineHeight: 1.55, color: theme.textColor }}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflow: 'auto',
+          fontSize: '14px',
+          lineHeight: SPACING_LINE_HEIGHT[spacing],
+          color: theme.textColor,
+        }}
       />
 
-      {bubbleVisible && selCoords && (
-        <FloatingPanel anchor={selCoords} place="above">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '3px 4px' }}>
-            <TbButton label="B" title="Bold (Ctrl-B)" bold active={active?.strong} onClick={() => h?.exec('strong')} />
-            <TbButton label="I" title="Italic (Ctrl-I)" italic active={active?.em} onClick={() => h?.exec('em')} />
-            <TbButton label="‹›" title="Inline code (Ctrl-`)" active={active?.code} onClick={() => h?.exec('code')} />
-            <TbDivider />
-            {(['h1', 'h2', 'h3'] as const).map((cmd) => (
-              <TbButton key={cmd} label={cmd.toUpperCase()} title={`Heading ${cmd[1]}`} active={active?.[cmd]} onClick={() => h?.exec(cmd)} />
-            ))}
-            <TbButton label="•" title="Bullet list" active={active?.bullet_list} onClick={() => h?.exec('bullet_list')} />
-            <TbButton label="1." title="Numbered list" active={active?.ordered_list} onClick={() => h?.exec('ordered_list')} />
-            <TbButton label="❝" title="Quote" active={active?.blockquote} onClick={() => h?.exec('blockquote')} />
-            {(host.promptText || host.listPages) && <TbDivider />}
-            {host.promptText && (
-              <TbButton label="link" title="Link selection to a URL" active={active?.link} onClick={() => void editLink()} />
-            )}
-            {host.listPages && (
-              <TbButton
-                label="⛓"
-                title="Link selection to a page (never breaks on rename)"
-                active={active?.pagelink}
-                onClick={() => {
-                  const anchor = h?.selectionCoords();
-                  if (anchor) setOverlay({ kind: 'pagepicker', anchor });
-                }}
-              />
-            )}
-          </div>
-        </FloatingPanel>
-      )}
-
-      {overlay?.kind === 'slash' && h && (
-        <FloatingPanel anchor={h.posCoords(overlay.pos + 1) ?? { x: 100, top: 100, bottom: 120 }} place="below">
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '4px', minWidth: '180px' }}>
-            {SLASH_ITEMS.filter((it) => it.run !== 'pagepicker' || host.listPages).map((item, i) => (
-              <button
-                key={item.label}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => runSlashItem(item, overlay.pos)}
-                onMouseEnter={() => setOverlay((o) => (o?.kind === 'slash' ? { ...o, highlight: i } : o))}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  gap: '14px',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  background: overlay.highlight === i ? theme.surfaceInsetBg : 'transparent',
-                  border: 'none',
-                  borderRadius: '3px',
-                  cursor: 'pointer',
-                  fontSize: '12.5px',
-                  fontFamily: 'inherit',
-                  color: theme.textColor,
-                  padding: '5px 8px',
-                }}
-              >
-                <span>{item.label}</span>
-                <span style={{ color: theme.mutedColor, fontSize: '10px' }}>{item.hint}</span>
-              </button>
-            ))}
-          </div>
-        </FloatingPanel>
-      )}
-
-      {overlay?.kind === 'pagepicker' && host.listPages && (
-        <FloatingPanel anchor={overlay.anchor} place="below">
+      {picker && host.listPages && (
+        <FloatingPanel anchor={picker} place="below">
           <PagePicker
             listPages={host.listPages}
             onPick={(p) => {
-              setOverlay(null);
+              setPicker(null);
               handleRef.current?.insertPageLink(p.id, p.title);
             }}
             onClose={() => {
-              setOverlay(null);
+              setPicker(null);
               handleRef.current?.focus();
             }}
           />
@@ -257,9 +255,9 @@ export function RichtextEditView({ content, onChange }: BlockViewProps<RichtextC
 }
 
 /**
- * Module-owned floating panel (the plugin's own chrome): portal to
- * body, viewport-fixed, measured-then-clamped like any decent popover.
- * Content-theme voiced — this floats over the themed sheet.
+ * Module-owned floating panel — ONLY for the page picker (it hosts an
+ * input, which the universal menu face deliberately doesn't). Portal to
+ * body, viewport-fixed, measured-then-clamped.
  */
 function FloatingPanel({ anchor, place, children }: { anchor: Anchor; place: 'above' | 'below'; children: React.ReactNode }) {
   const theme = useTheme();
@@ -362,51 +360,4 @@ function PagePicker({
       ))}
     </div>
   );
-}
-
-function TbButton({
-  label,
-  title,
-  onClick,
-  active,
-  bold,
-  italic,
-}: {
-  label: string;
-  title: string;
-  onClick: () => void;
-  active?: boolean;
-  bold?: boolean;
-  italic?: boolean;
-}) {
-  const theme = useTheme();
-  return (
-    <button
-      title={title}
-      // preserve the PM selection: the bubble must not steal focus
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={onClick}
-      style={{
-        fontSize: '11px',
-        fontWeight: bold ? 700 : 500,
-        fontStyle: italic ? 'italic' : 'normal',
-        fontFamily: 'inherit',
-        color: active ? theme.accent : theme.mutedColor,
-        background: active ? theme.surfaceInsetBg : 'transparent',
-        border: 'none',
-        borderRadius: '3px',
-        padding: '3px 7px',
-        cursor: 'pointer',
-        lineHeight: 1.4,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function TbDivider() {
-  const theme = useTheme();
-  return <span aria-hidden style={{ width: '1px', height: '14px', background: theme.hairline, margin: '0 2px', flexShrink: 0 }} />;
 }

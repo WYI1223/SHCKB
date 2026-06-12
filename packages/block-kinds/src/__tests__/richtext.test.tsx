@@ -10,7 +10,7 @@ import { describe, expect, test } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Node as PmNode } from 'prosemirror-model';
 import { ThemeProvider, graphPaper } from '@skb/theme';
-import { coerceContent, createContent, extractText, linkedPageIds, type RichtextContent } from '../richtext/richtext';
+import { SPACING_LINE_HEIGHT, coerceContent, createContent, extractText, linkedPageIds, type RichtextContent } from '../richtext/richtext';
 import { richtextSchema } from '../richtext/schema';
 import { RichtextRenderView } from '../richtext/RichtextRenderView';
 
@@ -160,5 +160,28 @@ describe('RichtextRenderView', () => {
   test('empty doc shows the muted placeholder', () => {
     const host = renderRt(createContent());
     expect(host.textContent).toContain('Empty richtext block');
+  });
+
+  test('color mark paints palette values, rejects unsafe ones (M9-D3)', () => {
+    const colored = (css: string): RichtextContent => ({
+      doc: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'tinted', marks: [{ type: 'color', attrs: { color: css } }] }] },
+        ],
+      },
+    });
+    const ok = renderRt(colored('oklch(55% 0.18 25)'));
+    expect(ok.querySelector('p [style]')?.getAttribute('style') ?? '').toContain('oklch');
+    const evil = renderRt(colored('red;background:url(x)'));
+    expect(evil.querySelector('p [style]')).toBeNull();
+  });
+
+  test('spacing drives line-height; coerce keeps valid values only (M9-D3)', () => {
+    const base = { ...SAMPLE, spacing: 'relaxed' as const };
+    const host = renderRt(base);
+    expect((host.querySelector('.skb-rt') as HTMLElement).style.lineHeight).toBe(String(SPACING_LINE_HEIGHT.relaxed));
+    expect(coerceContent(base)).toEqual(base);
+    expect(coerceContent({ ...SAMPLE, spacing: 'gigantic' })).toEqual(SAMPLE);
   });
 });
