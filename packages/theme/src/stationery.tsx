@@ -159,7 +159,9 @@ function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; 
 
 /** 'card' shell: clean white card stock — no torn edge, no curl; the
  * washi tape stays (it is the pinning, not the paper). */
-function CardFrame({ kind, blockId, colSpan, tape, children }: { kind: string; blockId: string; colSpan: number; tape: string; children: ReactNode }) {
+function CardFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
+  const t = useTheme();
+  const tape = t.kindHues[kind] ?? t.kindHueFallback;
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
   return (
     <div
@@ -205,7 +207,7 @@ function CardFrame({ kind, blockId, colSpan, tape, children }: { kind: string; b
 
 /** 'bare' shell: no paper at all — the content itself lies on the
  * desk with a slight tilt and shadow (for image: just the photo). */
-function BareFrame({ kind, blockId, colSpan, children }: { kind: string; blockId: string; colSpan: number; children: ReactNode }) {
+function BareFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
   return (
     <div
@@ -228,26 +230,13 @@ function BareFrame({ kind, blockId, colSpan, children }: { kind: string; blockId
   );
 }
 
-function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, shell, children }: BlockFrameProps) {
+function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: BlockFrameProps) {
   const t = useTheme();
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
   const tape = t.kindHues[kind] ?? t.kindHueFallback;
   const curl = curlSideOf(blockId);
-  // Author-picked shell (M6-D3); unknown ids fall through to default.
-  if (shell === 'card') {
-    return (
-      <CardFrame kind={kind} blockId={blockId} colSpan={colSpan} tape={tape}>
-        {children}
-      </CardFrame>
-    );
-  }
-  if (shell === 'bare') {
-    return (
-      <BareFrame kind={kind} blockId={blockId} colSpan={colSpan}>
-        {children}
-      </BareFrame>
-    );
-  }
+  // Default shell only — author shell choices resolve to their own
+  // Frames via theme.shells (declaration IS implementation, M6-D3).
   if (kind === 'image') {
     return (
       <PolaroidFrame blockId={blockId} colSpan={colSpan} tape={tape}>
@@ -464,13 +453,12 @@ export const stationery: Theme = {
   PageTitle: StationeryPageTitle,
   globalCss: STATIONERY_GLOBAL_CSS,
 
-  // Curated shells (M6-D3) — the ids StationeryBlockFrame branches on.
-  // Declaring them here is what makes the Properties inspector offer
-  // them; the frame branch alone is invisible to the host.
-  shellOptions: [
-    { id: 'card', name: 'Card' },
-    { id: 'bare', name: 'Bare' },
-  ],
+  // Curated shells (M6-D3): each declaration carries its own Frame —
+  // there is no second list to forget (the bug class the owner caught).
+  shells: {
+    card: { name: 'Card', Frame: CardFrame },
+    bare: { name: 'Bare', Frame: BareFrame },
+  },
 
   // Unlocked by the render-time-token refactor (MVP-6 M6-D6). Curation
   // rule for THIS theme: never retune paper-surface colors (blockBg

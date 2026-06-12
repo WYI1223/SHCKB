@@ -6,7 +6,7 @@
  */
 import { totalRows, type Block } from '@skb/grid-engine';
 import { blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
-import { kindHue, useTheme, type PageBackground } from '@skb/theme';
+import { kindHue, resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
 
@@ -84,8 +84,10 @@ function BlockShell({
   const isResizing = interaction.resize.active && interaction.resize.blockId === block.id;
   const hue = kindHue(theme, block.kind);
   // v2 [ADR-0025]: outer div = geometry + interaction + editing chrome
-  // (editor-owned); the theme's BlockFrame owns the visual shell.
-  const Frame = theme.BlockFrame ?? DefaultBlockFrame;
+  // (editor-owned); the theme's BlockFrame owns the visual shell. An
+  // author shell choice resolves to its own Frame (M6-D3).
+  const shell = shells[block.id] ?? null;
+  const Frame = resolveBlockFrame(theme, block.kind, shell) ?? theme.BlockFrame ?? DefaultBlockFrame;
 
   return (
     <div
@@ -109,7 +111,7 @@ function BlockShell({
         opacity: isResizing ? 0.6 : 1,
       }}
     >
-      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} shell={shells[block.id] ?? null}>
+      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} shell={shell}>
         <div
           style={{
             display: 'flex',

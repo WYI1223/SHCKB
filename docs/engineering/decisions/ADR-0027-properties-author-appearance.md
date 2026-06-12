@@ -27,7 +27,7 @@ Owner 的工具面板愿景比 MVP-5 实现大一圈：右键背景改背景色/
 
 与 [ADR-0026] M5-D3 同构的纪律——**theme 策展，作者在选项内挑**：
 
-- `Theme.shellOptions?: ShellOption[]`（id 持久化不改名；kinds 白名单可限定适用 kind）；`BlockFrameProps.shell`；未知 id 降级默认壳。首批：stationery card/bare（bare = 拍立得只剩照片，owner 原话场景）、workbench/缺省 frame 通用 flat
+- `Theme.shells?: Record<id, {name, kinds?, Frame}>`——**声明即实现**（owner 反馈修订：初版 shellOptions 列表 + Frame 内分支是两处手写同步，stationery 实测漏声明；map 模型让该 bug 类在类型层不可能）。host 经 `resolveBlockFrame` 解析，未知 id 降级默认壳。首批：stationery card/bare（bare = 拍立得只剩照片，owner 原话场景）、workbench 引用通用 `FlatShellFrame`
 - 页面背景 `{color?, blobHash?}` 为 host 级属性（自由色 + blob 图）；host 在画布根应用，`CanvasSurfaceProps.background` 同时传给主题 surface 自行诠释（主题主权）；blobHash 进 blob 引用枚举（export/GC 契约 [ADR-0023]）
 - **存储**：blocks.shell + notepages.background（migration 0007，schema v7）。shell 走 working-state 全量 PUT；背景走独立端点
 - **两态纪律**：背景与壳都是工作态，publish 快照携带自己的副本——公开页只在显式 publish 时变化（与主题钉选的 render-time 语义刻意不同，钉选不进快照）

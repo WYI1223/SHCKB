@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createElement } from 'react';
-import { graphPaper, stationery, type Theme } from '@skb/theme';
+import { graphPaper, stationery, workbench, type Theme } from '@skb/theme';
 import { renderStaticPage } from '../static';
 
 const DOC = {
@@ -39,17 +39,18 @@ describe('theme render slots', () => {
 });
 
 describe('author appearance (MVP-6 M6-D3/D4)', () => {
-  test("default frame interprets 'flat'; unknown shells land on the default card", () => {
+  test("workbench curates 'flat'; unknown shells land on the default card", () => {
     const flat = renderStaticPage(
       { ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'flat' }] },
       's',
-      graphPaper,
+      workbench,
     );
     expect(flat).toContain('data-shell="flat"');
     expect(flat).not.toContain('border:1px solid'); // card chrome dropped
 
+    // graph-paper curates no shells: any shell id lands on the default
     const unknown = renderStaticPage(
-      { ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'no-such-shell' }] },
+      { ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'flat' }] },
       's',
       graphPaper,
     );
@@ -71,20 +72,19 @@ describe('author appearance (MVP-6 M6-D3/D4)', () => {
     expect(bare).not.toContain('class="skb-washi"');
   });
 
-  test('every declared shell option actually changes the rendered markup (declaration ↔ implementation)', () => {
-    // regression guard: stationery shipped card/bare branches without
-    // declaring shellOptions — the inspector showed nothing (owner
-    // caught it). A declared option whose render equals the default is
-    // the same class of bug from the other side.
-    const themes = [graphPaper, stationery];
-    for (const t of themes) {
+  test('every declared shell changes the rendered markup (declaration carries implementation)', () => {
+    // The shells map makes declaration-without-implementation a type
+    // error (owner feedback); this guards the remaining failure mode —
+    // a shell Frame that renders identically to the default.
+    for (const t of [graphPaper, workbench, stationery]) {
       const def = renderStaticPage(DOC, 's', t);
-      for (const o of t.shellOptions ?? []) {
-        const out = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: o.id }] }, 's', t);
-        expect(out, `${t.id}/${o.id} must differ from the default shell`).not.toBe(def);
+      for (const id of Object.keys(t.shells ?? {})) {
+        const out = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: id }] }, 's', t);
+        expect(out, `${t.id}/${id} must differ from the default shell`).not.toBe(def);
       }
     }
-    expect(stationery.shellOptions?.map((o) => o.id)).toEqual(['card', 'bare']);
+    expect(Object.keys(stationery.shells ?? {})).toEqual(['card', 'bare']);
+    expect(Object.keys(workbench.shells ?? {})).toEqual(['flat']);
   });
 
   test('page background: color replaces canvas, image layers as cover', () => {

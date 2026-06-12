@@ -8,19 +8,16 @@
 import { blockCardStyle, canvasBaseplateStyle, useTheme } from '@skb/theme';
 import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps } from '@skb/theme';
 
-export function DefaultBlockFrame({ kind, blockId: _blockId, colSpan: _c, rowSpan: _r, shell, children }: BlockFrameProps) {
+export function DefaultBlockFrame({ kind, blockId: _blockId, colSpan: _c, rowSpan: _r, children }: BlockFrameProps) {
   const theme = useTheme();
-  // Generic shell for token-only themes (M6-D3): 'flat' drops the card
-  // chrome — content sits directly on the canvas. Themes opt in by
-  // listing it in shellOptions; unknown ids land on the default card.
-  const flat = shell === 'flat';
+  // Default shell only — author shell choices resolve to their own
+  // Frames via theme.shells (resolveBlockFrame); unknown ids land here.
   return (
     <div
       className="skb-block"
       data-kind={kind}
-      data-shell={shell ?? undefined}
       style={{
-        ...(flat ? { padding: '8px 10px' } : blockCardStyle(theme, kind)),
+        ...blockCardStyle(theme, kind),
         width: '100%',
         height: '100%',
         overflow: 'auto',

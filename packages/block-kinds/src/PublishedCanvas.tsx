@@ -5,7 +5,7 @@
  * (positioned wrappers); the theme's render slots (or the defaults)
  * own every visual shell.
  */
-import { publicBlobUrl, useTheme, type PageBackground } from '@skb/theme';
+import { publicBlobUrl, resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
 import { DefaultBlockFrame, DefaultCanvasSurface, DefaultPageTitle } from './frames';
 import { blockModule } from './registry';
 
@@ -69,6 +69,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
         <Surface widthPx={COLS * SLOT} heightPx={rows * SLOT} background={doc.background}>
           {doc.blocks.map((b) => {
             const mod = blockModule(b.kind);
+            const BlockFrame = resolveBlockFrame(theme, b.kind, b.shell) ?? Frame;
             return (
               <div
                 key={b.id}
@@ -80,7 +81,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
                   height: `${b.rowSpan * SLOT - 2 * PAD}px`,
                 }}
               >
-                <Frame kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan} shell={b.shell}>
+                <BlockFrame kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan} shell={b.shell}>
                   {mod ? (
                     <mod.RenderView content={(b.content ?? mod.createContent()) as never} />
                   ) : (
@@ -88,7 +89,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
                       Unsupported content
                     </div>
                   )}
-                </Frame>
+                </BlockFrame>
               </div>
             );
           })}

@@ -53,9 +53,9 @@ kind 在 content JSON 中引用 blob **必须用小写 hex sha256 原文**。这
 - 工具属于**编辑面**：RenderView 及静态渲染路径不可触达 tools（纯度要求不变）
 - host 保留面（模块无贡献点）：侧栏目录、主题/钉选选择、Export/Import、块头部 chrome（host 读模块元数据渲染）
 
-## BlockFrame shell 契约（MVP-6 [ADR-0027]）
+## BlockFrame shell 契约（MVP-6 [ADR-0027]，owner 反馈修订）
 
-`BlockFrameProps.shell` = 作者在 theme 策展的 `shellOptions` 内的选择（id 持久化于 blocks.shell 与导出格式 v4）。Frame 实现规则：未知/null shell → 默认壳（主题升级移除选项时页面照常渲染）；kind 仍只管内容，壳分支全部归 theme 的 Frame（或缺省 frame 的通用 'flat'）。
+`Theme.shells` = `Record<id, {name, kinds?, Frame}>`——**声明即实现**：每个壳选项自带 Frame 组件，"声明了没实现"是类型错误、"实现了没声明"不可达（两处手写同步的 bug 类被结构性消灭）。host 经 `resolveBlockFrame(theme, kind, shell)` 解析：选择有效 → 壳自己的 Frame；未知 id / kind 不适用 / null → 主题默认 Frame（主题升级移除选项时页面照常渲染）。id 持久化于 blocks.shell 与导出格式 v4，永不改名。通用壳（如 `FlatShellFrame`）由 theme 包提供，主题在 shells map 里引用即策展。
 
 ## Registry
 

@@ -6,6 +6,8 @@ describe('author appearance', () => {
   test('block shell round-trips working state and enters the publish snapshot', async () => {
     const ctx = await createTestContext();
     const p = await json(await ctx.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'S' }) }));
+    // 'flat' is curated by workbench (shells are theme-curated) — pin it
+    await ctx.authed(`/api/notepages/${p.id}/theme`, { method: 'POST', body: JSON.stringify({ themeId: 'workbench' }) });
     await ctx.authed(`/api/notepages/${p.id}/working-state`, {
       method: 'PUT',
       body: JSON.stringify({

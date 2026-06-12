@@ -14,13 +14,19 @@ export type PageBackground = { color?: string; blobHash?: string };
 
 /** A theme-curated block shell variant (MVP-6 M6-D3): the author picks
  * WITHIN what the theme offers — never free shell styling (same
- * discipline as palette variants). `id` is persisted in block.shell;
- * never rename. */
-export type ShellOption = {
-  id: string;
+ * discipline as palette variants). The map key is persisted in
+ * block.shell; never rename.
+ *
+ * Declaration IS implementation (owner feedback 2026-06-12): each
+ * entry carries its own Frame, so a declared shell without a renderer
+ * is a type error and an unregistered renderer is unreachable — the
+ * two-hand-synced-lists bug class cannot exist. */
+export type ShellDefinition = {
   name: string;
-  /** Kinds this option applies to; omitted = every kind. */
+  /** Kinds this shell applies to; omitted = every kind. */
   kinds?: string[];
+  /** The visual shell rendered when the author picks this option. */
+  Frame: ComponentType<BlockFrameProps>;
 };
 
 export type BlockFrameProps = {
@@ -126,14 +132,31 @@ export type Theme = ThemeTokens &
     palettes?: PaletteVariant[];
     /** Tokens open for direct operator override; omitted = all locked. */
     customizableTokens?: OverridableTokenKey[];
-    /** Block shell variants the theme curates (M6-D3); omitted = the
-     * default shell is the only shell. */
-    shellOptions?: ShellOption[];
+    /** Block shell variants the theme curates (M6-D3), keyed by the
+     * persisted id; omitted = the default shell is the only shell. */
+    shells?: Record<string, ShellDefinition>;
   };
 
-/** Shell options applicable to a kind under a theme. */
-export function shellOptionsFor(theme: Theme, kind: string): ShellOption[] {
-  return (theme.shellOptions ?? []).filter((o) => !o.kinds || o.kinds.includes(kind));
+/** Shell choices applicable to a kind under a theme (inspector feed). */
+export function shellOptionsFor(theme: Theme, kind: string): Array<{ id: string; name: string }> {
+  return Object.entries(theme.shells ?? {})
+    .filter(([, d]) => !d.kinds || d.kinds.includes(kind))
+    .map(([id, d]) => ({ id, name: d.name }));
+}
+
+/** Frame for a block under an author shell choice: the shell's own
+ * Frame when the choice is valid for this kind, otherwise undefined —
+ * callers fall back to theme.BlockFrame / the default frame (unknown
+ * ids keep rendering, same discipline as palette variants). */
+export function resolveBlockFrame(
+  theme: Theme,
+  kind: string,
+  shell: string | null | undefined,
+): ComponentType<BlockFrameProps> | undefined {
+  if (!shell) return undefined;
+  const d = theme.shells?.[shell];
+  if (!d || (d.kinds && !d.kinds.includes(kind))) return undefined;
+  return d.Frame;
 }
 
 /** Public blob URL (server contract, [ADR-0022]) — surfaces resolve
