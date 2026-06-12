@@ -115,4 +115,17 @@ describe('theme customization (M5-D3)', () => {
     expect(sanitizeCustomization(graphPaper, 'garbage')).toBeNull();
     expect(sanitizeCustomization(blueprint, { paletteId: 'sepia' })).toEqual({ paletteId: 'sepia' });
   });
+
+  test('values that could close the <style> block are rejected at both gates (S1)', () => {
+    const payload = '</style><script>alert(1)</script>';
+    // sanitize gate: hostile value never enters stored customization
+    expect(sanitizeCustomization(graphPaper, { overrides: { accent: payload } })).toBeNull();
+    // apply gate: a hostile value already in storage (pre-fix import) is ignored at render
+    const out = applyCustomization(graphPaper, { overrides: { accent: payload } });
+    expect(out.accent).toBe(graphPaper.accent);
+    // plain CSS values are untouched
+    expect(
+      sanitizeCustomization(graphPaper, { overrides: { fontFamily: '"Iosevka", monospace' } }),
+    ).toEqual({ overrides: { fontFamily: '"Iosevka", monospace' } });
+  });
 });

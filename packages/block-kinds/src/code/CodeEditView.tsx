@@ -28,7 +28,7 @@ export function CodeEditView({ content, onChange }: BlockViewProps<CodeContent>)
           lineHeight: 1.5,
           fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
           color: theme.textColor,
-          background: 'white',
+          background: theme.blockBg,
           outline: 'none',
         }}
       />

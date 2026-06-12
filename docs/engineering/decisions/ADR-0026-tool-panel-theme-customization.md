@@ -30,7 +30,7 @@ Owner 判定通用工具面板是 plugin-system 主线前的 chrome 障碍：每
 - `Theme.palettes?: PaletteVariant[]` —— 主题策展的官方配色变体（科研 colormap 式）；类型级排除几何 token（slot/pad/dotSize/blockRadius 不进变体）
 - `Theme.customizableTokens?` —— 直接覆写的 opt-in 白名单（缺省全锁）
 - `applyCustomization(base, c)` 纯函数：base → 变体 → 白名单过滤覆写；slots/identity 原样穿过。未知 paletteId / 越权键静默降级（主题升级移除变体时页面照常渲染）
-- 存储：settings `themeCustomization` = JSON keyed by themeId（换主题不丢各自选择）；读取时再过滤（单一真理源 `sanitizeCustomization` 同时服务 admin 端点与 importer——手编包无法走私越权覆写）
+- 存储：settings `themeCustomization` = JSON keyed by themeId（换主题不丢各自选择）；读取时再过滤（单一真理源 `sanitizeCustomization` 服务**三处**：admin 端点、importer、settings 读取——手编包无法走私越权覆写，存量脏数据也在读取时降级；2026-06-12 校正，原文写"两处"漏计读取侧）
 - **重渲染不变量**：任何被接受的自定义写操作触发全量重渲染（同换主题）；publishedHtml = f(doc, slug, effectiveTheme) 签名与纯度不变，自定义经 effectiveTheme 流入；SPA 读路由与公开 payload 携带 customization 用同一 applyCustomization 合成——三处渲染一致性维持
 
 ### 4. 导出格式 v3

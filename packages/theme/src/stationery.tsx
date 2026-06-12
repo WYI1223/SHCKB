@@ -91,12 +91,12 @@ function curlSideOf(id: string): 'left' | 'right' {
  * precisely for this): images become Polaroid prints — stiff card,
  * clean edges (no tear), thick white border with the classic deep
  * bottom margin. Content stays kind-owned; only the shell changes. */
-function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; colSpan: number; tape: string; children: ReactNode }) {
+function PolaroidFrame({ kind, blockId, colSpan, tape, children }: { kind: string; blockId: string; colSpan: number; tape: string; children: ReactNode }) {
   const tilt = (tiltOf(blockId, colSpan) * 1.4).toFixed(3);
   return (
     <div
       className="skb-block skb-paper-slip skb-polaroid"
-      data-kind="image"
+      data-kind={kind}
       style={{ position: 'relative', width: '100%', height: '100%', transform: `rotate(${tilt}deg)` }}
     >
       <div
@@ -239,7 +239,7 @@ function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: Blo
   // Frames via theme.shells (declaration IS implementation, M6-D3).
   if (kind === 'image') {
     return (
-      <PolaroidFrame blockId={blockId} colSpan={colSpan} tape={tape}>
+      <PolaroidFrame kind={kind} blockId={blockId} colSpan={colSpan} tape={tape}>
         {children}
       </PolaroidFrame>
     );

@@ -1,16 +1,22 @@
 /**
- * Properties panel (MVP-6 M6-D1) — the selection-driven inspector.
- * Docked under the sidebar directory (3D-engine mental model, owner
- * ratified); a floating right-click projection of the same sections
- * comes later. Contributors per selection:
- *   page  → host (background color / image)
+ * The spec sheet — the selection-driven Properties inspector as a
+ * right-hand rail on the bench (Paste-Up IA: rack | light table | spec
+ * sheet). Contributors per selection are unchanged (MVP-6 M6-D1):
+ *   page  → host (page stock: background color / image)
  *   block → theme (curated shell options) + kind module (tools)
  * Future: text-range → richtext kind contributions.
+ *
+ * Paint/data split: shell OPTIONS come from the page's effective
+ * content theme (read before re-providing), but everything inside the
+ * rail renders under benchTheme — chrome never wears the content
+ * theme, and ui-kit primitives/kind tool Views pick the bench voice up
+ * through the normal ThemeContext (block-kinds contract untouched).
  */
 import { useRef } from 'react';
 import { blockModule, useHost } from '@skb/block-kinds';
-import { shellOptionsFor, useTheme, type PageBackground } from '@skb/theme';
+import { ThemeProvider, shellOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
 import { UiButton } from '@skb/ui-kit';
+import { BENCH, SectionLabel, benchTheme, labelStyle } from '../chrome/bench';
 import type { Interaction } from './useGridInteraction';
 
 export type Selection = { type: 'page' } | { type: 'block'; blockId: string };
@@ -27,44 +33,53 @@ export type PropertiesProps = {
 };
 
 export function Properties(props: PropertiesProps) {
-  const theme = useTheme();
+  // effective content theme — data source for shell options only
+  const contentTheme = useTheme();
   return (
-    <div
-      data-skb-properties
-      style={{
-        borderTop: `1px solid ${theme.hairline}`,
-        padding: '8px 6px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        fontSize: '12px',
-        color: theme.textColor,
-      }}
-    >
-      {props.selection.type === 'page' ? <PageSection {...props} /> : <BlockSection {...props} blockId={props.selection.blockId} />}
-    </div>
+    <ThemeProvider theme={benchTheme}>
+      <aside
+        data-skb-properties
+        className="pu-scroll"
+        aria-label="Properties"
+        style={{
+          width: '236px',
+          flexShrink: 0,
+          borderLeft: `1px solid ${BENCH.hairlineDark}`,
+          background: BENCH.paper,
+          padding: '12px',
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          fontSize: '12px',
+          color: BENCH.ink,
+          fontFamily: BENCH.fontUi,
+        }}
+      >
+        {props.selection.type === 'page' ? (
+          <PageSection {...props} />
+        ) : (
+          <BlockSection {...props} blockId={props.selection.blockId} contentTheme={contentTheme} />
+        )}
+      </aside>
+    </ThemeProvider>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  const theme = useTheme();
-  return (
-    <span style={{ fontSize: '10px', color: theme.mutedColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-      {children}
-    </span>
-  );
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <span style={labelStyle({ fontSize: '8px' })}>{children}</span>;
 }
 
 function PageSection({ background, onBackgroundChange }: PropertiesProps) {
-  const theme = useTheme();
   const { uploadBlob } = useHost();
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
     <>
-      <SectionTitle>Page properties</SectionTitle>
+      <SectionLabel>Spec sheet · page</SectionLabel>
+      <FieldLabel>Page stock</FieldLabel>
       <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{ flex: 1 }}>Background color</span>
+        <span style={{ flex: 1, fontSize: '12px' }}>Background color</span>
         <input
           type="color"
           // native color input speaks hex only; non-hex (cleared/oklch)
@@ -72,10 +87,18 @@ function PageSection({ background, onBackgroundChange }: PropertiesProps) {
           value={background?.color?.startsWith('#') ? background.color : '#ffffff'}
           onChange={(e) => onBackgroundChange({ ...background, color: e.target.value })}
           aria-label="Page background color"
-          style={{ width: '28px', height: '20px', padding: 0, border: `1px solid ${theme.hairline}`, background: 'transparent', cursor: 'pointer' }}
+          style={{
+            width: '30px',
+            height: '20px',
+            padding: 0,
+            border: `1px solid ${BENCH.hairlineDark}`,
+            borderRadius: '2px',
+            background: 'transparent',
+            cursor: 'pointer',
+          }}
         />
       </label>
-      <div style={{ display: 'flex', gap: '4px' }}>
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
         <UiButton onClick={() => fileRef.current?.click()} title="Use an image as the page background">
           {background?.blobHash ? 'Replace image' : 'Background image'}
         </UiButton>
@@ -99,6 +122,9 @@ function PageSection({ background, onBackgroundChange }: PropertiesProps) {
           e.target.value = '';
         }}
       />
+      <p style={{ margin: '4px 0 0', fontSize: '10px', color: BENCH.inkFaint, lineHeight: 1.5 }}>
+        Select a block on the sheet to see its shell options and tools.
+      </p>
     </>
   );
 }
@@ -108,14 +134,15 @@ function BlockSection({
   interaction,
   contents,
   shells,
+  contentTheme,
   onContentChange,
   onShellChange,
-}: PropertiesProps & { blockId: string }) {
-  const theme = useTheme();
+}: PropertiesProps & { blockId: string; contentTheme: Theme }) {
   const block = interaction.state.blocks.find((b) => b.id === blockId);
   if (!block) return null;
   const mod = blockModule(block.kind);
-  const options = shellOptionsFor(theme, block.kind);
+  // options come from the CONTENT theme (the sheet), not the bench
+  const options = shellOptionsFor(contentTheme, block.kind);
   const current = shells[blockId] ?? null;
   const content = contents[blockId] ?? mod?.createContent();
 
@@ -126,14 +153,14 @@ function BlockSection({
         key={id ?? '__default'}
         onClick={() => onShellChange(blockId, id)}
         style={{
-          padding: '2px 8px',
-          fontSize: '11px',
-          fontFamily: 'inherit',
-          color: theme.textColor,
-          background: theme.surfaceInsetBg,
-          border: `1px solid ${active ? theme.accent : theme.hairline}`,
-          boxShadow: active ? `0 0 0 1px ${theme.accent}` : 'none',
-          borderRadius: '999px',
+          padding: '3px 8px',
+          fontSize: '10px',
+          fontFamily: BENCH.fontMono,
+          letterSpacing: '0.04em',
+          color: active ? BENCH.paper : BENCH.inkSoft,
+          background: active ? BENCH.blue : BENCH.paperRaised,
+          border: `1px solid ${active ? BENCH.blue : BENCH.hairlineDark}`,
+          borderRadius: '2px',
           cursor: 'pointer',
         }}
       >
@@ -144,26 +171,40 @@ function BlockSection({
 
   return (
     <>
-      <SectionTitle>
-        {mod ? `${mod.glyph} ${mod.label}` : block.kind} properties
-      </SectionTitle>
+      <SectionLabel>
+        Spec sheet · {mod ? mod.label : block.kind}
+      </SectionLabel>
+      {/* instrument readout: where the galley sits on the board */}
+      <span
+        style={{
+          fontFamily: BENCH.fontMono,
+          fontSize: '10px',
+          letterSpacing: '0.06em',
+          color: BENCH.blue,
+        }}
+        title="Column / row · size (grid units)"
+      >
+        c{block.col + 1} r{block.row + 1} · {block.colSpan}×{block.rowSpan}
+      </span>
       {options.length > 0 && (
-        <label style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          <span style={{ fontSize: '10px', color: theme.mutedColor }}>Shell</span>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <FieldLabel>Shell — curated by {contentTheme.name}</FieldLabel>
           <span style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {chip(null, 'Default')}
+            {chip(null, 'default')}
             {options.map((o) => chip(o.id, o.name))}
           </span>
         </label>
       )}
       {mod?.tools?.map((tool) => (
-        <label key={tool.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          <span style={{ fontSize: '10px', color: theme.mutedColor }}>{tool.label}</span>
+        <label key={tool.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <FieldLabel>{tool.label}</FieldLabel>
           <tool.View content={content as never} onChange={(next) => onContentChange(blockId, next)} />
         </label>
       ))}
       {options.length === 0 && !mod?.tools?.length && (
-        <span style={{ color: theme.mutedColor, fontSize: '11px' }}>No properties for this block.</span>
+        <span style={{ color: BENCH.inkFaint, fontSize: '11px', fontStyle: 'italic' }}>
+          No properties for this block.
+        </span>
       )}
     </>
   );

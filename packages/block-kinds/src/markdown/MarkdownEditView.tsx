@@ -37,7 +37,7 @@ export function MarkdownEditView({ content, onChange }: BlockViewProps<MarkdownC
           fontSize: '13px',
           lineHeight: 1.5,
           color: theme.textColor,
-          background: 'white',
+          background: theme.blockBg,
           outline: 'none',
         }}
       />

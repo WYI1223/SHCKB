@@ -204,4 +204,7 @@ export const api = {
     }),
   getPublicInstance: () =>
     request<{ theme: string; customization: ThemeCustomization | null }>('/api/public/instance'),
+  /** Sweep unreferenced blobs (admin) — routes/admin.ts. */
+  gcBlobs: () =>
+    request<{ deleted: number; freedBytes: number }>('/api/admin/blobs/gc', { method: 'POST' }),
 };

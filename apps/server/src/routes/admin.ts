@@ -117,12 +117,33 @@ export function adminRoutes(db: Db, blobStore: BlobStore, meta: { version: strin
     });
   });
 
+  // Decompressed-size ceiling for import bundles (H1, mvp7 review):
+  // unzipSync materializes everything in memory, so a zip bomb would
+  // otherwise OOM the instance. Headers are checked before inflating
+  // AND actual bytes are re-summed after (crafted headers can lie).
+  const MAX_UNZIPPED_BYTES = 512 * 1024 * 1024;
+
   r.post('/admin/import', async (c) => {
     let entries: Record<string, Uint8Array>;
+    let declared = 0;
     try {
-      entries = unzipSync(new Uint8Array(await c.req.arrayBuffer()));
-    } catch {
+      entries = unzipSync(new Uint8Array(await c.req.arrayBuffer()), {
+        filter: (f) => {
+          declared += f.originalSize;
+          if (declared > MAX_UNZIPPED_BYTES) throw new RangeError('bundle too large');
+          return true;
+        },
+      });
+    } catch (err) {
+      if (err instanceof RangeError) {
+        return c.json({ error: `bundle exceeds the ${MAX_UNZIPPED_BYTES / (1024 * 1024)} MiB decompressed limit` }, 413);
+      }
       return c.json({ error: 'body is not a valid zip archive' }, 400);
+    }
+    let actual = 0;
+    for (const bytes of Object.values(entries)) actual += bytes.byteLength;
+    if (actual > MAX_UNZIPPED_BYTES) {
+      return c.json({ error: `bundle exceeds the ${MAX_UNZIPPED_BYTES / (1024 * 1024)} MiB decompressed limit` }, 413);
     }
     const input: ImportInput = { files: new Map(), blobs: new Map() };
     for (const [path, bytes] of Object.entries(entries)) {

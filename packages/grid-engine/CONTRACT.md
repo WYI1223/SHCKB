@@ -177,7 +177,7 @@ const TOTAL_COLS = 12;
 
 ## Invariants
 
-每 mutation op 之后保持（property-based test enforced；45/45 scenarios + 50k stress validated on carryover code）：
+每 mutation op 之后保持（property-based test enforced；当前 44/44 green——carryover 验证时为 45 scenarios + 50k stress，移植适配后基线见 changelog）：
 
 ### Invariant 1: No AABB overlap
 

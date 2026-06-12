@@ -14,20 +14,40 @@ export function MarkdownRenderView({ content }: { content: MarkdownContent }) {
     return <div style={{ color: theme.mutedColor, fontSize: '13px', fontStyle: 'italic' }}>Empty markdown block</div>;
   }
   return (
-    <div className="skb-md" style={{ fontSize: '14px', lineHeight: 1.55, color: theme.textColor }}>
+    // overflow-wrap: anywhere — prose (incl. long inline code / URLs)
+    // always wraps, so a markdown block itself never scrolls
+    // horizontally; pre and tables get their OWN inner x-scroll instead
+    // (GitHub-style). The frame's scrollbar stays vertical-only.
+    <div
+      className="skb-md"
+      style={{ fontSize: '14px', lineHeight: 1.55, color: theme.textColor, overflowWrap: 'anywhere' }}
+    >
       <style>{`
         .skb-md > :first-child { margin-top: 0; }
         .skb-md > :last-child { margin-bottom: 0; }
         .skb-md h1, .skb-md h2, .skb-md h3 { line-height: 1.25; }
-        .skb-md pre { background: ${theme.surfaceInsetBg}; padding: 8px; border-radius: 4px; overflow-x: auto; }
+        .skb-md pre { background: ${theme.surfaceInsetBg}; padding: 8px; border-radius: 4px; overflow-x: auto; max-width: 100%; }
         .skb-md code { background: ${theme.surfaceInsetBg}; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
         .skb-md pre code { background: transparent; padding: 0; }
+        .skb-md .skb-md-tablewrap { overflow-x: auto; max-width: 100%; }
         .skb-md table { border-collapse: collapse; }
         .skb-md th, .skb-md td { border: 1px solid ${theme.hairline}; padding: 4px 8px; }
         .skb-md img { max-width: 100%; }
         .skb-md blockquote { margin: 0.5em 0; padding-left: 10px; border-left: 3px solid ${theme.hairline}; color: ${theme.quoteColor}; }
       `}</style>
-      <Markdown remarkPlugins={[remarkGfm]}>{content.markdown}</Markdown>
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // wide tables scroll inside their own strip, never the block
+          table: (props) => (
+            <div className="skb-md-tablewrap">
+              <table {...props} />
+            </div>
+          ),
+        }}
+      >
+        {content.markdown}
+      </Markdown>
     </div>
   );
 }

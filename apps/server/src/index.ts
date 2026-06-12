@@ -42,6 +42,9 @@ const webDist = process.env.SHCKB_WEB_DIST;
 
 Bun.serve({
   port,
+  // Largest legitimate body is an import bundle (zip, blobs included).
+  // Cap it explicitly rather than inheriting the runtime default (H1).
+  maxRequestBodySize: 256 * 1024 * 1024,
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/notes/')) {

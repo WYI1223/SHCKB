@@ -1,60 +1,67 @@
 /**
- * Insert palette — kinds come from the block registry (D4 seam).
- * Form factor is a dev-layer default, not a product lock
- * (notepage-editing.md: product locks behavior, not form factor).
+ * The galley tray — block kinds as labeled tiles docked to the light
+ * table's left edge (inserting is a canvas act, not a navigation act).
+ * Kinds come from the block registry (D4 seam); the host purely
+ * iterates it, zero hardcoding. Bench voice: tiles are chrome, the
+ * drag affordance is non-photo blue.
  */
 import { BLOCK_KINDS } from '@skb/block-kinds';
-import { kindHue, useTheme } from '@skb/theme';
+import { BENCH, labelStyle } from '../chrome/bench';
 import type { Interaction } from './useGridInteraction';
 
 export function Palette({ interaction }: { interaction: Interaction }) {
-  const theme = useTheme();
   return (
     <div
+      aria-label="Insert blocks"
       style={{
-        position: 'fixed',
-        top: '76px',
-        right: '20px',
-        background: theme.chromeBg,
-        color: 'white',
-        padding: '8px 12px',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px oklch(0% 0 0 / 25%)',
-        fontSize: '12px',
-        zIndex: 50,
+        width: '66px',
+        flexShrink: 0,
+        background: BENCH.paper,
+        borderRight: `1px solid ${BENCH.hairlineDark}`,
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
-        maxWidth: '180px',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '12px 0',
+        overflow: 'auto',
       }}
     >
-      <div style={{ opacity: 0.7, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        Drag to insert
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-        {Object.values(BLOCK_KINDS).map((mod) => (
-          <div
-            key={mod.kind}
-            {...interaction.paletteDragProps(mod.kind)}
-            title={`Drag to insert ${mod.label}`}
+      <span style={labelStyle({ fontSize: '8px' })}>insert</span>
+      {Object.values(BLOCK_KINDS).map((mod) => (
+        <div
+          key={mod.kind}
+          {...interaction.paletteDragProps(mod.kind)}
+          title={`Drag onto the sheet to insert ${mod.label}`}
+          className="pu-hoverable"
+          style={{
+            width: '50px',
+            height: '50px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '3px',
+            background: BENCH.paperRaised,
+            border: `1px solid ${BENCH.hairlineDark}`,
+            borderRadius: '2px',
+            cursor: 'grab',
+            userSelect: 'none',
+            color: BENCH.inkSoft,
+          }}
+        >
+          <span style={{ fontSize: '16px', lineHeight: 1, fontWeight: 600 }}>{mod.glyph}</span>
+          <span
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 6px',
-              background: `color-mix(in oklch, ${kindHue(theme, mod.kind)} 30%, transparent)`,
-              border: `1px solid ${kindHue(theme, mod.kind)}`,
-              borderRadius: '4px',
-              cursor: 'grab',
-              fontSize: '11px',
-              userSelect: 'none',
+              fontFamily: BENCH.fontMono,
+              fontSize: '8px',
+              letterSpacing: '0.06em',
+              textTransform: 'lowercase',
             }}
           >
-            <span style={{ fontWeight: 700 }}>{mod.glyph}</span>
-            <span style={{ opacity: 0.85, fontSize: '10px' }}>{mod.label}</span>
-          </div>
-        ))}
-      </div>
+            {mod.label}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

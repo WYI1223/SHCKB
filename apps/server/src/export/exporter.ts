@@ -7,6 +7,7 @@
 import type { BlobStore } from '../blobstore';
 import type { Db } from '../db/client';
 import { blobs, blocks, folders, notepages, type PublishedDoc } from '../db/schema';
+import { safeParse } from '../json';
 import { instanceThemeId, themeCustomizations } from '../settings';
 import { referencedBlobHashes } from './blob-refs';
 import {
@@ -97,11 +98,14 @@ export function buildExport(
       visibility: p.visibility,
       gravityEnabled: p.gravityEnabled,
       themeId: p.themeId,
-      background: p.background === null ? null : (JSON.parse(p.background) as ExportPage['background']),
+      background: p.background === null ? null : safeParse<ExportPage['background']>(p.background, null),
       sortKey: p.sortKey,
       createdAt: p.createdAt.getTime(),
       updatedAt: p.updatedAt.getTime(),
-      published: p.publishedDoc === null ? null : (JSON.parse(p.publishedDoc) as PublishedDoc),
+      // corrupt stored JSON exports as null/absent rather than failing
+      // the whole backup — one bad row must not make an instance
+      // un-exportable (the data was already unreadable)
+      published: p.publishedDoc === null ? null : safeParse<PublishedDoc | null>(p.publishedDoc, null),
       blocks: (blocksByPage.get(p.id) ?? [])
         .sort((a, b) => a.id.localeCompare(b.id))
         .map((b) => ({
@@ -112,7 +116,7 @@ export function buildExport(
           colSpan: b.colSpan,
           rowSpan: b.rowSpan,
           shell: b.shell,
-          content: JSON.parse(b.content) as unknown,
+          content: safeParse<unknown>(b.content, null),
         })),
     };
     files.set(path, canonicalJson(page));

@@ -37,18 +37,7 @@ export async function createTestContext(): Promise<TestContext> {
     meta: { version: 'test', schemaVersion: handle.schemaVersion },
   });
 
-  const signIn = await app.request('http://localhost/api/auth/sign-in/email', {
-    method: 'POST',
-    body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
-    headers: { 'content-type': 'application/json' },
-  });
-  expect(signIn.status).toBe(200);
-  const setCookie = signIn.headers.get('set-cookie');
-  if (!setCookie) throw new Error('sign-in returned no session cookie');
-  const cookie = setCookie
-    .split(/,(?=\s*[^\s;=]+=)/)
-    .map((c) => c.split(';')[0]!.trim())
-    .join('; ');
+  const cookie = await signIn(app, ADMIN_EMAIL, ADMIN_PASSWORD);
 
   const authed = async (path: string, init?: RequestInit) =>
     app.request(`http://localhost${path}`, {
@@ -57,6 +46,26 @@ export async function createTestContext(): Promise<TestContext> {
     });
 
   return { db: handle.db, app, blobStore, cookie, authed };
+}
+
+/** Sign in through the mounted wire surface; returns the session cookie. */
+export async function signIn(
+  app: ReturnType<typeof createApp>,
+  email: string,
+  password: string,
+): Promise<string> {
+  const res = await app.request('http://localhost/api/auth/sign-in/email', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+    headers: { 'content-type': 'application/json' },
+  });
+  expect(res.status).toBe(200);
+  const setCookie = res.headers.get('set-cookie');
+  if (!setCookie) throw new Error('sign-in returned no session cookie');
+  return setCookie
+    .split(/,(?=\s*[^\s;=]+=)/)
+    .map((c) => c.split(';')[0]!.trim())
+    .join('; ');
 }
 
 export async function json(res: Response) {

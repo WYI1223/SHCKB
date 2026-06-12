@@ -1,22 +1,26 @@
 /**
- * Authoring surface (notepage-editing.md): hosts the grid interaction +
- * block content as author working state, autosaves it (debounced), and
- * exposes the explicit update-public action that promotes the working
- * state to the public snapshot. Block content changes never touch
- * GridState geometry — they live in a separate contents map joined at
- * save time.
+ * Authoring surface (notepage-editing.md) in the Paste-Up bench: a
+ * job-ticket strip on top (title → instruments → state stamps → the
+ * press action), the galley tray on the left, the themed sheet on the
+ * light table center, and the spec sheet (Properties) rail on the
+ * right. Hosts the grid interaction + block content as author working
+ * state, autosaves it (debounced), and exposes the explicit
+ * update-public action that promotes the working state to the public
+ * snapshot. Block content changes never touch GridState geometry —
+ * they live in a separate contents map joined at save time.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
 import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
-import { THEMES, ThemeProvider, applyCustomization, graphPaper, useTheme, type PageBackground } from '@skb/theme';
+import { THEMES, ThemeProvider, applyCustomization, graphPaper, type PageBackground } from '@skb/theme';
+import { BENCH, labelStyle, pressButtonStyle, stampStyle } from '../chrome/bench';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { Properties, type Selection } from '../grid/Properties';
 import { useGridInteraction } from '../grid/useGridInteraction';
+import { useAutosave } from '../hooks/useAutosave';
 import { useShell } from '../shell/Shell';
 
 const AUTOSAVE_MS = 800;
@@ -55,6 +59,9 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const [selection, setSelection] = useState<Selection>({ type: 'page' });
   const activeId = selection.type === 'block' ? selection.blockId : null;
   const [status, setStatus] = useState<SaveStatus>({ kind: 'saved' });
+  // Restraint discipline (M7-D7, ported from Marginalia): low-frequency
+  // settings live folded away; the press action keeps its weight.
+  const [instrumentsOpen, setInstrumentsOpen] = useState(false);
   const [contents, setContents] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(detail.blocks.map((b) => [b.id, b.content])),
   );
@@ -83,10 +90,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   });
 
   // ----- autosave (debounced) -----
-  const firstRun = useRef(true);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const save = useCallback(async () => {
+  const save = useCallback(async (): Promise<boolean> => {
     setStatus({ kind: 'saving' });
     const blocks: WorkingBlock[] = interaction.state.blocks.map((b) => ({
       ...b,
@@ -101,27 +105,23 @@ function Editor({ detail }: { detail: NotepageDetail }) {
       });
       setStatus({ kind: 'saved' });
       shell.refresh(); // keep sidebar titles/badges current
+      return true;
     } catch (e) {
       if (e instanceof ApiError) {
         setStatus({ kind: 'error', message: e.message, details: e.details });
       } else {
         setStatus({ kind: 'error', message: 'network error — changes not saved' });
       }
+      return false;
     }
   }, [pageId, title, interaction.state, interaction.gravityEnabled]);
 
-  useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false;
-      return;
-    }
-    setStatus((s) => (s.kind === 'error' ? s : { kind: 'dirty' }));
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => void save(), AUTOSAVE_MS);
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
-  }, [save, contents, shells]);
+  useAutosave({
+    save,
+    deps: [contents, shells],
+    ms: AUTOSAVE_MS,
+    onDirty: () => setStatus((s) => (s.kind === 'error' ? s : { kind: 'dirty' })),
+  });
 
   // Escape deactivates the active block (focus-leave → preview).
   useEffect(() => {
@@ -132,45 +132,56 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [setActiveId]);
 
-  // Properties dock anchor (Sidebar renders it; collapse re-creates it).
-  const [propsAnchor, setPropsAnchor] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    const find = () => setPropsAnchor(document.querySelector<HTMLElement>('[data-skb-properties-slot]'));
-    find();
-    const mo = new MutationObserver(find);
-    mo.observe(document.body, { childList: true, subtree: true });
-    return () => mo.disconnect();
-  }, []);
+  // Header/inspector actions surface failures in the save indicator —
+  // a failed publish must never read as success (E2, mvp7 review).
+  async function runAction(label: string, fn: () => Promise<void>) {
+    try {
+      await fn();
+    } catch (e) {
+      const message = e instanceof ApiError ? `${label}: ${e.message}` : `${label} failed — network error`;
+      setStatus({ kind: 'error', message, details: e instanceof ApiError ? e.details : undefined });
+    }
+  }
 
   async function changeBackground(bg: PageBackground | null) {
-    await api.setPageBackground(pageId, bg);
-    setBackground(bg);
+    await runAction('background', async () => {
+      await api.setPageBackground(pageId, bg);
+      setBackground(bg);
+    });
   }
 
   async function publish() {
-    await save();
-    const res = await api.publish(pageId);
-    setSlug(res.slug);
-    setHasPublished(true);
-    shell.refresh();
+    if (!(await save())) return; // unsaved working state must not promote stale data
+    await runAction('publish', async () => {
+      const res = await api.publish(pageId);
+      setSlug(res.slug);
+      setHasPublished(true);
+      shell.refresh();
+    });
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(`${window.location.origin}/notes/${slug}`);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 1500);
+    await runAction('copy link', async () => {
+      await navigator.clipboard.writeText(`${window.location.origin}/notes/${slug}`);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    });
   }
 
   async function toggleVisibility() {
     const next = visibility === 'public' ? 'private' : 'public';
-    await api.setVisibility(pageId, next);
-    setVisibility(next);
-    shell.refresh();
+    await runAction('visibility', async () => {
+      await api.setVisibility(pageId, next);
+      setVisibility(next);
+      shell.refresh();
+    });
   }
 
   async function pinTheme(next: string | null) {
-    await api.setPageTheme(pageId, next);
-    setThemeId(next);
+    await runAction('theme pin', async () => {
+      await api.setPageTheme(pageId, next);
+      setThemeId(next);
+    });
   }
 
   // pin wins; else instance; unknown ids degrade to graph-paper.
@@ -184,113 +195,200 @@ function Editor({ detail }: { detail: NotepageDetail }) {
 
   return (
     <ThemeProvider theme={effective}>
-    <div>
-      <header
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 40,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '10px 20px 10px 44px',
-          background: effective.chromeBg,
-          color: 'white',
-        }}
-      >
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          aria-label="Notepage title"
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+        {/* ---- job ticket ---- */}
+        <header
           style={{
-            flex: 1,
-            background: 'transparent',
-            border: 'none',
-            borderBottom: '1px solid oklch(40% 0.02 80)',
-            color: 'white',
-            fontSize: '16px',
-            fontWeight: 600,
-            padding: '4px 2px',
-            outline: 'none',
-          }}
-        />
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={interaction.gravityEnabled}
-            onChange={(e) => interaction.setGravityEnabled(e.target.checked)}
-            style={{ accentColor: effective.accent }}
-          />
-          Gravity
-        </label>
-        <select
-          value={themeId ?? ''}
-          onChange={(e) => void pinTheme(e.target.value === '' ? null : e.target.value)}
-          title="Page theme (instance = follow the instance theme)"
-          aria-label="Page theme"
-          style={{
-            background: 'transparent',
-            color: 'oklch(70% 0.02 80)',
-            border: '1px solid oklch(40% 0.02 80)',
-            borderRadius: '6px',
-            padding: '5px 6px',
-            fontSize: '12px',
-            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '9px 14px',
+            background: BENCH.paper,
+            borderBottom: `1px solid ${BENCH.hairlineDark}`,
+            color: BENCH.ink,
+            flexShrink: 0,
+            fontFamily: BENCH.fontUi,
           }}
         >
-          <option value="">Theme: instance</option>
-          {Object.values(THEMES).map((t) => (
-            <option key={t.id} value={t.id}>
-              Theme: {t.name} 📌
-            </option>
-          ))}
-        </select>
-        <button onClick={toggleVisibility} style={chromeButton(visibility === 'public')}>
-          {visibility === 'public' ? 'Public' : 'Private'}
-        </button>
-        <button onClick={() => void publish()} style={{ ...chromeButton(true), background: effective.accent, borderColor: effective.accent }}>
-          {hasPublished ? 'Update public page' : 'Publish'}
-        </button>
-        {visibility === 'public' && hasPublished && (
-          <>
-            <Link to={`/notes/${slug}`} style={{ color: 'oklch(80% 0.08 240)', fontSize: '12px' }}>
-              view public ↗
-            </Link>
-            <button onClick={() => void copyLink()} style={chromeButton(false)}>
-              {linkCopied ? 'Copied!' : 'Copy link'}
-            </button>
-          </>
-        )}
-        <SaveIndicator status={status} />
-      </header>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            aria-label="Notepage title"
+            style={{
+              flex: 1,
+              minWidth: '120px',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: `1px solid transparent`,
+              color: BENCH.ink,
+              fontSize: '18px',
+              fontWeight: 650,
+              fontFamily: BENCH.fontUi,
+              letterSpacing: '-0.01em',
+              padding: '2px 0',
+              outline: 'none',
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderBottom = `1px solid ${BENCH.blueBright}`)}
+            onBlur={(e) => (e.currentTarget.style.borderBottom = '1px solid transparent')}
+          />
 
-      <HostContext.Provider value={{ uploadBlob }}>
-        <GridCanvas
-          interaction={interaction}
-          contents={contents}
-          shells={shells}
-          background={background}
-          activeId={activeId}
-          onActivate={setActiveId}
-          onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
-          onBlockDeleted={(blockId) => {
-            setContents((c) => {
-              const { [blockId]: _gone, ...rest } = c;
-              return rest;
-            });
-            setShells((s) => {
-              const { [blockId]: _gone, ...rest } = s;
-              return rest;
-            });
-            setSelection({ type: 'page' });
-          }}
-        />
-        <Palette interaction={interaction} />
-        {/* Properties inspector, docked under the sidebar directory
-            (M6-D2) — portal keeps it inside this editor's theme + host
-            context while living in the shell's DOM. */}
-        {propsAnchor &&
-          createPortal(
+          {/* instruments fold-out toggle — settings stay quiet (M7-D7),
+              only the press action carries weight on the strip */}
+          <button
+            onClick={() => setInstrumentsOpen((v) => !v)}
+            aria-expanded={instrumentsOpen}
+            title="Page instruments: gravity, theme pin, visibility, links"
+            style={{
+              ...labelStyle({ color: instrumentsOpen ? BENCH.blueBright : BENCH.blue }),
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '2px 0',
+            }}
+          >
+            {instrumentsOpen ? 'instruments ▾' : 'instruments ▸'}
+          </button>
+
+          <span aria-hidden style={{ width: '1px', alignSelf: 'stretch', background: BENCH.hairlineDark }} />
+
+          {/* state stamp + the one heavy action */}
+          <SaveStamp status={status} />
+          <button
+            onClick={() => void publish()}
+            className="pu-press"
+            title={
+              hasPublished
+                ? 'Print a new public edition from the current working state'
+                : 'Publish this page — readers see only explicitly published editions'
+            }
+            style={pressButtonStyle()}
+          >
+            {hasPublished ? 'republish' : 'publish'}
+          </button>
+        </header>
+
+        {/* ---- instruments drawer (folded by default) ---- */}
+        {instrumentsOpen && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              padding: '7px 14px',
+              background: BENCH.paperSunken,
+              borderBottom: `1px solid ${BENCH.hairlineDark}`,
+              flexShrink: 0,
+              fontFamily: BENCH.fontUi,
+            }}
+          >
+            <label
+              title="Blocks float up to fill gaps"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', ...labelStyle({ color: BENCH.blue }) }}
+            >
+              <input
+                type="checkbox"
+                checked={interaction.gravityEnabled}
+                onChange={(e) => interaction.setGravityEnabled(e.target.checked)}
+                style={{ accentColor: BENCH.blue, margin: 0 }}
+              />
+              gravity
+            </label>
+            <select
+              value={themeId ?? ''}
+              onChange={(e) => void pinTheme(e.target.value === '' ? null : e.target.value)}
+              title="Page theme (instance = follow the instance theme)"
+              aria-label="Page theme"
+              style={{
+                fontFamily: BENCH.fontMono,
+                fontSize: '10px',
+                letterSpacing: '0.04em',
+                color: BENCH.inkSoft,
+                background: 'transparent',
+                border: `1px solid ${BENCH.hairlineDark}`,
+                borderRadius: '2px',
+                padding: '4px 5px',
+                cursor: 'pointer',
+                maxWidth: '170px',
+              }}
+            >
+              <option value="">theme · instance</option>
+              {Object.values(THEMES).map((t) => (
+                <option key={t.id} value={t.id}>
+                  theme · {t.name} (pinned)
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={toggleVisibility}
+              title={visibility === 'public' ? 'Page is public — click to make private' : 'Page is private — click to make public'}
+              style={{ ...stampStyle(visibility === 'public' ? BENCH.ink : BENCH.inkFaint), cursor: 'pointer' }}
+            >
+              {visibility}
+            </button>
+            {visibility === 'public' && hasPublished && (
+              <>
+                <Link
+                  to={`/notes/${slug}`}
+                  title="Open the published page"
+                  style={{ ...labelStyle({ color: BENCH.inkSoft }), textDecoration: 'none' }}
+                >
+                  view ↗
+                </Link>
+                <button
+                  onClick={() => void copyLink()}
+                  title="Copy the public link"
+                  style={{ ...labelStyle({ color: linkCopied ? BENCH.ink : BENCH.inkSoft }), background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  {linkCopied ? 'copied ✓' : 'copy link'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {status.kind === 'error' && (
+          <div
+            role="alert"
+            style={{
+              flexShrink: 0,
+              padding: '5px 14px',
+              background: BENCH.redWash,
+              borderBottom: `1px solid ${BENCH.red}`,
+              color: BENCH.red,
+              fontFamily: BENCH.fontMono,
+              fontSize: '11px',
+            }}
+            title={status.details?.join('\n')}
+          >
+            {status.message}
+          </div>
+        )}
+
+        {/* ---- bench row: tray · light table · spec sheet ---- */}
+        <HostContext.Provider value={{ uploadBlob }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+            <Palette interaction={interaction} />
+            <div className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }}>
+              <GridCanvas
+                interaction={interaction}
+                contents={contents}
+                shells={shells}
+                background={background}
+                activeId={activeId}
+                onActivate={setActiveId}
+                onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
+                onBlockDeleted={(blockId) => {
+                  setContents((c) => {
+                    const { [blockId]: _gone, ...rest } = c;
+                    return rest;
+                  });
+                  setShells((s) => {
+                    const { [blockId]: _gone, ...rest } = s;
+                    return rest;
+                  });
+                  setSelection({ type: 'page' });
+                }}
+              />
+            </div>
             <Properties
               selection={selection}
               interaction={interaction}
@@ -300,55 +398,40 @@ function Editor({ detail }: { detail: NotepageDetail }) {
               onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
               onShellChange={(blockId, shell) => setShells((s) => ({ ...s, [blockId]: shell }))}
               onBackgroundChange={(bg) => void changeBackground(bg)}
-            />,
-            propsAnchor,
-          )}
-      </HostContext.Provider>
-    </div>
+            />
+          </div>
+        </HostContext.Provider>
+      </div>
     </ThemeProvider>
   );
 }
 
-function chromeButton(active: boolean): React.CSSProperties {
-  return {
-    background: 'transparent',
-    color: active ? 'white' : 'oklch(70% 0.02 80)',
-    border: `1px solid ${active ? 'white' : 'oklch(40% 0.02 80)'}`,
-    borderRadius: '6px',
-    padding: '5px 12px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  };
-}
-
-function SaveIndicator({ status }: { status: SaveStatus }) {
-  let text: string;
+/** Proofing stamp for the save state — never a toast, never a spinner. */
+function SaveStamp({ status }: { status: SaveStatus }) {
   if (status.kind === 'error') {
-    text = `⚠ ${status.message}`;
-  } else {
-    text = status.kind === 'saved' ? 'Saved' : status.kind === 'saving' ? 'Saving…' : '…';
+    return (
+      <span title={status.details?.join('\n') ?? status.message} style={stampStyle(BENCH.red)}>
+        ⚠ error
+      </span>
+    );
   }
-  return (
-    <span
-      title={status.kind === 'error' ? status.details?.join('\n') : undefined}
-      style={{
-        fontSize: '12px',
-        color: status.kind === 'error' ? 'oklch(75% 0.15 25)' : 'oklch(70% 0.02 80)',
-        whiteSpace: 'nowrap',
-        maxWidth: '260px',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-      }}
-    >
-      {text}
-    </span>
-  );
+  const text = status.kind === 'saved' ? 'saved' : status.kind === 'saving' ? 'saving' : 'edited';
+  const color = status.kind === 'saved' ? BENCH.inkFaint : BENCH.inkSoft;
+  return <span style={stampStyle(color)}>{text}</span>;
 }
 
 function PageMessage({ text, danger }: { text: string; danger?: boolean }) {
-  const theme = useTheme();
   return (
-    <p style={{ textAlign: 'center', marginTop: '80px', color: danger ? theme.danger : theme.mutedColor }}>{text}</p>
+    <p
+      style={{
+        textAlign: 'center',
+        marginTop: '80px',
+        color: danger ? BENCH.red : BENCH.inkSoft,
+        fontFamily: BENCH.fontUi,
+        fontSize: '13px',
+      }}
+    >
+      {text}
+    </p>
   );
 }

@@ -4,4 +4,6 @@ export { THEMES, DEFAULT_THEME_ID } from './registry';
 export { workbench } from './workbench';
 export { stationery } from './stationery';
 export { blueprint } from './blueprint';
+export { marginalia } from './marginalia';
+export { galley } from './galley';
 export { ThemeContext, ThemeProvider, useTheme } from './context';

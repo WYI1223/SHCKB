@@ -10,6 +10,7 @@
  */
 import type { Db } from '../db/client';
 import { blocks, notepages } from '../db/schema';
+import { safeParse } from '../json';
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
 
@@ -33,15 +34,17 @@ export function collectHashLikeStrings(value: unknown, into = new Set<string>())
  * page background (M6-D4 — backgrounds are blob references too). */
 export function referencedBlobHashes(db: Db): Set<string> {
   const out = new Set<string>();
+  // per-row: a corrupt row contributes no refs (it cannot reference
+  // anything parseable) — it must not crash export or GC
   for (const b of db.select({ content: blocks.content }).from(blocks).all()) {
-    collectHashLikeStrings(JSON.parse(b.content), out);
+    collectHashLikeStrings(safeParse<unknown>(b.content, null), out);
   }
   for (const p of db
     .select({ publishedDoc: notepages.publishedDoc, background: notepages.background })
     .from(notepages)
     .all()) {
-    if (p.publishedDoc !== null) collectHashLikeStrings(JSON.parse(p.publishedDoc), out);
-    if (p.background !== null) collectHashLikeStrings(JSON.parse(p.background), out);
+    if (p.publishedDoc !== null) collectHashLikeStrings(safeParse<unknown>(p.publishedDoc, null), out);
+    if (p.background !== null) collectHashLikeStrings(safeParse<unknown>(p.background, null), out);
   }
   return out;
 }
