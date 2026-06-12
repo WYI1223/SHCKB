@@ -59,6 +59,9 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const [selection, setSelection] = useState<Selection>({ type: 'page' });
   const activeId = selection.type === 'block' ? selection.blockId : null;
   const [status, setStatus] = useState<SaveStatus>({ kind: 'saved' });
+  // Restraint discipline (M7-D7, ported from Marginalia): low-frequency
+  // settings live folded away; the press action keeps its weight.
+  const [instrumentsOpen, setInstrumentsOpen] = useState(false);
   const [contents, setContents] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(detail.blocks.map((b) => [b.id, b.content])),
   );
@@ -229,73 +232,26 @@ function Editor({ detail }: { detail: NotepageDetail }) {
             onBlur={(e) => (e.currentTarget.style.borderBottom = '1px solid transparent')}
           />
 
-          {/* instruments */}
-          <label
-            title="Blocks float up to fill gaps"
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', ...labelStyle({ color: BENCH.blue }) }}
-          >
-            <input
-              type="checkbox"
-              checked={interaction.gravityEnabled}
-              onChange={(e) => interaction.setGravityEnabled(e.target.checked)}
-              style={{ accentColor: BENCH.blue, margin: 0 }}
-            />
-            gravity
-          </label>
-          <select
-            value={themeId ?? ''}
-            onChange={(e) => void pinTheme(e.target.value === '' ? null : e.target.value)}
-            title="Page theme (instance = follow the instance theme)"
-            aria-label="Page theme"
+          {/* instruments fold-out toggle — settings stay quiet (M7-D7),
+              only the press action carries weight on the strip */}
+          <button
+            onClick={() => setInstrumentsOpen((v) => !v)}
+            aria-expanded={instrumentsOpen}
+            title="Page instruments: gravity, theme pin, visibility, links"
             style={{
-              fontFamily: BENCH.fontMono,
-              fontSize: '10px',
-              letterSpacing: '0.04em',
-              color: BENCH.inkSoft,
-              background: 'transparent',
-              border: `1px solid ${BENCH.hairlineDark}`,
-              borderRadius: '2px',
-              padding: '4px 5px',
+              ...labelStyle({ color: instrumentsOpen ? BENCH.blueBright : BENCH.blue }),
+              background: 'none',
+              border: 'none',
               cursor: 'pointer',
-              maxWidth: '150px',
+              padding: '2px 0',
             }}
           >
-            <option value="">theme · instance</option>
-            {Object.values(THEMES).map((t) => (
-              <option key={t.id} value={t.id}>
-                theme · {t.name} (pinned)
-              </option>
-            ))}
-          </select>
+            {instrumentsOpen ? 'instruments ▾' : 'instruments ▸'}
+          </button>
 
           <span aria-hidden style={{ width: '1px', alignSelf: 'stretch', background: BENCH.hairlineDark }} />
 
-          {/* state stamps */}
-          <button
-            onClick={toggleVisibility}
-            title={visibility === 'public' ? 'Page is public — click to make private' : 'Page is private — click to make public'}
-            style={{ ...stampStyle(visibility === 'public' ? BENCH.ink : BENCH.inkFaint), cursor: 'pointer' }}
-          >
-            {visibility}
-          </button>
-          {visibility === 'public' && hasPublished && (
-            <>
-              <Link
-                to={`/notes/${slug}`}
-                title="Open the published page"
-                style={{ ...labelStyle({ color: BENCH.inkSoft }), textDecoration: 'none' }}
-              >
-                view ↗
-              </Link>
-              <button
-                onClick={() => void copyLink()}
-                title="Copy the public link"
-                style={{ ...labelStyle({ color: linkCopied ? BENCH.ink : BENCH.inkSoft }), background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                {linkCopied ? 'copied ✓' : 'copy link'}
-              </button>
-            </>
-          )}
+          {/* state stamp + the one heavy action */}
           <SaveStamp status={status} />
           <button
             onClick={() => void publish()}
@@ -310,6 +266,85 @@ function Editor({ detail }: { detail: NotepageDetail }) {
             {hasPublished ? 'republish' : 'publish'}
           </button>
         </header>
+
+        {/* ---- instruments drawer (folded by default) ---- */}
+        {instrumentsOpen && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              padding: '7px 14px',
+              background: BENCH.paperSunken,
+              borderBottom: `1px solid ${BENCH.hairlineDark}`,
+              flexShrink: 0,
+              fontFamily: BENCH.fontUi,
+            }}
+          >
+            <label
+              title="Blocks float up to fill gaps"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', ...labelStyle({ color: BENCH.blue }) }}
+            >
+              <input
+                type="checkbox"
+                checked={interaction.gravityEnabled}
+                onChange={(e) => interaction.setGravityEnabled(e.target.checked)}
+                style={{ accentColor: BENCH.blue, margin: 0 }}
+              />
+              gravity
+            </label>
+            <select
+              value={themeId ?? ''}
+              onChange={(e) => void pinTheme(e.target.value === '' ? null : e.target.value)}
+              title="Page theme (instance = follow the instance theme)"
+              aria-label="Page theme"
+              style={{
+                fontFamily: BENCH.fontMono,
+                fontSize: '10px',
+                letterSpacing: '0.04em',
+                color: BENCH.inkSoft,
+                background: 'transparent',
+                border: `1px solid ${BENCH.hairlineDark}`,
+                borderRadius: '2px',
+                padding: '4px 5px',
+                cursor: 'pointer',
+                maxWidth: '170px',
+              }}
+            >
+              <option value="">theme · instance</option>
+              {Object.values(THEMES).map((t) => (
+                <option key={t.id} value={t.id}>
+                  theme · {t.name} (pinned)
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={toggleVisibility}
+              title={visibility === 'public' ? 'Page is public — click to make private' : 'Page is private — click to make public'}
+              style={{ ...stampStyle(visibility === 'public' ? BENCH.ink : BENCH.inkFaint), cursor: 'pointer' }}
+            >
+              {visibility}
+            </button>
+            {visibility === 'public' && hasPublished && (
+              <>
+                <Link
+                  to={`/notes/${slug}`}
+                  title="Open the published page"
+                  style={{ ...labelStyle({ color: BENCH.inkSoft }), textDecoration: 'none' }}
+                >
+                  view ↗
+                </Link>
+                <button
+                  onClick={() => void copyLink()}
+                  title="Copy the public link"
+                  style={{ ...labelStyle({ color: linkCopied ? BENCH.ink : BENCH.inkSoft }), background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  {linkCopied ? 'copied ✓' : 'copy link'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {status.kind === 'error' && (
           <div
             role="alert"

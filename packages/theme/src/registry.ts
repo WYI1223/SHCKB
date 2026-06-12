@@ -9,8 +9,10 @@
  */
 import { graphPaper, ink, type Theme } from './themes';
 import { blueprint } from './blueprint';
+import { galley } from './galley';
+import { marginalia } from './marginalia';
 import { stationery } from './stationery';
 import { workbench } from './workbench';
 
-export const THEMES: Record<string, Theme> = { 'graph-paper': graphPaper, ink, workbench, stationery, blueprint };
+export const THEMES: Record<string, Theme> = { 'graph-paper': graphPaper, ink, workbench, stationery, blueprint, marginalia, galley };
 export const DEFAULT_THEME_ID = 'graph-paper';
