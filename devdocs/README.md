@@ -1,14 +1,30 @@
 # Devdocs — 产品内开发者文档（docs-as-bundle）
 
-`skb-devdocs.zip` 是一个 SHCKB 导出包（format v4），含四页开发者文档，
-用产品自身写产品的文档（M7-D3 dogfooding）：
+`skb-devdocs.zip` 是一个 SHCKB 导出包（format v4），含 12 页三级层级的开发者文档，
+用产品自身写产品的文档（M7-D3 起；M7-D10 按 owner 反馈重做：层级加深、内容加厚、
+**结构导图用画布本身表达架构**——每个模块一个块、块的空间布局即软件结构）。
 
-| 页面 | 内容 | 主题 |
-|---|---|---|
-| 开发者导览 | 仓库结构 / 跑起来 / 文档树指引 / 新人四坑 | workbench |
-| 架构说明 | 五个系统不变量：两态模型 / 发布纯函数 / 三层外观分权 / PEP / 确定性导出 | workbench |
-| 扩展开发 QA | 加块 kind / 写主题 / 契约护栏测试 | workbench |
-| 运维与数据 QA | 部署 env / 备份恢复 / 升降级保数据 / blob GC / 排障 | workbench |
+```
+开发者文档/
+├── 结构导图            ← galley 钉选；模块块穿 keyline 壳、带规线穿 cutout 壳
+├── 开发者导览
+├── 架构/
+│   ├── 网格引擎与画布
+│   ├── 两态模型与发布管线
+│   ├── 主题引擎
+│   ├── 块系统
+│   ├── 认证与权限
+│   └── 数据与存储
+├── 扩展开发/
+│   ├── 写一个块
+│   └── 写一个主题
+└── 运维/
+    ├── 部署与环境
+    └── 备份迁移与排障
+```
+
+除结构导图外全部 workbench 钉选；页间用 `/notes/<slug>` 硬链接互引
+（产品尚无一等页间链接——已记录的 dogfooding 摩擦）。
 
 **真理源治理**：canonical 源 = `apps/server/scripts/seed-devdocs.ts`（git 审阅
 的对象）；本 zip 是它在空实例上的确定性产物（modulo `manifest.exportedAt`）。
@@ -25,12 +41,12 @@ curl -X POST -H "cookie: $SESSION" -H 'content-type: application/zip' \
   --data-binary @devdocs/skb-devdocs.zip \
   http://localhost:3000/api/admin/import
 
-# 任意实例：重放 seed（顶层已存在「开发者文档」文件夹时拒绝运行）
+# 任意实例：重放 seed；--replace 删除既有「开发者文档」文件夹树后重灌
 bun apps/server/scripts/seed-devdocs.ts \
-  --base http://localhost:3000 --email <admin> --password <pw>
+  --base http://localhost:3000 --email <admin> --password <pw> [--replace]
 ```
 
-四页均已 publish 且 public，导入后直接访问 `/notes/<slug>`。
+12 页均已 publish 且 public，导入后从 `/notes/结构导图` 进入。
 
 ## 更新流程
 
