@@ -12,7 +12,7 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import type { Db } from '../db/client';
-import { blocks, notepages, type PublishedDoc } from '../db/schema';
+import { blobs as blobsTable, blocks, notepages, type PublishedDoc } from '../db/schema';
 import { THEMES } from '@skb/theme';
 import { NOT_FOUND_HTML, renderStaticPage } from '../render/publish-html';
 import { effectiveTheme, themeCustomizations } from '../settings';
@@ -24,8 +24,12 @@ type WorkingBlock = {
   row: number;
   colSpan: number;
   rowSpan: number;
+  /** Author-picked theme shell option id (M6-D3); null = default. */
+  shell: string | null;
   content: unknown;
 };
+
+type PageBackground = { color?: string; blobHash?: string };
 
 type WorkingStateBody = {
   title: string;
@@ -72,7 +76,8 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
       typeof r.row !== 'number' ||
       typeof r.colSpan !== 'number' ||
       typeof r.rowSpan !== 'number' ||
-      !('content' in r)
+      !('content' in r) ||
+      (r.shell !== undefined && r.shell !== null && typeof r.shell !== 'string')
     ) {
       return null;
     }
@@ -83,6 +88,7 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
       row: r.row,
       colSpan: r.colSpan,
       rowSpan: r.rowSpan,
+      shell: typeof r.shell === 'string' ? r.shell : null,
       content: r.content,
     });
   }
@@ -102,6 +108,7 @@ function loadWorkingBlocks(db: Db, notepageId: string): WorkingBlock[] {
       row: row.row,
       colSpan: row.colSpan,
       rowSpan: row.rowSpan,
+      shell: row.shell,
       content: JSON.parse(row.content) as unknown,
     }));
 }
@@ -147,6 +154,7 @@ export function notepageRoutes(db: Db) {
         visibility: page.visibility,
         gravityEnabled: page.gravityEnabled,
         themeId: page.themeId,
+        background: page.background !== null ? (JSON.parse(page.background) as PageBackground) : null,
         hasPublished: page.publishedDoc !== null,
         updatedAt: page.updatedAt.getTime(),
       },
@@ -186,6 +194,7 @@ export function notepageRoutes(db: Db) {
             row: b.row,
             colSpan: b.colSpan,
             rowSpan: b.rowSpan,
+            shell: b.shell,
             content: JSON.stringify(b.content ?? null),
           })
           .run();
@@ -206,6 +215,9 @@ export function notepageRoutes(db: Db) {
     const doc: PublishedDoc = {
       title: page.title,
       gravityEnabled: page.gravityEnabled,
+      // appearance enters the snapshot (M6-D3/D4): publishedHtml stays
+      // a pure function of (doc, slug, effective theme)
+      background: page.background !== null ? (JSON.parse(page.background) as PageBackground) : null,
       blocks: loadWorkingBlocks(db, page.id),
       publishedAt: Date.now(),
     };
@@ -255,6 +267,46 @@ export function notepageRoutes(db: Db) {
         .where(eq(notepages.id, page.id))
         .run();
     }
+    return c.json({ ok: true });
+  });
+
+  // Page background (M6-D4): author-picked color and/or blob image.
+  // null clears. Background is WORKING STATE (unlike the theme pin):
+  // the published snapshot carries its own copy, so the public page
+  // changes only on the explicit publish action (two-state model).
+  r.post('/notepages/:id/background', async (c) => {
+    const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
+    if (!page) return c.json(NOT_FOUND, 404);
+    const body = (await c.req.json().catch(() => ({}))) as { background?: unknown };
+
+    let bg: PageBackground | null;
+    if (body.background === null || body.background === undefined) {
+      bg = null;
+    } else if (typeof body.background === 'object') {
+      const b = body.background as Record<string, unknown>;
+      const out: PageBackground = {};
+      if (b.color !== undefined) {
+        if (typeof b.color !== 'string' || b.color.trim() === '') return c.json({ error: 'invalid color' }, 400);
+        out.color = b.color.trim();
+      }
+      if (b.blobHash !== undefined) {
+        if (typeof b.blobHash !== 'string') return c.json({ error: 'invalid blobHash' }, 400);
+        const blob = db.select().from(blobsTable).where(eq(blobsTable.hash, b.blobHash)).get();
+        if (!blob) return c.json({ error: 'blobHash not found — upload the image first' }, 422);
+        out.blobHash = b.blobHash;
+      }
+      if (out.color === undefined && out.blobHash === undefined) {
+        return c.json({ error: 'background must carry color and/or blobHash, or be null' }, 400);
+      }
+      bg = out;
+    } else {
+      return c.json({ error: 'background must be an object or null' }, 400);
+    }
+
+    db.update(notepages)
+      .set({ background: bg === null ? null : JSON.stringify(bg), updatedAt: new Date() })
+      .where(eq(notepages.id, page.id))
+      .run();
     return c.json({ ok: true });
   });
 

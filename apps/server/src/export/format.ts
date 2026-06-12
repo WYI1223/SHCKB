@@ -10,10 +10,10 @@
  *   tree/<folder dirs…>/<slug>.page.json
  *   blobs/<sha256>            (zip layer; not part of the JSON file map)
  */
-import type { ThemeCustomization } from '@skb/theme';
+import type { PageBackground, ThemeCustomization } from '@skb/theme';
 import type { PublishedDoc } from '../db/schema';
 
-export const FORMAT_VERSION = 3;
+export const FORMAT_VERSION = 4;
 
 export type ExportManifest = {
   formatVersion: number;
@@ -42,6 +42,8 @@ export type ExportBlock = {
   row: number;
   colSpan: number;
   rowSpan: number;
+  /** Author-picked theme shell option id (v4+); null = default shell. */
+  shell: string | null;
   content: unknown; // kind-owned, verbatim
 };
 
@@ -53,6 +55,8 @@ export type ExportPage = {
   gravityEnabled: boolean;
   /** Per-page theme pin (v2+); null = follow instance. */
   themeId: string | null;
+  /** Author-picked page background (v4+); null = theme canvas. */
+  background: PageBackground | null;
   sortKey: number;
   createdAt: number;
   updatedAt: number;

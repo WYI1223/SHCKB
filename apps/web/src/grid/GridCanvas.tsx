@@ -5,8 +5,8 @@
  * EditView (block-markdown.md performance boundary).
  */
 import { totalRows, type Block } from '@skb/grid-engine';
-import { blockModule, DefaultBlockFrame, DefaultCanvasSurface } from '@skb/block-kinds';
-import { kindHue, useTheme } from '@skb/theme';
+import { blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
+import { kindHue, resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
 
@@ -15,6 +15,10 @@ const MIN_ROWS_PADDING = 4;
 export type GridCanvasProps = {
   interaction: Interaction;
   contents: Record<string, unknown>;
+  /** Author-picked shell option id per block (M6-D3). */
+  shells: Record<string, string | null>;
+  /** Author-picked page background (M6-D4) — live working-state preview. */
+  background: PageBackground | null;
   activeId: string | null;
   onActivate: (id: string | null) => void;
   onContentChange: (id: string, content: unknown) => void;
@@ -35,7 +39,7 @@ export function GridCanvas(props: GridCanvasProps) {
       style={{
         display: 'flex',
         justifyContent: 'center',
-        background: theme.canvasBg,
+        ...pageBackgroundStyle(props.background, theme.canvasBg),
         padding: '20px 20px 80px',
         fontFamily: theme.fontFamily,
       }}
@@ -50,7 +54,7 @@ export function GridCanvas(props: GridCanvasProps) {
           height: `${rows * SLOT}px`,
         }}
       >
-        <Surface widthPx={state.totalCols * SLOT} heightPx={rows * SLOT}>
+        <Surface widthPx={state.totalCols * SLOT} heightPx={rows * SLOT} background={props.background}>
           {state.blocks.map((b) => (
             <BlockShell key={b.id} block={b} {...props} slot={SLOT} pad={PAD} />
           ))}
@@ -66,6 +70,7 @@ function BlockShell({
   block,
   interaction,
   contents,
+  shells,
   activeId,
   onActivate,
   onContentChange,
@@ -79,8 +84,10 @@ function BlockShell({
   const isResizing = interaction.resize.active && interaction.resize.blockId === block.id;
   const hue = kindHue(theme, block.kind);
   // v2 [ADR-0025]: outer div = geometry + interaction + editing chrome
-  // (editor-owned); the theme's BlockFrame owns the visual shell.
-  const Frame = theme.BlockFrame ?? DefaultBlockFrame;
+  // (editor-owned); the theme's BlockFrame owns the visual shell. An
+  // author shell choice resolves to its own Frame (M6-D3).
+  const shell = shells[block.id] ?? null;
+  const Frame = resolveBlockFrame(theme, block.kind, shell) ?? theme.BlockFrame ?? DefaultBlockFrame;
 
   return (
     <div
@@ -104,7 +111,7 @@ function BlockShell({
         opacity: isResizing ? 0.6 : 1,
       }}
     >
-      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan}>
+      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} shell={shell}>
         <div
           style={{
             display: 'flex',

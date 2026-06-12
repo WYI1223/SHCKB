@@ -5,12 +5,14 @@
  * (positioned wrappers); the theme's render slots (or the defaults)
  * own every visual shell.
  */
-import { useTheme } from '@skb/theme';
+import { publicBlobUrl, resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
 import { DefaultBlockFrame, DefaultCanvasSurface, DefaultPageTitle } from './frames';
 import { blockModule } from './registry';
 
 export type PublishedDocShape = {
   title: string;
+  /** Author-picked page background (M6-D4); absent = theme canvas. */
+  background?: PageBackground | null;
   blocks: Array<{
     id: string;
     kind: string;
@@ -18,9 +20,30 @@ export type PublishedDocShape = {
     row: number;
     colSpan: number;
     rowSpan: number;
+    /** Author-picked theme shell option id (M6-D3). */
+    shell?: string | null;
     content: unknown;
   }>;
 };
+
+/** Host-applied page background (the canvas root): color replaces the
+ * theme canvas, image lays under everything as cover. Theme surfaces
+ * draw their textures above it (they paint on a transparent base). */
+export function pageBackgroundStyle(
+  bg: PageBackground | null | undefined,
+  fallback: string,
+): React.CSSProperties {
+  return {
+    background: bg?.color ?? fallback,
+    ...(bg?.blobHash
+      ? {
+          backgroundImage: `url(${publicBlobUrl(bg.blobHash)})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }
+      : {}),
+  };
+}
 
 const COLS = 12;
 
@@ -34,12 +57,19 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
   const Title = theme.PageTitle ?? DefaultPageTitle;
 
   return (
-    <div style={{ background: theme.canvasBg, minHeight: '100vh', fontFamily: theme.fontFamily }}>
+    <div
+      style={{
+        ...pageBackgroundStyle(doc.background, theme.canvasBg),
+        minHeight: '100vh',
+        fontFamily: theme.fontFamily,
+      }}
+    >
       <div style={{ maxWidth: `${COLS * SLOT}px`, margin: '0 auto', padding: '40px 20px' }}>
         <Title title={doc.title} />
-        <Surface widthPx={COLS * SLOT} heightPx={rows * SLOT}>
+        <Surface widthPx={COLS * SLOT} heightPx={rows * SLOT} background={doc.background}>
           {doc.blocks.map((b) => {
             const mod = blockModule(b.kind);
+            const BlockFrame = resolveBlockFrame(theme, b.kind, b.shell) ?? Frame;
             return (
               <div
                 key={b.id}
@@ -51,7 +81,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
                   height: `${b.rowSpan * SLOT - 2 * PAD}px`,
                 }}
               >
-                <Frame kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan}>
+                <BlockFrame kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan} shell={b.shell}>
                   {mod ? (
                     <mod.RenderView content={(b.content ?? mod.createContent()) as never} />
                   ) : (
@@ -59,7 +89,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
                       Unsupported content
                     </div>
                   )}
-                </Frame>
+                </BlockFrame>
               </div>
             );
           })}

@@ -29,14 +29,19 @@ export function collectHashLikeStrings(value: unknown, into = new Set<string>())
   return into;
 }
 
-/** Hashes referenced by any working block or published snapshot. */
+/** Hashes referenced by any working block, published snapshot, or
+ * page background (M6-D4 — backgrounds are blob references too). */
 export function referencedBlobHashes(db: Db): Set<string> {
   const out = new Set<string>();
   for (const b of db.select({ content: blocks.content }).from(blocks).all()) {
     collectHashLikeStrings(JSON.parse(b.content), out);
   }
-  for (const p of db.select({ publishedDoc: notepages.publishedDoc }).from(notepages).all()) {
+  for (const p of db
+    .select({ publishedDoc: notepages.publishedDoc, background: notepages.background })
+    .from(notepages)
+    .all()) {
     if (p.publishedDoc !== null) collectHashLikeStrings(JSON.parse(p.publishedDoc), out);
+    if (p.background !== null) collectHashLikeStrings(JSON.parse(p.background), out);
   }
   return out;
 }

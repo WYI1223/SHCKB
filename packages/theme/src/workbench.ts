@@ -7,6 +7,7 @@
  * criterion: nobody comments on it; 30 minutes of long-form reading
  * without fatigue.
  */
+import { FlatShellFrame } from './shells';
 import type { Theme } from './themes';
 
 /** GitHub-light-leaning token colors, tuned to stay >= ~4.5:1 on the
@@ -102,4 +103,7 @@ export const workbench: Theme = {
     },
   ],
   customizableTokens: ['fontFamily', 'accent'],
+  // Curated shells (M6-D3): declaration carries its own Frame —
+  // 'flat' drops the card chrome, content sits directly on the canvas.
+  shells: { flat: { name: 'Flat', Frame: FlatShellFrame } },
 };

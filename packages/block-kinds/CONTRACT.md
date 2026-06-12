@@ -44,14 +44,18 @@ kind 在 content JSON 中引用 blob **必须用小写 hex sha256 原文**。这
 - 表面细节经表面 token（`surfaceInsetBg`/`hairline`/`quoteColor`），不得硬编码颜色——这是暗色主题成立的前提
 - class 钩子 `skb-block`/`skb-canvas`/`data-kind` 是主题 globalCss 的稳定挂点；`skb-anim-*` 类名为未来操作动效预留
 
-## 贡献点与分权规则（MVP-5 M5-D4/D6）
+## 贡献点与分权规则（MVP-5 M5-D4/D6；MVP-6 Properties 化 [ADR-0027]）
 
 **模块管面板内容，host 管面板位置与布局**（主题轮"几何/视觉分权"在 chrome 上的同构）：
 
 - **Insert palette**：条目 = `(kind, label, glyph)`，host 纯遍历 registry 渲染，零硬编码；模块对条目形态（按钮样式/位置）无发言权
-- **Tool panel**：`module.tools` 声明工具；host 决定面板在哪、何时显示（仅 active block）、如何排版。工具 View 用 **@skb/ui-kit 原语**拼装（UiSelect/UiButton/UiTextInput/UiToggle——主题经 token 一次染色所有控件）；触达宿主能力仍只经 `useHost()`
+- **Properties 检查器**（MVP-6，吸收原 tool panel）：selection 驱动（page | block | 未来 text-range）。block 选中时的区块来源 = theme 壳选项（`Theme.shellOptions`，host 渲染 chips）+ `module.tools`；page 选中 = host 区块（背景）。工具 View 用 **@skb/ui-kit 原语**拼装；触达宿主能力仍只经 `useHost()`
 - 工具属于**编辑面**：RenderView 及静态渲染路径不可触达 tools（纯度要求不变）
 - host 保留面（模块无贡献点）：侧栏目录、主题/钉选选择、Export/Import、块头部 chrome（host 读模块元数据渲染）
+
+## BlockFrame shell 契约（MVP-6 [ADR-0027]，owner 反馈修订）
+
+`Theme.shells` = `Record<id, {name, kinds?, Frame}>`——**声明即实现**：每个壳选项自带 Frame 组件，"声明了没实现"是类型错误、"实现了没声明"不可达（两处手写同步的 bug 类被结构性消灭）。host 经 `resolveBlockFrame(theme, kind, shell)` 解析：选择有效 → 壳自己的 Frame；未知 id / kind 不适用 / null → 主题默认 Frame（主题升级移除选项时页面照常渲染）。id 持久化于 blocks.shell 与导出格式 v4，永不改名。通用壳（如 `FlatShellFrame`）由 theme 包提供，主题在 shells map 里引用即策展。
 
 ## Registry
 

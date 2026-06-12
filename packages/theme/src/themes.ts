@@ -6,9 +6,28 @@
  */
 import type React from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import { blueprint } from './blueprint';
-import { stationery } from './stationery';
-import { workbench } from './workbench';
+
+/** Author-picked page background (MVP-6 M6-D4): a free color and/or a
+ * blob-store image. Surfaces interpret it — deep-slot themes decide
+ * how it composes with their own drawing (theme sovereignty). */
+export type PageBackground = { color?: string; blobHash?: string };
+
+/** A theme-curated block shell variant (MVP-6 M6-D3): the author picks
+ * WITHIN what the theme offers — never free shell styling (same
+ * discipline as palette variants). The map key is persisted in
+ * block.shell; never rename.
+ *
+ * Declaration IS implementation (owner feedback 2026-06-12): each
+ * entry carries its own Frame, so a declared shell without a renderer
+ * is a type error and an unregistered renderer is unreachable — the
+ * two-hand-synced-lists bug class cannot exist. */
+export type ShellDefinition = {
+  name: string;
+  /** Kinds this shell applies to; omitted = every kind. */
+  kinds?: string[];
+  /** The visual shell rendered when the author picks this option. */
+  Frame: ComponentType<BlockFrameProps>;
+};
 
 export type BlockFrameProps = {
   kind: string;
@@ -18,9 +37,17 @@ export type BlockFrameProps = {
    * geometry). */
   colSpan: number;
   rowSpan: number;
+  /** Author-picked shell option id; null/unknown = the theme's default
+   * shell (a theme update may remove an option — pages keep rendering). */
+  shell?: string | null;
   children: ReactNode;
 };
-export type CanvasSurfaceProps = { widthPx: number; heightPx: number; children: ReactNode };
+export type CanvasSurfaceProps = {
+  widthPx: number;
+  heightPx: number;
+  background?: PageBackground | null;
+  children: ReactNode;
+};
 export type PageTitleProps = { title: string };
 
 /** Optional render slots [ADR-0025]: a theme may replace the visual
@@ -105,7 +132,38 @@ export type Theme = ThemeTokens &
     palettes?: PaletteVariant[];
     /** Tokens open for direct operator override; omitted = all locked. */
     customizableTokens?: OverridableTokenKey[];
+    /** Block shell variants the theme curates (M6-D3), keyed by the
+     * persisted id; omitted = the default shell is the only shell. */
+    shells?: Record<string, ShellDefinition>;
   };
+
+/** Shell choices applicable to a kind under a theme (inspector feed). */
+export function shellOptionsFor(theme: Theme, kind: string): Array<{ id: string; name: string }> {
+  return Object.entries(theme.shells ?? {})
+    .filter(([, d]) => !d.kinds || d.kinds.includes(kind))
+    .map(([id, d]) => ({ id, name: d.name }));
+}
+
+/** Frame for a block under an author shell choice: the shell's own
+ * Frame when the choice is valid for this kind, otherwise undefined —
+ * callers fall back to theme.BlockFrame / the default frame (unknown
+ * ids keep rendering, same discipline as palette variants). */
+export function resolveBlockFrame(
+  theme: Theme,
+  kind: string,
+  shell: string | null | undefined,
+): ComponentType<BlockFrameProps> | undefined {
+  if (!shell) return undefined;
+  const d = theme.shells?.[shell];
+  if (!d || (d.kinds && !d.kinds.includes(kind))) return undefined;
+  return d.Frame;
+}
+
+/** Public blob URL (server contract, [ADR-0022]) — surfaces resolve
+ * background images from it. */
+export function publicBlobUrl(hash: string): string {
+  return `/api/public/blobs/${hash}`;
+}
 
 /** Pure function: base tokens → palette variant tokens → whitelist-
  * filtered overrides. Slots, identity, and geometry pass through
@@ -214,9 +272,6 @@ export const ink: Theme = {
   kindHueFallback: 'oklch(25% 0.01 270)',
   customizableTokens: ['fontFamily', 'accent'],
 };
-
-export const THEMES: Record<string, Theme> = { 'graph-paper': graphPaper, ink, workbench, stationery, blueprint };
-export const DEFAULT_THEME_ID = 'graph-paper';
 
 export function kindHue(theme: Theme, kind: string): string {
   return theme.kindHues[kind] ?? theme.kindHueFallback;

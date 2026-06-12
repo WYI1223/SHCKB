@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createElement } from 'react';
-import { graphPaper, type Theme } from '@skb/theme';
+import { graphPaper, stationery, workbench, type Theme } from '@skb/theme';
 import { renderStaticPage } from '../static';
 
 const DOC = {
@@ -38,9 +38,68 @@ describe('theme render slots', () => {
   });
 });
 
-// ----- stationery deep showcase -----
+describe('author appearance (MVP-6 M6-D3/D4)', () => {
+  test("workbench curates 'flat'; unknown shells land on the default card", () => {
+    const flat = renderStaticPage(
+      { ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'flat' }] },
+      's',
+      workbench,
+    );
+    expect(flat).toContain('data-shell="flat"');
+    expect(flat).not.toContain('border:1px solid'); // card chrome dropped
 
-import { stationery } from '@skb/theme';
+    // graph-paper curates no shells: any shell id lands on the default
+    const unknown = renderStaticPage(
+      { ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'flat' }] },
+      's',
+      graphPaper,
+    );
+    expect(unknown).toContain('border:1px solid'); // default card retained
+  });
+
+  test('stationery shells: card drops torn edge, bare drops the paper entirely', () => {
+    // assert on element markup (class="…"), not bare names — globalCss
+    // in <style> contains the same selectors for every render
+    const paper = renderStaticPage(DOC, 's', stationery);
+    expect(paper).toContain('class="skb-paper-edge"');
+
+    const card = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'card' }] }, 's', stationery);
+    expect(card).not.toContain('class="skb-paper-edge"');
+    expect(card).toContain('class="skb-washi"'); // tape stays — it's the pinning
+
+    const bare = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'bare' }] }, 's', stationery);
+    expect(bare).toContain('skb-bare');
+    expect(bare).not.toContain('class="skb-washi"');
+  });
+
+  test('every declared shell changes the rendered markup (declaration carries implementation)', () => {
+    // The shells map makes declaration-without-implementation a type
+    // error (owner feedback); this guards the remaining failure mode —
+    // a shell Frame that renders identically to the default.
+    for (const t of [graphPaper, workbench, stationery]) {
+      const def = renderStaticPage(DOC, 's', t);
+      for (const id of Object.keys(t.shells ?? {})) {
+        const out = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: id }] }, 's', t);
+        expect(out, `${t.id}/${id} must differ from the default shell`).not.toBe(def);
+      }
+    }
+    expect(Object.keys(stationery.shells ?? {})).toEqual(['card', 'bare']);
+    expect(Object.keys(workbench.shells ?? {})).toEqual(['flat']);
+  });
+
+  test('page background: color replaces canvas, image layers as cover', () => {
+    const html = renderStaticPage(
+      { ...DOC, background: { color: 'oklch(90% 0.05 200)', blobHash: 'a'.repeat(64) } },
+      's',
+      graphPaper,
+    );
+    expect(html).toContain('background:oklch(90% 0.05 200)');
+    expect(html).toContain(`/api/public/blobs/${'a'.repeat(64)}`);
+    expect(html).toContain('background-size:cover');
+  });
+});
+
+// ----- stationery deep showcase -----
 
 describe('stationery deep showcase', () => {
   const DOC2 = {

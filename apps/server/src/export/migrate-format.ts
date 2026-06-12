@@ -98,6 +98,64 @@ export const FORMAT_TRANSFORMS: FormatTransform[] = [
       return { files: next, losses };
     },
   },
+  {
+    // v4: author appearance — page background + per-block shell (MVP-6)
+    to: 4,
+    up(files) {
+      const next: JsonFiles = new Map();
+      for (const [path, value] of files) {
+        if (path.endsWith('.page.json')) {
+          // explicit key order so v3→v4→export stays canonical
+          const { id, slug, title, visibility, gravityEnabled, themeId, sortKey, createdAt, updatedAt, published, blocks, ...rest } =
+            value as Record<string, unknown> & { blocks: Array<Record<string, unknown>> };
+          next.set(path, {
+            id, slug, title, visibility, gravityEnabled, themeId,
+            background: null,
+            sortKey, createdAt, updatedAt, published,
+            blocks: blocks.map(({ id: bid, kind, col, row, colSpan, rowSpan, content, ...brest }) => ({
+              id: bid, kind, col, row, colSpan, rowSpan, shell: null, content, ...brest,
+            })),
+            ...rest,
+          });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return next;
+    },
+    down(files) {
+      const next: JsonFiles = new Map();
+      const losses: string[] = [];
+      const stripDocAppearance = (doc: Record<string, unknown> | null, path: string): unknown => {
+        if (doc === null || typeof doc !== 'object') return doc;
+        const { background, blocks, ...rest } = doc as { background?: unknown; blocks?: Array<Record<string, unknown>> };
+        if (background != null) losses.push(`${path}: published background dropped (v3 has no page background)`);
+        const cleanBlocks = (blocks ?? []).map(({ shell, ...b }) => {
+          if (shell != null) losses.push(`${path}: published block "${String(b.id)}" shell "${String(shell)}" dropped`);
+          return b;
+        });
+        return { ...rest, blocks: cleanBlocks };
+      };
+      for (const [path, value] of files) {
+        if (path.endsWith('.page.json')) {
+          const { background, published, blocks, ...rest } = value as Record<string, unknown> & {
+            background?: unknown;
+            published: Record<string, unknown> | null;
+            blocks: Array<Record<string, unknown>>;
+          };
+          if (background != null) losses.push(`${path}: page background dropped (v3 has no page background)`);
+          const cleanBlocks = blocks.map(({ shell, ...b }) => {
+            if (shell != null) losses.push(`${path}: block "${String(b.id)}" shell "${String(shell)}" dropped`);
+            return b;
+          });
+          next.set(path, { ...rest, published: stripDocAppearance(published, path), blocks: cleanBlocks });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return { files: next, losses };
+    },
+  },
 ];
 
 function versionOf(files: JsonFiles): number {

@@ -39,6 +39,9 @@ export const notepages = sqliteTable('notepages', {
   gravityEnabled: integer('gravity_enabled', { mode: 'boolean' }).notNull().default(true),
   /** Per-page theme pin; null = follow the instance theme [ADR-0024]. */
   themeId: text('theme_id'),
+  /** Author-picked page background JSON {color?, blobHash?} (M6-D4);
+   * null = theme canvas. */
+  background: text('background'),
   folderId: text('folder_id'),
   sortKey: integer('sort_key').notNull().default(0),
   publishedDoc: text('published_doc'),
@@ -61,6 +64,8 @@ export const blocks = sqliteTable(
     row: integer('row').notNull(),
     colSpan: integer('col_span').notNull(),
     rowSpan: integer('row_span').notNull(),
+    /** Author-picked theme shell option id (M6-D3); null = default shell. */
+    shell: text('shell'),
     content: text('content').notNull(),
   },
   (t) => [primaryKey({ columns: [t.notepageId, t.id] }), index('idx_blocks_notepage').on(t.notepageId)],
@@ -92,6 +97,8 @@ export type BlockRow = typeof blocks.$inferSelect;
 export type PublishedDoc = {
   title: string;
   gravityEnabled: boolean;
+  /** Author-picked page background (M6-D4); absent = theme canvas. */
+  background?: { color?: string; blobHash?: string } | null;
   blocks: Array<{
     id: string;
     kind: string;
@@ -99,6 +106,8 @@ export type PublishedDoc = {
     row: number;
     colSpan: number;
     rowSpan: number;
+    /** Author-picked theme shell option id (M6-D3). */
+    shell?: string | null;
     content: unknown;
   }>;
   publishedAt: number;

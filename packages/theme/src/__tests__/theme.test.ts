@@ -1,7 +1,5 @@
 import { describe, expect, test } from 'vitest';
 import {
-  DEFAULT_THEME_ID,
-  THEMES,
   applyCustomization,
   blockCardStyle,
   canvasBaseplateStyle,
@@ -10,8 +8,10 @@ import {
   kindHue,
   sanitizeCustomization,
 } from '../themes';
+import { DEFAULT_THEME_ID, THEMES } from '../registry';
 import { workbench } from '../workbench';
 import { blueprint } from '../blueprint';
+import { stationery } from '../stationery';
 
 describe('theme registry', () => {
   test('default theme is graph-paper and registered', () => {

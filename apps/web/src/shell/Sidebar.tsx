@@ -338,6 +338,10 @@ export function Sidebar() {
           <Empty text="Nothing published yet." />
         )}
       </nav>
+      {/* Properties dock (MVP-6 M6-D2): the editor portals the
+          selection-driven inspector here — under the directory, the
+          3D-engine sidebar pattern. Empty outside the editor. */}
+      <div data-skb-properties-slot style={{ marginTop: 'auto' }} />
     </aside>
   );
 }

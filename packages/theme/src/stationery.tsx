@@ -2,11 +2,19 @@
  * 「手帐 Stationery」— warm journal/diary theme, v2 deep showcase
  * [ADR-0025]: the first theme to use render slots — tilted paper
  * slips, washi-tape kind strips, deckle bottom edge, paper texture,
- * drop shadow, mount motion. Slot components reference TOKENS by
- * closure, NEVER via useTheme (stationery→context→themes→stationery
- * would be a runtime import cycle — the Bun TDZ bug class).
+ * drop shadow, mount motion.
+ *
+ * Slot components read tokens via useTheme() at RENDER time (MVP-6
+ * M6-D6): palette variants and overrides flow into the slots. The
+ * import cycle that used to forbid this is gone — THEMES lives in
+ * registry.ts, so the chain here is stationery → context → themes
+ * (types + graphPaper) and terminates. TOKENS below only builds the
+ * theme object. globalCss stays static — variant-safe values only
+ * (the kraft variant deliberately avoids retuning paper-surface
+ * colors that the CSS hardcodes).
  */
 import type { ReactNode } from 'react';
+import { useTheme } from './context';
 import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps, Theme, ThemeTokens } from './themes';
 
 /** Code slips pasted into a journal: warm, low-saturation ink tones
@@ -149,10 +157,86 @@ function PolaroidFrame({ blockId, colSpan, tape, children }: { blockId: string; 
   );
 }
 
-function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: BlockFrameProps) {
+/** 'card' shell: clean white card stock — no torn edge, no curl; the
+ * washi tape stays (it is the pinning, not the paper). */
+function CardFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
+  const t = useTheme();
+  const tape = t.kindHues[kind] ?? t.kindHueFallback;
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
-  const tape = TOKENS.kindHues[kind] ?? TOKENS.kindHueFallback;
+  return (
+    <div
+      className="skb-block skb-paper-slip"
+      data-kind={kind}
+      style={{ position: 'relative', width: '100%', height: '100%', transform: `rotate(${tilt}deg)` }}
+    >
+      <div
+        aria-hidden
+        className="skb-washi"
+        style={{
+          position: 'absolute',
+          top: '-7px',
+          left: '50%',
+          width: '64px',
+          height: '15px',
+          transform: `translateX(-50%) rotate(${(-Number(tilt) * 1.7).toFixed(3)}deg)`,
+          background: tape,
+          opacity: 0.78,
+          boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
+          zIndex: 3,
+        }}
+      />
+      <div
+        className="skb-paper"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          padding: '10px 8px 8px',
+          overflow: 'auto',
+          fontSize: '14px',
+          lineHeight: 1.55,
+          borderRadius: '3px',
+          boxShadow:
+            'inset 0 0 0 1px oklch(93% 0.008 95), 0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** 'bare' shell: no paper at all — the content itself lies on the
+ * desk with a slight tilt and shadow (for image: just the photo). */
+function BareFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
+  const tilt = tiltOf(blockId, colSpan).toFixed(3);
+  return (
+    <div
+      className="skb-block skb-bare"
+      data-kind={kind}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        transform: `rotate(${tilt}deg)`,
+        overflow: 'auto',
+        fontSize: '14px',
+        lineHeight: 1.55,
+        filter: 'drop-shadow(0 3px 7px oklch(38% 0.04 60 / 30%))',
+        scrollbarWidth: 'none',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: BlockFrameProps) {
+  const t = useTheme();
+  const tilt = tiltOf(blockId, colSpan).toFixed(3);
+  const tape = t.kindHues[kind] ?? t.kindHueFallback;
   const curl = curlSideOf(blockId);
+  // Default shell only — author shell choices resolve to their own
+  // Frames via theme.shells (declaration IS implementation, M6-D3).
   if (kind === 'image') {
     return (
       <PolaroidFrame blockId={blockId} colSpan={colSpan} tape={tape}>
@@ -209,6 +293,7 @@ function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: Blo
 }
 
 function StationeryCanvasSurface({ widthPx, heightPx, children }: CanvasSurfaceProps) {
+  const t = useTheme();
   return (
     <>
       {/* one shared turbulence filter per canvas (fixed seed →
@@ -230,10 +315,10 @@ function StationeryCanvasSurface({ widthPx, heightPx, children }: CanvasSurfaceP
           // paper fiber texture (horizontal, very faint)
           'repeating-linear-gradient(0deg, transparent 0 2px, oklch(85% 0.02 90 / 7%) 2px 3px)',
           // printed journal grid (the kraft dots)
-          `radial-gradient(circle, ${TOKENS.dotColor} 1px, transparent 1px)`,
+          `radial-gradient(circle, ${t.dotColor} 1px, transparent 1px)`,
         ].join(', '),
-        backgroundSize: `auto, ${TOKENS.slot}px ${TOKENS.slot}px`,
-        backgroundPosition: `0 0, ${TOKENS.slot - 1}px ${TOKENS.slot - 1}px`,
+        backgroundSize: `auto, ${t.slot}px ${t.slot}px`,
+        backgroundPosition: `0 0, ${t.slot - 1}px ${t.slot - 1}px`,
       }}
       >
         {children}
@@ -243,14 +328,15 @@ function StationeryCanvasSurface({ widthPx, heightPx, children }: CanvasSurfaceP
 }
 
 function StationeryPageTitle({ title }: PageTitleProps) {
+  const t = useTheme();
   return (
     <h1
       style={{
-        color: TOKENS.textColor,
+        color: t.textColor,
         fontSize: '26px',
         margin: '0 0 24px',
         paddingBottom: '6px',
-        borderBottom: `2px dashed ${TOKENS.hairline}`,
+        borderBottom: `2px dashed ${t.hairline}`,
         display: 'inline-block',
       }}
     >
@@ -366,4 +452,36 @@ export const stationery: Theme = {
   CanvasSurface: StationeryCanvasSurface,
   PageTitle: StationeryPageTitle,
   globalCss: STATIONERY_GLOBAL_CSS,
+
+  // Curated shells (M6-D3): each declaration carries its own Frame —
+  // there is no second list to forget (the bug class the owner caught).
+  shells: {
+    card: { name: 'Card', Frame: CardFrame },
+    bare: { name: 'Bare', Frame: BareFrame },
+  },
+
+  // Unlocked by the render-time-token refactor (MVP-6 M6-D6). Curation
+  // rule for THIS theme: never retune paper-surface colors (blockBg
+  // and friends) — the torn-edge backing and scroll-curl gradients in
+  // globalCss hardcode them; a variant that changes the slip color
+  // would visibly desync from its own torn silhouette.
+  palettes: [
+    {
+      id: 'kraft',
+      name: 'Kraft',
+      tokens: {
+        canvasBg: 'oklch(88% 0.045 80)',
+        dotColor: 'oklch(70% 0.06 70)',
+        chromeBg: 'oklch(25% 0.04 65)',
+        accent: 'oklch(50% 0.1 60)',
+        mutedColor: 'oklch(45% 0.05 60)',
+        hairline: 'oklch(72% 0.05 70)',
+        kindHues: {
+          markdown: 'oklch(74% 0.08 50)',
+          image: 'oklch(74% 0.06 200)',
+          code: 'oklch(74% 0.07 120)',
+        },
+      },
+    },
+  ],
 };

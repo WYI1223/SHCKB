@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderStaticPage } from '../../block-kinds/src/static';
-import { THEMES } from '../src/themes';
+import { THEMES } from '../src/registry';
 
 const SAMPLE_DOC = {
   title: 'Field Notes — Style Round Sample',
