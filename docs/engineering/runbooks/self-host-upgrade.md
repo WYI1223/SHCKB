@@ -63,12 +63,13 @@ docker compose start
 - **Blob GC**：`curl -b <cookie> -X POST http://<host>:8080/api/admin/blobs/gc` ——
   删除未被任何 block/已发布快照引用的 blob，返回 `{deleted, freedBytes}`。
 
-### 格式版本与跨版本迁移（MVP-4 起格式 v2，MVP-5 起 v3）
+### 格式版本与跨版本迁移（MVP-4 起 v2，MVP-5 起 v3，MVP-6 起 v4）
 
 - v2 导出携带实例主题与逐页主题钉选；v3 增 manifest.settings.themeCustomization
-  （operator 主题自定义，[ADR-0026]）；**新实例自动 import 旧版本导出物**（升级补默认值，无损）
-- 给旧版本实例产导出物：`/api/admin/export?format=1|2`（导出端降级，[ADR-0023]/[ADR-0024]）；
-  先 `&dryRun=1` 查看损失清单（非默认主题/钉选/自定义会被丢弃并逐项列出）
+  （operator 主题自定义，[ADR-0026]）；v4 增 page.background + blocks[].shell
+  （作者级外观，[ADR-0027]）；**新实例自动 import 旧版本导出物**（升级补默认值，无损）
+- 给旧版本实例产导出物：`/api/admin/export?format=1|2|3`（导出端降级，[ADR-0023]/[ADR-0024]）；
+  先 `&dryRun=1` 查看损失清单（非默认主题/钉选/自定义/外观会被丢弃并逐项列出）
 - **换实例主题或更改主题自定义会全量重渲染所有已发布页**（大实例上有可见停顿，属预期行为）
 
 ## Environment reference
