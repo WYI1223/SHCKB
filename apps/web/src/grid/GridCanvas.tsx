@@ -1,16 +1,21 @@
 /**
- * Editing canvas — graph-paper visuals from prototype VariantA, block
- * bodies now host real BlockKindModule views: inactive blocks render
- * the module RenderView (preview), only the active block mounts its
- * EditView (block-markdown.md performance boundary).
+ * The light table — the themed sheet sits bounded on the bench with a
+ * visible edge: what's inside the edge is what the reader's camera
+ * shoots; everything blue is non-photo instrumentation the reader
+ * never sees. Block bodies host real BlockKindModule views: inactive
+ * blocks render the module RenderView (preview), only the active block
+ * mounts its EditView (block-markdown.md performance boundary).
  */
 import { totalRows, type Block } from '@skb/grid-engine';
 import { blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
-import { kindHue, resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
+import { resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
+import { BENCH } from '../chrome/bench';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
 
 const MIN_ROWS_PADDING = 4;
+/** Sheet margin around the grid — the board's edge belongs to the sheet. */
+const SHEET_PAD = 24;
 
 export type GridCanvasProps = {
   interaction: Interaction;
@@ -39,28 +44,39 @@ export function GridCanvas(props: GridCanvasProps) {
       style={{
         display: 'flex',
         justifyContent: 'center',
-        ...pageBackgroundStyle(props.background, theme.canvasBg),
-        padding: '20px 20px 80px',
-        fontFamily: theme.fontFamily,
+        alignItems: 'flex-start',
+        minHeight: '100%',
+        padding: '24px 24px 96px',
       }}
       onClick={() => onActivate(null)}
     >
+      {/* the sheet: themed surface with an honest edge on the bench */}
       <div
-        data-skb-canvas
-        {...interaction.canvasDropProps(SLOT)}
+        className="pu-sheet"
         style={{
-          position: 'relative',
-          width: `${state.totalCols * SLOT}px`,
-          height: `${rows * SLOT}px`,
+          ...pageBackgroundStyle(props.background, theme.canvasBg),
+          border: `1px solid ${BENCH.hairlineDark}`,
+          padding: `${SHEET_PAD}px`,
+          fontFamily: theme.fontFamily,
         }}
       >
-        <Surface widthPx={state.totalCols * SLOT} heightPx={rows * SLOT} background={props.background}>
-          {state.blocks.map((b) => (
-            <BlockShell key={b.id} block={b} {...props} slot={SLOT} pad={PAD} />
-          ))}
-          {drag.intent && <DropGhost intent={drag.intent} slotSize={SLOT} padding={PAD} />}
-          <ResizePreview interaction={interaction} slotSize={SLOT} padding={PAD} />
-        </Surface>
+        <div
+          data-skb-canvas
+          {...interaction.canvasDropProps(SLOT)}
+          style={{
+            position: 'relative',
+            width: `${state.totalCols * SLOT}px`,
+            height: `${rows * SLOT}px`,
+          }}
+        >
+          <Surface widthPx={state.totalCols * SLOT} heightPx={rows * SLOT} background={props.background}>
+            {state.blocks.map((b) => (
+              <BlockShell key={b.id} block={b} {...props} slot={SLOT} pad={PAD} />
+            ))}
+            {drag.intent && <DropGhost intent={drag.intent} slotSize={SLOT} padding={PAD} />}
+            <ResizePreview interaction={interaction} slotSize={SLOT} padding={PAD} />
+          </Surface>
+        </div>
       </div>
     </div>
   );
@@ -82,7 +98,6 @@ function BlockShell({
   const mod = blockModule(block.kind);
   const isActive = activeId === block.id;
   const isResizing = interaction.resize.active && interaction.resize.blockId === block.id;
-  const hue = kindHue(theme, block.kind);
   // v2 [ADR-0025]: outer div = geometry + interaction + editing chrome
   // (editor-owned); the theme's BlockFrame owns the visual shell. An
   // author shell choice resolves to its own Frame (M6-D3).
@@ -93,6 +108,8 @@ function BlockShell({
     <div
       data-block-id={block.id}
       data-block-kind={block.kind}
+      data-pu-active={isActive || undefined}
+      className="pu-block"
       {...(isActive ? {} : interaction.blockDragProps(block))}
       onClick={(e) => {
         e.stopPropagation();
@@ -104,13 +121,38 @@ function BlockShell({
         top: `${block.row * slot + pad}px`,
         width: `${block.colSpan * slot - 2 * pad}px`,
         height: `${block.rowSpan * slot - 2 * pad}px`,
-        // active ring is editor chrome on the unrotated geometry box —
-        // it works for any frame shape a theme draws inside.
-        ...(isActive ? { boxShadow: `0 0 0 2px ${theme.accent}`, zIndex: 30 } : {}),
+        // active ring = non-photo blue editor chrome on the unrotated
+        // geometry box — works for any frame shape a theme draws inside.
+        ...(isActive ? { boxShadow: `0 0 0 2px ${BENCH.blueBright}`, zIndex: 30 } : {}),
         cursor: isActive ? 'default' : 'grab',
         opacity: isResizing ? 0.6 : 1,
       }}
     >
+      {/* instrument readout: kind + dims, non-photo blue, hover/active only */}
+      <div
+        aria-hidden
+        className="pu-mark"
+        style={{
+          position: 'absolute',
+          top: '-15px',
+          left: '0',
+          right: '0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontFamily: BENCH.fontMono,
+          fontSize: '9px',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: BENCH.blue,
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span>{mod ? `${mod.glyph} ${mod.label}` : `? ${block.kind}`}</span>
+        <span style={{ paddingRight: '22px' }}>
+          {block.colSpan}×{block.rowSpan}
+        </span>
+      </div>
       <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} shell={shell}>
         <div
           style={{
@@ -125,22 +167,6 @@ function BlockShell({
             color: theme.textColor,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '4px',
-              flexShrink: 0,
-            }}
-          >
-            <span style={{ fontWeight: 600, color: hue, fontSize: '11px' }}>
-              {mod ? `${mod.glyph} ${mod.label}` : `? ${block.kind}`}
-            </span>
-            <span style={{ fontSize: '10px', opacity: 0.5, marginRight: '20px' }}>
-              {block.colSpan}×{block.rowSpan}
-            </span>
-          </div>
           <div style={{ flex: 1, minHeight: 0, overflow: 'visible' }}>
             <BlockBody
               block={block}

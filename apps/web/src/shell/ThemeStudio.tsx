@@ -4,9 +4,10 @@
  * overrides. Anything accepted re-renders all published pages (same
  * invariant as a theme switch), so every write confirms first.
  */
-import { THEMES, useTheme, type Theme, type ThemeCustomization } from '@skb/theme';
+import { THEMES, type Theme, type ThemeCustomization } from '@skb/theme';
 import { UiPaletteSwatches, UiSelect } from '@skb/ui-kit';
 import { api } from '../api/client';
+import { BENCH, labelStyle } from '../chrome/bench';
 
 const FONT_PRESETS: Array<{ value: string; label: string }> = [
   { value: '', label: 'Font: theme default' },
@@ -31,7 +32,6 @@ export function ThemeStudio({
   customizations: Record<string, ThemeCustomization>;
   refresh: () => void;
 }) {
-  const ui = useTheme();
   const theme = THEMES[themeId];
   if (!theme) return null;
   const hasPalettes = (theme.palettes ?? []).length > 0;
@@ -58,19 +58,18 @@ export function ThemeStudio({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '5px',
-        padding: '6px',
-        border: `1px dashed ${ui.mutedColor}`,
-        borderRadius: '6px',
+        gap: '6px',
+        padding: '7px 8px 8px',
+        border: `1px solid ${BENCH.hairlineDark}`,
+        borderRadius: '2px',
+        background: BENCH.paper,
       }}
     >
-      <span style={{ fontSize: '10px', color: ui.mutedColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        Theme studio · {theme.name}
-      </span>
+      <span style={labelStyle()}>Theme studio · {theme.name}</span>
       {!hasPalettes && !fontOpen && (
         // Always visible (discoverability — owner couldn't find the
         // studio under a theme that curates nothing): say WHY it's empty.
-        <span style={{ fontSize: '11px', color: ui.mutedColor }}>
+        <span style={{ fontSize: '11px', color: BENCH.inkFaint, fontStyle: 'italic' }}>
           This theme curates no palettes or open tokens yet.
         </span>
       )}
