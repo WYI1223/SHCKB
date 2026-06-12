@@ -90,6 +90,33 @@ export function GridCanvas(props: GridCanvasProps) {
       {/* the sheet: themed surface with an honest edge on the bench */}
       <div
         className="pu-sheet"
+        onContextMenu={(e) => {
+          // sheet right-click (M8-D3/D4): theme-curated papers, then
+          // insert at the cursor cell. The handler lives on the SHEET
+          // (the visual page — its margin ring included), but cell math
+          // reads the inner grid's rect and clamps, so a click on the
+          // margin inserts at the nearest edge cell. Block right-clicks
+          // stop before reaching here.
+          e.preventDefault();
+          const grid = e.currentTarget.querySelector('[data-skb-canvas]');
+          if (!(grid instanceof HTMLElement)) return;
+          const rect = grid.getBoundingClientRect();
+          const col = Math.max(0, Math.min(state.totalCols - 1, Math.floor((e.clientX - rect.left) / SLOT)));
+          const row = Math.max(0, Math.floor((e.clientY - rect.top) / SLOT));
+          const papers = paperChoices(theme, props.background, props.onBackgroundChange);
+          overlays.menu(
+            { x: e.clientX, y: e.clientY },
+            [
+              ...papers,
+              ...(papers.length > 0 ? [{ kind: 'label', label: 'insert block' } as MenuItem] : []),
+              ...Object.values(BLOCK_KINDS).map<MenuItem>((mod) => ({
+                label: `${mod.glyph} ${mod.label}`,
+                onSelect: () => interaction.ops.insertAt(col, row, mod.kind),
+              })),
+            ],
+            { header: papers.length > 0 ? 'sheet' : 'insert block' },
+          );
+        }}
         style={{
           ...pageBackgroundStyle(props.background, theme.canvasBg),
           border: `1px solid ${BENCH.hairlineDark}`,
@@ -100,28 +127,6 @@ export function GridCanvas(props: GridCanvasProps) {
         <div
           data-skb-canvas
           {...interaction.canvasDropProps(SLOT)}
-          onContextMenu={(e) => {
-            // empty-sheet right-click (M8-D3/D4): theme-curated papers,
-            // then insert at the cursor cell; block right-clicks stop
-            // before reaching here.
-            e.preventDefault();
-            const rect = e.currentTarget.getBoundingClientRect();
-            const col = Math.floor((e.clientX - rect.left) / SLOT);
-            const row = Math.floor((e.clientY - rect.top) / SLOT);
-            const papers = paperChoices(theme, props.background, props.onBackgroundChange);
-            overlays.menu(
-              { x: e.clientX, y: e.clientY },
-              [
-                ...papers,
-                ...(papers.length > 0 ? [{ kind: 'label', label: 'insert block' } as MenuItem] : []),
-                ...Object.values(BLOCK_KINDS).map<MenuItem>((mod) => ({
-                  label: `${mod.glyph} ${mod.label}`,
-                  onSelect: () => interaction.ops.insertAt(col, row, mod.kind),
-                })),
-              ],
-              { header: papers.length > 0 ? 'sheet' : 'insert block' },
-            );
-          }}
           style={{
             position: 'relative',
             width: `${state.totalCols * SLOT}px`,
