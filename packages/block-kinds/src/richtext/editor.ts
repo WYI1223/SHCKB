@@ -46,6 +46,14 @@ export type EditorHandle = {
   active: () => Record<ToolbarCommand | 'link' | 'pagelink', boolean>;
   /** True when the selection is empty (link buttons need a target). */
   selectionEmpty: () => boolean;
+  /** True while the PM surface owns focus (bubble visibility). */
+  hasFocus: () => boolean;
+  /** Viewport coords spanning the selection — bubble anchor. */
+  selectionCoords: () => { x: number; top: number; bottom: number } | null;
+  /** Viewport coords of a doc position — slash-menu anchor. */
+  posCoords: (pos: number) => { x: number; top: number; bottom: number } | null;
+  /** Remove a doc range (slash-trigger cleanup). */
+  deleteRange: (from: number, to: number) => void;
 };
 
 export function mountEditor(opts: {
@@ -54,6 +62,9 @@ export function mountEditor(opts: {
   onDocChanged: (docJson: unknown) => void;
   /** Fires after every dispatched transaction — toolbar re-render tick. */
   onTick: () => void;
+  /** "/" typed — the host component opens its floating block menu at
+   * this doc position (Notion affordance, module-owned UI). */
+  onSlash?: (pos: number) => void;
 }): EditorHandle {
   let doc: PmModelNode;
   try {
@@ -99,6 +110,11 @@ export function mountEditor(opts: {
       view.updateState(next);
       if (tr.docChanged) opts.onDocChanged(next.doc.toJSON());
       opts.onTick();
+    },
+    handleTextInput(_view, from, _to, text) {
+      // fires BEFORE insertion: the "/" lands at [from, from+1)
+      if (text === '/' && opts.onSlash) opts.onSlash(from);
+      return false; // never consume — the character still types
     },
   });
 
@@ -185,6 +201,33 @@ export function mountEditor(opts: {
     }),
 
     selectionEmpty: () => view.state.selection.empty,
+
+    hasFocus: () => view.hasFocus(),
+
+    selectionCoords: () => {
+      const { from, to, empty } = view.state.selection;
+      if (empty) return null;
+      try {
+        const a = view.coordsAtPos(from);
+        const b = view.coordsAtPos(to);
+        return { x: (a.left + b.left) / 2, top: Math.min(a.top, b.top), bottom: Math.max(a.bottom, b.bottom) };
+      } catch {
+        return null;
+      }
+    },
+
+    posCoords: (pos) => {
+      try {
+        const c = view.coordsAtPos(Math.max(0, Math.min(pos, view.state.doc.content.size)));
+        return { x: c.left, top: c.top, bottom: c.bottom };
+      } catch {
+        return null;
+      }
+    },
+
+    deleteRange: (from, to) => {
+      view.dispatch(view.state.tr.delete(from, to));
+    },
   };
 }
 
