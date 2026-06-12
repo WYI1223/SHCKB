@@ -387,6 +387,8 @@ function Editor({ detail }: { detail: NotepageDetail }) {
                   });
                   setSelection({ type: 'page' });
                 }}
+                onShellChange={(blockId, shell) => setShells((s) => ({ ...s, [blockId]: shell }))}
+                onBackgroundChange={(bg) => void changeBackground(bg)}
               />
             </div>
             <Properties

@@ -8,6 +8,7 @@ import { THEMES, type Theme, type ThemeCustomization } from '@skb/theme';
 import { UiPaletteSwatches, UiSelect } from '@skb/ui-kit';
 import { api } from '../api/client';
 import { BENCH, labelStyle } from '../chrome/bench';
+import { useOverlays } from '../chrome/overlays';
 
 const FONT_PRESETS: Array<{ value: string; label: string }> = [
   { value: '', label: 'Font: theme default' },
@@ -32,6 +33,7 @@ export function ThemeStudio({
   customizations: Record<string, ThemeCustomization>;
   refresh: () => void;
 }) {
+  const overlays = useOverlays();
   const theme = THEMES[themeId];
   if (!theme) return null;
   const hasPalettes = (theme.palettes ?? []).length > 0;
@@ -40,7 +42,12 @@ export function ThemeStudio({
   const current = customizations[themeId];
 
   async function put(next: ThemeCustomization | null) {
-    if (!window.confirm('Apply theme customization? All published pages re-render.')) return;
+    const ok = await overlays.confirm({
+      title: 'theme customization',
+      message: 'Apply theme customization? All published pages re-render.',
+      confirmLabel: 'apply',
+    });
+    if (!ok) return;
     await api.setThemeCustomization(themeId, next);
     refresh();
   }

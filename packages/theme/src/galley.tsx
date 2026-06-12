@@ -263,4 +263,17 @@ export const galley: Theme = {
   ],
 
   customizableTokens: ['fontFamily', 'accent'],
+
+  // Curated papers (M8-D4): repro-room stock — the ruled option proves
+  // a short CSS texture flows through PageBackground.color untouched.
+  papers: [
+    { id: 'white', name: 'Plate white', css: 'oklch(99.5% 0 0)' },
+    { id: 'proof-blue', name: 'Proof blue', css: 'oklch(96.5% 0.014 240)' },
+    { id: 'manila', name: 'Manila', css: 'oklch(94% 0.028 85)' },
+    {
+      id: 'ruled',
+      name: 'Ruled',
+      css: 'repeating-linear-gradient(0deg,transparent 0 23px,oklch(93% 0.012 90) 23px 24px) oklch(97.8% 0.008 90)',
+    },
+  ],
 };

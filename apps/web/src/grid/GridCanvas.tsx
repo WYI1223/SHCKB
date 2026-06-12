@@ -7,9 +7,10 @@
  * mounts its EditView (block-markdown.md performance boundary).
  */
 import { totalRows, type Block } from '@skb/grid-engine';
-import { blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
-import { resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
+import { BLOCK_KINDS, blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
+import { resolveBlockFrame, shellOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
 import { BENCH } from '../chrome/bench';
+import { useOverlays, type MenuItem } from '../chrome/overlays';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
 
@@ -28,10 +29,46 @@ export type GridCanvasProps = {
   onActivate: (id: string | null) => void;
   onContentChange: (id: string, content: unknown) => void;
   onBlockDeleted: (id: string) => void;
+  /** Author shell pick from the block context menu (M8-D4). */
+  onShellChange: (id: string, shell: string | null) => void;
+  /** Paper pick from the sheet context menu (M8-D4). */
+  onBackgroundChange: (bg: PageBackground | null) => void;
 };
+
+/** Paper choices row for the sheet menu — theme-curated stock plus the
+ * theme-default swatch; the author's FREE picker stays in Properties
+ * (M6-D4 freedom is not withdrawn, this is the curated quick face). */
+function paperChoices(
+  theme: Theme,
+  background: PageBackground | null,
+  onBackgroundChange: (bg: PageBackground | null) => void,
+): MenuItem[] {
+  const papers = theme.papers ?? [];
+  if (papers.length === 0) return [];
+  return [
+    {
+      kind: 'choices',
+      label: `paper · ${theme.name}`,
+      options: [
+        { id: '__default', name: 'Theme default', swatch: theme.canvasBg, selected: !background?.color },
+        ...papers.map((p) => ({ id: p.id, name: p.name, swatch: p.css, selected: background?.color === p.css })),
+      ],
+      onPick: (id) => {
+        if (id === '__default') {
+          onBackgroundChange(background?.blobHash ? { blobHash: background.blobHash } : null);
+        } else {
+          const paper = papers.find((p) => p.id === id);
+          if (paper) onBackgroundChange({ ...background, color: paper.css });
+        }
+      },
+    },
+    { kind: 'separator' },
+  ];
+}
 
 export function GridCanvas(props: GridCanvasProps) {
   const theme = useTheme();
+  const overlays = useOverlays();
   const { interaction, activeId, onActivate } = props;
   const { state, drag } = interaction;
   const rows = totalRows(state) + MIN_ROWS_PADDING;
@@ -53,6 +90,33 @@ export function GridCanvas(props: GridCanvasProps) {
       {/* the sheet: themed surface with an honest edge on the bench */}
       <div
         className="pu-sheet"
+        onContextMenu={(e) => {
+          // sheet right-click (M8-D3/D4): theme-curated papers, then
+          // insert at the cursor cell. The handler lives on the SHEET
+          // (the visual page — its margin ring included), but cell math
+          // reads the inner grid's rect and clamps, so a click on the
+          // margin inserts at the nearest edge cell. Block right-clicks
+          // stop before reaching here.
+          e.preventDefault();
+          const grid = e.currentTarget.querySelector('[data-skb-canvas]');
+          if (!(grid instanceof HTMLElement)) return;
+          const rect = grid.getBoundingClientRect();
+          const col = Math.max(0, Math.min(state.totalCols - 1, Math.floor((e.clientX - rect.left) / SLOT)));
+          const row = Math.max(0, Math.floor((e.clientY - rect.top) / SLOT));
+          const papers = paperChoices(theme, props.background, props.onBackgroundChange);
+          overlays.menu(
+            { x: e.clientX, y: e.clientY },
+            [
+              ...papers,
+              ...(papers.length > 0 ? [{ kind: 'label', label: 'insert block' } as MenuItem] : []),
+              ...Object.values(BLOCK_KINDS).map<MenuItem>((mod) => ({
+                label: `${mod.glyph} ${mod.label}`,
+                onSelect: () => interaction.ops.insertAt(col, row, mod.kind),
+              })),
+            ],
+            { header: papers.length > 0 ? 'sheet' : 'insert block' },
+          );
+        }}
         style={{
           ...pageBackgroundStyle(props.background, theme.canvasBg),
           border: `1px solid ${BENCH.hairlineDark}`,
@@ -91,10 +155,12 @@ function BlockShell({
   onActivate,
   onContentChange,
   onBlockDeleted,
+  onShellChange,
   slot,
   pad,
 }: GridCanvasProps & { block: Block; slot: number; pad: number }) {
   const theme = useTheme();
+  const overlays = useOverlays();
   const mod = blockModule(block.kind);
   const isActive = activeId === block.id;
   const isResizing = interaction.resize.active && interaction.resize.blockId === block.id;
@@ -114,6 +180,48 @@ function BlockShell({
       onClick={(e) => {
         e.stopPropagation();
         if (!isActive) onActivate(block.id);
+      }}
+      onContextMenu={(e) => {
+        // active block keeps the native menu (copy/paste belongs to the
+        // edit surface); inactive blocks get the chrome menu.
+        e.stopPropagation();
+        if (isActive) return;
+        e.preventDefault();
+        // theme-curated shells (M8-D4) — same data Properties feeds on;
+        // pill choices because shells have no single swatch color.
+        const shellOpts = shellOptionsFor(theme, block.kind);
+        const shellSection: MenuItem[] =
+          shellOpts.length > 0
+            ? [
+                { kind: 'separator' },
+                {
+                  kind: 'choices',
+                  label: `shell · ${theme.name}`,
+                  options: [
+                    { id: '__default', name: 'default', selected: shell === null },
+                    ...shellOpts.map((o) => ({ id: o.id, name: o.name, selected: shell === o.id })),
+                  ],
+                  onPick: (id) => onShellChange(block.id, id === '__default' ? null : id),
+                },
+              ]
+            : [];
+        overlays.menu(
+          { x: e.clientX, y: e.clientY },
+          [
+            { label: 'edit', onSelect: () => onActivate(block.id) },
+            ...shellSection,
+            { kind: 'separator' },
+            {
+              label: 'delete',
+              danger: true,
+              onSelect: () => {
+                interaction.ops.remove(block.id);
+                onBlockDeleted(block.id);
+              },
+            },
+          ],
+          { header: `${mod ? mod.label : block.kind} · ${block.colSpan}×${block.rowSpan}` },
+        );
       }}
       style={{
         position: 'absolute',

@@ -20,6 +20,7 @@ import {
 } from '../api/client';
 import { ThemeProvider, type ThemeCustomization } from '@skb/theme';
 import { BENCH, BenchStyle, benchTheme } from '../chrome/bench';
+import { OverlayProvider } from '../chrome/overlays';
 import { Sidebar } from './Sidebar';
 
 type ShellState = {
@@ -86,6 +87,7 @@ export function Shell() {
           surfaces (editor canvas, read pane) re-provide the page's
           effective theme inside. */}
       <ThemeProvider theme={benchTheme}>
+        <OverlayProvider>
         <div
           className="pu-chrome"
           style={{
@@ -126,6 +128,7 @@ export function Shell() {
             <Outlet />
           </main>
         </div>
+        </OverlayProvider>
       </ThemeProvider>
     </ShellContext.Provider>
   );

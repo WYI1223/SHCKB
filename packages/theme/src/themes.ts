@@ -126,6 +126,17 @@ export type ThemeCustomization = {
   overrides?: Partial<Record<OverridableTokenKey, string>>;
 };
 
+/** A theme-curated page paper (M8-D4): a finite color/texture choice
+ * the author may pick as the page background — Notion-palette style,
+ * limited but plural. `css` flows through PageBackground.color like any
+ * author pick, so it must satisfy isSafeCssColor (≤128 chars, no
+ * url()/blocks) — short gradients are fine, image textures are not. */
+export type PaperOption = {
+  id: string;
+  name: string;
+  css: string;
+};
+
 export type Theme = ThemeTokens &
   ThemeSlots & {
     /** Official color variants the theme curates; omitted = none. */
@@ -135,6 +146,9 @@ export type Theme = ThemeTokens &
     /** Block shell variants the theme curates (M6-D3), keyed by the
      * persisted id; omitted = the default shell is the only shell. */
     shells?: Record<string, ShellDefinition>;
+    /** Page papers the theme curates (M8-D4); omitted = none — the
+     * author still has the free background picker either way. */
+    papers?: PaperOption[];
   };
 
 /** Shell choices applicable to a kind under a theme (inspector feed). */
@@ -269,6 +283,13 @@ export const graphPaper: Theme = {
   codeCss: GITHUB_ISH_CODE_CSS,
   // Whitelist path proof (M5-D3): the default theme opens font + accent.
   customizableTokens: ['fontFamily', 'accent'],
+  // Curated papers (M8-D4): light tints that keep the dot grid legible.
+  papers: [
+    { id: 'bone', name: 'Bone', css: 'oklch(96.5% 0.012 85)' },
+    { id: 'mint', name: 'Mint', css: 'oklch(96.5% 0.018 160)' },
+    { id: 'sky', name: 'Sky', css: 'oklch(96.5% 0.018 240)' },
+    { id: 'blush', name: 'Blush', css: 'oklch(96.5% 0.018 20)' },
+  ],
 };
 
 /** Minimal second theme — proof the seam switches; real candidates
@@ -296,6 +317,13 @@ export const ink: Theme = {
   },
   kindHueFallback: 'oklch(25% 0.01 270)',
   customizableTokens: ['fontFamily', 'accent'],
+  // Own papers — inheriting graph-paper's warm tints via the spread
+  // would clash with ink's stark page.
+  papers: [
+    { id: 'warm', name: 'Warm white', css: 'oklch(97.5% 0.008 85)' },
+    { id: 'cool', name: 'Cool white', css: 'oklch(97.5% 0.005 250)' },
+    { id: 'grey', name: 'Pale grey', css: 'oklch(94% 0 0)' },
+  ],
 };
 
 export function kindHue(theme: Theme, kind: string): string {

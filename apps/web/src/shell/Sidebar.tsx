@@ -1,24 +1,24 @@
 /**
  * The rack — folder tree + page list in the bench voice (Paste-Up).
- * Author side gets full CRUD affordances (hover-revealed, hairline
- * popovers); the anonymous side renders the pruned public projection
- * with zero instrumentation. Tree assembly happens client-side from
- * the flat lists. The admin back office (instance theme, studio,
- * export/import, blob GC) docks at the rack's foot.
+ * Author-side actions live in row context menus (MVP-8 M8-D3) with one
+ * hover affordance kept per row class (new-page on folders); destructive
+ * and naming flows go through the chrome overlay dialogs, never
+ * window.* (M8-D1). The anonymous side renders the pruned public
+ * projection with zero instrumentation — no menus where a reader
+ * stands. The admin back office folds into the settings panel (M8-D2);
+ * the rack's foot keeps only its entry.
  */
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { THEMES } from '@skb/theme';
-import { ApiError, api, importBundle, type TreeFolder } from '../api/client';
+import { api, type TreeFolder } from '../api/client';
 import {
   BENCH,
-  SectionLabel,
   benchButtonStyle,
-  benchSelectStyle,
   labelStyle,
 } from '../chrome/bench';
+import { useOverlays, type MenuItem } from '../chrome/overlays';
 import { useShell } from './Shell';
-import { ThemeStudio } from './ThemeStudio';
+import { SettingsPanel } from './SettingsPanel';
 
 const SIDEBAR_W = 248;
 const INDENT = 14;
@@ -34,11 +34,11 @@ type PageItem = {
 };
 
 export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
-  const { me, tree, publicTree, instanceTheme, customizations, refresh } = useShell();
+  const { me, tree, publicTree, refresh } = useShell();
+  const overlays = useOverlays();
   const navigate = useNavigate();
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
-  const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
-  const importInput = useRef<HTMLInputElement>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const folders: TreeFolder[] = (me ? tree?.folders : publicTree?.folders) ?? [];
   const pages: PageItem[] = me
@@ -73,7 +73,7 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   }
 
   async function createPage(folderId: string | null) {
-    const title = window.prompt('Notepage title', 'Untitled');
+    const title = await overlays.prompt({ title: 'new page', message: 'Notepage title', initial: 'Untitled' });
     if (title === null) return;
     const { id } = await api.createNotepage(title);
     if (folderId) await api.movePage(id, folderId);
@@ -82,14 +82,14 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   }
 
   async function createFolder(parentId: string | null) {
-    const name = window.prompt('Folder name', 'New folder');
+    const name = await overlays.prompt({ title: 'new folder', message: 'Folder name', initial: 'New folder' });
     if (name === null || name.trim() === '') return;
     await api.createFolder(name.trim(), parentId ?? undefined);
     refresh();
   }
 
   async function renameFolder(f: TreeFolder) {
-    const name = window.prompt('Rename folder', f.name);
+    const name = await overlays.prompt({ title: 'rename folder', initial: f.name });
     if (name === null || name.trim() === '' || name === f.name) return;
     await api.renameFolder(f.id, name.trim());
     refresh();
@@ -100,13 +100,22 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
       await api.deleteFolder(f.id);
       refresh();
     } catch {
-      window.alert('Folder is not empty — move its contents out first.');
+      await overlays.alert({
+        title: 'cannot delete',
+        message: 'Folder is not empty — move its contents out first.',
+      });
     }
   }
 
   async function deletePage(p: PageItem) {
     if (!p.id) return;
-    if (!window.confirm(`Delete "${p.title}"?`)) return;
+    const ok = await overlays.confirm({
+      title: 'delete page',
+      message: `Delete "${p.title}"?`,
+      confirmLabel: 'delete',
+      danger: true,
+    });
+    if (!ok) return;
     await api.deleteNotepage(p.id);
     refresh();
     navigate('/');
@@ -114,30 +123,67 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
 
   async function movePageTo(p: PageItem, folderId: string | null) {
     if (!p.id) return;
-    setMoveMenuFor(null);
     await api.movePage(p.id, folderId);
     refresh();
   }
 
-  async function importZip(file: File) {
-    try {
-      const { counts } = await importBundle(file);
-      window.alert(
-        `Import complete: ${counts.pages} pages, ${counts.folders} folders, ${counts.blocks} blocks, ${counts.blobs} blobs.`,
-      );
-      refresh();
-    } catch (err) {
-      const detail = err instanceof ApiError && err.details ? `\n\n${err.details.join('\n')}` : '';
-      window.alert(`Import failed: ${err instanceof Error ? err.message : String(err)}${detail}`);
-    } finally {
-      if (importInput.current) importInput.current.value = '';
-    }
+  /** Flatten the folder forest with depth — indented move-to listing. */
+  function flatFolders(): Array<{ f: TreeFolder; depth: number }> {
+    const flat: Array<{ f: TreeFolder; depth: number }> = [];
+    const walk = (parentId: string | null, depth: number) => {
+      for (const f of folders.filter((x) => x.parentId === parentId)) {
+        flat.push({ f, depth });
+        walk(f.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return flat;
   }
 
-  async function runGc() {
-    if (!window.confirm('Sweep unreferenced blobs from the store?')) return;
-    const { deleted, freedBytes } = await api.gcBlobs();
-    window.alert(`Blob GC: removed ${deleted} blob${deleted === 1 ? '' : 's'}, freed ${formatBytes(freedBytes)}.`);
+  function moveItems(p: PageItem): MenuItem[] {
+    return [
+      { label: '(top level)', onSelect: () => void movePageTo(p, null), disabled: p.folderId === null },
+      ...flatFolders().map(({ f, depth }) => ({
+        label: f.name,
+        indent: depth,
+        disabled: p.folderId === f.id,
+        onSelect: () => void movePageTo(p, f.id),
+      })),
+    ];
+  }
+
+  /** Cursor point for real clicks; element anchor for keyboard (0,0). */
+  function menuAnchor(e: React.MouseEvent) {
+    return e.clientX || e.clientY ? { x: e.clientX, y: e.clientY } : (e.currentTarget as HTMLElement);
+  }
+
+  function openFolderMenu(e: React.MouseEvent, f: TreeFolder) {
+    e.preventDefault();
+    overlays.menu(
+      menuAnchor(e),
+      [
+        { label: 'new page here', onSelect: () => void createPage(f.id) },
+        { label: 'new folder here', onSelect: () => void createFolder(f.id) },
+        { label: 'rename…', onSelect: () => void renameFolder(f) },
+        { kind: 'separator' },
+        { label: 'delete', danger: true, onSelect: () => void deleteFolder(f) },
+      ],
+      { header: f.name },
+    );
+  }
+
+  function openPageMenu(e: React.MouseEvent, p: PageItem) {
+    e.preventDefault();
+    const anchor = menuAnchor(e);
+    overlays.menu(
+      anchor,
+      [
+        { label: 'move to…', onSelect: () => overlays.menu(anchor, moveItems(p), { header: 'move to' }) },
+        { kind: 'separator' },
+        { label: 'delete…', danger: true, onSelect: () => void deletePage(p) },
+      ],
+      { header: p.title },
+    );
   }
 
   function renderFolder(f: TreeFolder, depth: number): React.JSX.Element {
@@ -148,6 +194,8 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           className="pu-row"
           style={{ ...rowStyle(false), paddingLeft: `${10 + depth * INDENT}px`, cursor: 'pointer' }}
           onClick={() => toggleFolder(f.id)}
+          onContextMenu={me ? (e) => openFolderMenu(e, f) : undefined}
+          title={me ? 'Right-click for folder actions' : undefined}
         >
           <span
             aria-hidden
@@ -176,9 +224,7 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           {me && (
             <span className="pu-actions" style={{ display: 'flex', gap: '1px' }}>
               <RowAction label={`New page in ${f.name}`} onClick={() => void createPage(f.id)}>＋</RowAction>
-              <RowAction label={`New folder in ${f.name}`} onClick={() => void createFolder(f.id)}>⊞</RowAction>
-              <RowAction label={`Rename ${f.name}`} onClick={() => void renameFolder(f)}>✎</RowAction>
-              <RowAction label={`Delete ${f.name}`} onClick={() => void deleteFolder(f)} danger>×</RowAction>
+              <RowAction label={`Actions for ${f.name}`} onClick={(e) => openFolderMenu(e, f)}>⋯</RowAction>
             </span>
           )}
         </div>
@@ -194,58 +240,41 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
 
   function renderPage(p: PageItem, depth: number): React.JSX.Element {
     return (
-      <div key={p.key} style={{ position: 'relative' }}>
-        <NavLink
-          to={p.to}
-          className="pu-row"
-          style={({ isActive }) => ({ ...rowStyle(isActive), paddingLeft: `${10 + depth * INDENT + 12}px` })}
-        >
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {p.title}
+      <NavLink
+        key={p.key}
+        to={p.to}
+        className="pu-row"
+        style={({ isActive }) => ({ ...rowStyle(isActive), paddingLeft: `${10 + depth * INDENT + 12}px` })}
+        onContextMenu={me ? (e) => openPageMenu(e, p) : undefined}
+        title={me ? 'Right-click for page actions' : undefined}
+      >
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {p.title}
+        </span>
+        {p.badge === 'public' && (
+          <span title="published" aria-label="published" style={badgeStyle(BENCH.ink)}>
+            pub
           </span>
-          {p.badge === 'public' && (
-            <span title="published" aria-label="published" style={badgeStyle(BENCH.ink)}>
-              pub
-            </span>
-          )}
-          {p.badge === 'private' && (
-            <span title="private" aria-label="private" style={badgeStyle(BENCH.inkFaint, true)}>
-              —
-            </span>
-          )}
-          {me && (
-            <span className="pu-actions" style={{ display: 'flex', gap: '1px' }}>
-              <RowAction
-                label={`Move ${p.title}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMoveMenuFor(moveMenuFor === p.key ? null : p.key);
-                }}
-              >
-                →
-              </RowAction>
-              <RowAction
-                label={`Delete ${p.title}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void deletePage(p);
-                }}
-                danger
-              >
-                ×
-              </RowAction>
-            </span>
-          )}
-        </NavLink>
-        {moveMenuFor === p.key && (
-          <MoveMenu
-            folders={folders}
-            current={p.folderId}
-            onPick={(folderId) => void movePageTo(p, folderId)}
-            onClose={() => setMoveMenuFor(null)}
-          />
         )}
-      </div>
+        {p.badge === 'private' && (
+          <span title="private" aria-label="private" style={badgeStyle(BENCH.inkFaint, true)}>
+            —
+          </span>
+        )}
+        {me && (
+          <span className="pu-actions" style={{ display: 'flex', gap: '1px' }}>
+            <RowAction
+              label={`Actions for ${p.title}`}
+              onClick={(e) => {
+                e.preventDefault();
+                openPageMenu(e, p);
+              }}
+            >
+              ⋯
+            </RowAction>
+          </span>
+        )}
+      </NavLink>
     );
   }
 
@@ -335,152 +364,22 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
         <div
           style={{
             borderTop: `1px solid ${BENCH.hairlineDark}`,
-            padding: '10px 12px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
+            padding: '8px 12px',
             background: BENCH.paperSunken,
           }}
         >
-          <SectionLabel style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>
-            Back office
-          </SectionLabel>
-          <select
-            value={instanceTheme}
-            onChange={(e) => {
-              if (!window.confirm('Switch instance theme? All published pages re-render.')) {
-                e.target.value = instanceTheme;
-                return;
-              }
-              void api.setInstanceTheme(e.target.value).then(() => refresh());
-            }}
-            aria-label="Instance theme"
-            style={benchSelectStyle()}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="pu-hoverable"
+            title="Instance settings: theme, customization, export/import, blob GC"
+            style={{ ...benchButtonStyle(), width: '100%' }}
           >
-            {Object.values(THEMES).map((t) => (
-              <option key={t.id} value={t.id}>
-                theme · {t.name}
-              </option>
-            ))}
-          </select>
-          <ThemeStudio themeId={instanceTheme} customizations={customizations} refresh={refresh} />
-          <div style={{ display: 'flex', gap: '5px' }}>
-            <a
-              href="/api/admin/export"
-              download="shckb-export.zip"
-              title="Download a full logical export (git-friendly zip)"
-              className="pu-hoverable"
-              style={{ ...benchButtonStyle(), flex: 1, textAlign: 'center', textDecoration: 'none' }}
-            >
-              export
-            </a>
-            <button
-              onClick={() => importInput.current?.click()}
-              title="Restore a full export into this instance (empty instance only)"
-              className="pu-hoverable"
-              style={{ ...benchButtonStyle(), flex: 1 }}
-            >
-              import
-            </button>
-            <button
-              onClick={() => void runGc()}
-              title="Delete blobs no page references any more"
-              className="pu-hoverable"
-              style={{ ...benchButtonStyle(), flex: 1 }}
-            >
-              blob gc
-            </button>
-          </div>
-          <input
-            ref={importInput}
-            type="file"
-            accept=".zip,application/zip"
-            aria-label="Import bundle file"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void importZip(file);
-            }}
-          />
+            settings
+          </button>
         </div>
       )}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </aside>
-  );
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function MoveMenu({
-  folders,
-  current,
-  onPick,
-  onClose,
-}: {
-  folders: TreeFolder[];
-  current: string | null;
-  onPick: (folderId: string | null) => void;
-  onClose: () => void;
-}) {
-  // flatten with depth for indented listing
-  const flat: Array<{ f: TreeFolder; depth: number }> = [];
-  const walk = (parentId: string | null, depth: number) => {
-    for (const f of folders.filter((x) => x.parentId === parentId)) {
-      flat.push({ f, depth });
-      walk(f.id, depth + 1);
-    }
-  };
-  walk(null, 0);
-
-  const item = (label: string, value: string | null, depth: number, disabled: boolean) => (
-    <button
-      key={value ?? '__top'}
-      disabled={disabled}
-      onClick={() => onPick(value)}
-      className={disabled ? undefined : 'pu-row'}
-      style={{
-        display: 'block',
-        width: '100%',
-        textAlign: 'left',
-        padding: `4px 10px 4px ${10 + depth * 12}px`,
-        border: 'none',
-        background: 'transparent',
-        fontSize: '12px',
-        fontFamily: BENCH.fontUi,
-        color: disabled ? BENCH.inkFaint : BENCH.ink,
-        cursor: disabled ? 'default' : 'pointer',
-      }}
-    >
-      {label}
-    </button>
-  );
-
-  return (
-    <div
-      onMouseLeave={onClose}
-      style={{
-        position: 'absolute',
-        right: '4px',
-        top: '24px',
-        zIndex: 70,
-        background: BENCH.paperRaised,
-        border: `1px solid ${BENCH.hairlineDark}`,
-        borderRadius: '2px',
-        padding: '4px 0',
-        minWidth: '170px',
-        maxHeight: '240px',
-        overflow: 'auto',
-      }}
-    >
-      <div style={{ ...labelStyle(), padding: '3px 10px 5px', borderBottom: `1px solid ${BENCH.hairline}` }}>
-        Move to
-      </div>
-      {item('(Top level)', null, 0, current === null)}
-      {flat.map(({ f, depth }) => item(f.name, f.id, depth, current === f.id))}
-    </div>
   );
 }
 
