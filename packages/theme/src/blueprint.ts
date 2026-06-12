@@ -79,4 +79,32 @@ export const blueprint: Theme = {
   kindHueFallback: 'oklch(93% 0.01 220)',
 
   codeCss: PHOSPHOR_CODE_CSS,
+
+  // Curated variant (MVP-5 M5-D3): the same drawing, printed on aged
+  // sepia paper instead of Prussian blue — diazotype vs cyanotype.
+  palettes: [
+    {
+      id: 'sepia',
+      name: 'Sepia print',
+      tokens: {
+        canvasBg: 'oklch(30% 0.035 70)',
+        dotColor: 'oklch(78% 0.07 85 / 60%)',
+        blockBg: 'oklch(33% 0.04 72 / 78%)',
+        blockBorder: '1px solid oklch(78% 0.07 85 / 80%)',
+        textColor: 'oklch(95% 0.015 85)',
+        mutedColor: 'oklch(78% 0.04 80)',
+        chromeBg: 'oklch(24% 0.03 70)',
+        accent: 'oklch(82% 0.1 85)',
+        surfaceInsetBg: 'oklch(25% 0.03 70)',
+        hairline: 'oklch(62% 0.05 80 / 50%)',
+        quoteColor: 'oklch(82% 0.05 82)',
+        kindHues: {
+          markdown: 'oklch(82% 0.1 85)',
+          image: 'oklch(76% 0.12 35)',
+          code: 'oklch(83% 0.12 120)',
+        },
+        kindHueFallback: 'oklch(93% 0.01 85)',
+      },
+    },
+  ],
 };

@@ -69,7 +69,84 @@ export type ThemeTokens = {
   codeCss: string;
 };
 
-export type Theme = ThemeTokens & ThemeSlots;
+/** Token keys a palette variant may retune — colors and font only,
+ * never geometry or identity (MVP-5 M5-D3: variants restyle, they
+ * don't reflow). */
+export type PaletteTokens = Partial<
+  Omit<ThemeTokens, 'id' | 'name' | 'slot' | 'pad' | 'dotSize' | 'blockRadius'>
+>;
+
+/** A theme-curated color variant — a scientific-colormap-style official
+ * alternative, not free-form recoloring. */
+export type PaletteVariant = {
+  id: string;
+  name: string;
+  tokens: PaletteTokens;
+};
+
+/** String-valued token keys an operator may override directly, when
+ * (and only when) the theme opts them into `customizableTokens`. */
+export type OverridableTokenKey = Exclude<
+  { [K in keyof ThemeTokens]: ThemeTokens[K] extends string ? K : never }[keyof ThemeTokens],
+  'id' | 'name'
+>;
+
+/** Operator-chosen customization for one theme — data the theme
+ * interprets, never a bypass around it. Stored per themeId so switching
+ * themes keeps each theme's choices. */
+export type ThemeCustomization = {
+  paletteId?: string;
+  overrides?: Partial<Record<OverridableTokenKey, string>>;
+};
+
+export type Theme = ThemeTokens &
+  ThemeSlots & {
+    /** Official color variants the theme curates; omitted = none. */
+    palettes?: PaletteVariant[];
+    /** Tokens open for direct operator override; omitted = all locked. */
+    customizableTokens?: OverridableTokenKey[];
+  };
+
+/** Pure function: base tokens → palette variant tokens → whitelist-
+ * filtered overrides. Slots, identity, and geometry pass through
+ * untouched. Unknown paletteIds and non-whitelisted override keys are
+ * ignored (a theme update may remove a variant — pages keep rendering). */
+export function applyCustomization(base: Theme, c?: ThemeCustomization | null): Theme {
+  if (!c) return base;
+  const variant = c.paletteId ? base.palettes?.find((p) => p.id === c.paletteId) : undefined;
+  const allowed = new Set(base.customizableTokens ?? []);
+  const overrides: Partial<Record<OverridableTokenKey, string>> = {};
+  for (const [k, v] of Object.entries(c.overrides ?? {})) {
+    if (allowed.has(k as OverridableTokenKey) && typeof v === 'string' && v.trim() !== '') {
+      overrides[k as OverridableTokenKey] = v;
+    }
+  }
+  if (!variant && Object.keys(overrides).length === 0) return base;
+  return { ...base, ...variant?.tokens, ...overrides };
+}
+
+/** Single truth source for validating operator-supplied customization
+ * (admin endpoint AND importer): drops unknown paletteIds and
+ * non-whitelisted overrides; null when nothing valid remains. */
+export function sanitizeCustomization(base: Theme, raw: unknown): ThemeCustomization | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+  const out: ThemeCustomization = {};
+  if (typeof r.paletteId === 'string' && base.palettes?.some((p) => p.id === r.paletteId)) {
+    out.paletteId = r.paletteId;
+  }
+  if (typeof r.overrides === 'object' && r.overrides !== null) {
+    const allowed = new Set(base.customizableTokens ?? []);
+    const overrides: Partial<Record<OverridableTokenKey, string>> = {};
+    for (const [k, v] of Object.entries(r.overrides)) {
+      if (allowed.has(k as OverridableTokenKey) && typeof v === 'string' && v.trim() !== '') {
+        overrides[k as OverridableTokenKey] = v.trim();
+      }
+    }
+    if (Object.keys(overrides).length > 0) out.overrides = overrides;
+  }
+  return out.paletteId !== undefined || out.overrides !== undefined ? out : null;
+}
 
 const GITHUB_ISH_CODE_CSS = `
 .hljs-keyword, .hljs-selector-tag { color: oklch(45% 0.18 300); }
@@ -107,6 +184,8 @@ export const graphPaper: Theme = {
   },
   kindHueFallback: 'oklch(60% 0.05 0)',
   codeCss: GITHUB_ISH_CODE_CSS,
+  // Whitelist path proof (M5-D3): the default theme opens font + accent.
+  customizableTokens: ['fontFamily', 'accent'],
 };
 
 /** Minimal second theme — proof the seam switches; real candidates
@@ -133,6 +212,7 @@ export const ink: Theme = {
     code: 'oklch(25% 0.01 270)',
   },
   kindHueFallback: 'oklch(25% 0.01 270)',
+  customizableTokens: ['fontFamily', 'accent'],
 };
 
 export const THEMES: Record<string, Theme> = { 'graph-paper': graphPaper, ink, workbench, stationery, blueprint };

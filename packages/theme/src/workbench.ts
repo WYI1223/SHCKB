@@ -57,4 +57,49 @@ export const workbench: Theme = {
   },
   kindHueFallback: 'oklch(60% 0.015 260)',
   codeCss: WORKBENCH_CODE_CSS,
+
+  // Curated palette variants (MVP-5 M5-D3): same lightness discipline
+  // as the base, different temperature — restyle, never reflow.
+  palettes: [
+    {
+      id: 'warm',
+      name: 'Warm',
+      tokens: {
+        canvasBg: 'oklch(98.5% 0.006 80)',
+        dotColor: 'oklch(89% 0.012 80)',
+        blockBorder: '1px solid oklch(92% 0.012 80)',
+        textColor: 'oklch(28% 0.012 60)',
+        mutedColor: 'oklch(50% 0.02 70)',
+        chromeBg: 'oklch(23% 0.02 60)',
+        accent: 'oklch(55% 0.13 60)',
+        surfaceInsetBg: 'oklch(96.5% 0.008 80)',
+        hairline: 'oklch(90% 0.012 80)',
+        quoteColor: 'oklch(48% 0.02 70)',
+        kindHues: {
+          markdown: 'oklch(58% 0.07 40)',
+          image: 'oklch(60% 0.09 75)',
+          code: 'oklch(58% 0.09 130)',
+        },
+      },
+    },
+    {
+      id: 'forest',
+      name: 'Forest',
+      tokens: {
+        canvasBg: 'oklch(98.5% 0.004 160)',
+        dotColor: 'oklch(89% 0.008 160)',
+        blockBorder: '1px solid oklch(92% 0.008 160)',
+        chromeBg: 'oklch(23% 0.02 165)',
+        accent: 'oklch(50% 0.12 160)',
+        surfaceInsetBg: 'oklch(96.5% 0.005 160)',
+        hairline: 'oklch(90% 0.008 160)',
+        kindHues: {
+          markdown: 'oklch(58% 0.07 200)',
+          image: 'oklch(60% 0.08 175)',
+          code: 'oklch(58% 0.09 145)',
+        },
+      },
+    },
+  ],
+  customizableTokens: ['fontFamily', 'accent'],
 };
