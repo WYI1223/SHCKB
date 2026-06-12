@@ -46,7 +46,7 @@ describe('buildExport', () => {
     expect([...bundle.blobs.keys()]).toEqual([seeded.hash]);
 
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(2);
+    expect(manifest.formatVersion).toBe(3);
     expect(manifest.counts).toEqual({ folders: 1, pages: 2, blocks: 2, blobs: 1 });
     expect(manifest.pages).toEqual(['tree/A/page-one.page.json', 'tree/page-two.page.json']);
 
@@ -271,7 +271,7 @@ describe('format v2 (theme data)', () => {
 
     const bundle = buildExport(src.db, src.blobStore, OPTS);
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(2);
+    expect(manifest.formatVersion).toBe(3);
     expect(manifest.settings).toEqual({ theme: 'ink' });
     const p2 = JSON.parse(bundle.files.get('tree/page-two.page.json')!);
     expect(p2.themeId).toBe('graph-paper');
@@ -327,5 +327,77 @@ describe('format v2 (theme data)', () => {
     const manifest = JSON.parse(strFromU8(entries['manifest.json']!));
     expect(manifest.formatVersion).toBe(1);
     expect('settings' in manifest).toBe(false);
+  });
+});
+
+describe('format v3 (theme customization, MVP-5)', () => {
+  test('customization round-trips: export carries it, import re-applies it to rendered HTML', async () => {
+    const src = await freshContext();
+    await seedInstance(src, src.blobStore);
+    await src.authed('/api/settings/theme', { method: 'PUT', body: JSON.stringify({ theme: 'workbench' }) });
+    await src.authed('/api/settings/theme-customization', {
+      method: 'PUT',
+      body: JSON.stringify({ themeId: 'workbench', customization: { paletteId: 'warm' } }),
+    });
+
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const manifest = JSON.parse(bundle.files.get('manifest.json')!);
+    expect(manifest.settings).toEqual({
+      theme: 'workbench',
+      themeCustomization: { workbench: { paletteId: 'warm' } },
+    });
+
+    const dst = await freshContext();
+    expect(importBundle(dst.db, dst.blobStore, bundle).ok).toBe(true);
+    expect((await json(await dst.authed('/api/settings'))).customizations).toEqual({
+      workbench: { paletteId: 'warm' },
+    });
+    // published HTML on the destination wears the warm variant
+    const html = await (await dst.app.request('http://localhost/notes/page-one')).text();
+    expect(html).toContain('oklch(98.5% 0.006 80)'); // warm canvasBg
+    // determinism: re-export byte-identical
+    const again = buildExport(dst.db, dst.blobStore, OPTS);
+    for (const [p, text] of bundle.files) expect(again.files.get(p)).toBe(text);
+  });
+
+  test('downgrade to v2 drops customization with explicit losses; v2 bundle upgrades losslessly', async () => {
+    const src = await freshContext();
+    await seedInstance(src, src.blobStore);
+    await src.authed('/api/settings/theme-customization', {
+      method: 'PUT',
+      body: JSON.stringify({ themeId: 'blueprint', customization: { paletteId: 'sepia' } }),
+    });
+    const v3 = buildExport(src.db, src.blobStore, OPTS);
+    const parsed = new Map([...v3.files].map(([p, t]) => [p, JSON.parse(t) as unknown]));
+    const { files: v2files, losses } = downgradeToVersion(parsed, 2);
+    expect(losses).toEqual([
+      'manifest.json: theme customization for "blueprint" dropped (v2 has no themeCustomization)',
+    ]);
+    const v2manifest = v2files.get('manifest.json') as { settings: Record<string, unknown> };
+    expect('themeCustomization' in v2manifest.settings).toBe(false);
+
+    // the v2 bundle imports into this build via the real up transform
+    const dst = await freshContext();
+    const v2bundle = { files: new Map([...v2files].map(([p, v]) => [p, JSON.stringify(v)])), blobs: v3.blobs };
+    expect(importBundle(dst.db, dst.blobStore, v2bundle).ok).toBe(true);
+    expect((await json(await dst.authed('/api/settings'))).customizations).toEqual({});
+  });
+
+  test('hand-edited bundle cannot smuggle non-whitelisted overrides or unknown themes', async () => {
+    const src = await freshContext();
+    await seedInstance(src, src.blobStore);
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const manifest = JSON.parse(bundle.files.get('manifest.json')!);
+    manifest.settings.themeCustomization = {
+      'graph-paper': { overrides: { accent: 'oklch(50% 0.2 0)', canvasBg: 'red' } },
+      'no-such-theme': { paletteId: 'x' },
+    };
+    bundle.files.set('manifest.json', JSON.stringify(manifest));
+
+    const dst = await freshContext();
+    expect(importBundle(dst.db, dst.blobStore, bundle).ok).toBe(true);
+    expect((await json(await dst.authed('/api/settings'))).customizations).toEqual({
+      'graph-paper': { overrides: { accent: 'oklch(50% 0.2 0)' } }, // canvasBg + unknown theme filtered
+    });
   });
 });

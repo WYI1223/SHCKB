@@ -10,7 +10,7 @@ import { TOTAL_COLS, validateState } from '@skb/grid-engine';
 import type { BlobStore } from '../blobstore';
 import type { Db } from '../db/client';
 import { blobs, blocks, folders, notepages, type PublishedDoc } from '../db/schema';
-import { DEFAULT_THEME_ID, THEMES } from '@skb/theme';
+import { DEFAULT_THEME_ID, THEMES, applyCustomization, sanitizeCustomization, type Theme, type ThemeCustomization } from '@skb/theme';
 import { renderStaticPage } from '../render/publish-html';
 import { settings as settingsTable } from '../db/schema';
 import { FORMAT_VERSION, type ExportManifest, type ExportPage } from './format';
@@ -176,10 +176,25 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
   // later transaction failure are reclaimed by GC), then one DB txn.
   for (const m of manifest.blobs) blobStore.save(input.blobs.get(m.hash)!);
 
+  // theme customization (v3+): re-sanitized against THIS build's
+  // whitelists — a hand-edited bundle cannot smuggle non-whitelisted
+  // overrides; unknown themeIds are dropped (theme may not exist here).
+  const importedCustomization: Record<string, ThemeCustomization> = {};
+  for (const [themeId, c] of Object.entries(manifest.settings.themeCustomization ?? {})) {
+    const t = THEMES[themeId];
+    if (!t) continue;
+    const clean = sanitizeCustomization(t, c);
+    if (clean) importedCustomization[themeId] = clean;
+  }
+
   // effective theme during import: pin → bundle's instance theme →
-  // default; unknown ids degrade (data is preserved, rendering degrades)
+  // default; unknown ids degrade (data is preserved, rendering
+  // degrades). Customization composes exactly like effectiveTheme().
   const instanceTheme = THEMES[manifest.settings.theme] ?? THEMES[DEFAULT_THEME_ID]!;
-  const themeFor = (themeId: string | null) => (themeId !== null ? (THEMES[themeId] ?? instanceTheme) : instanceTheme);
+  const themeFor = (themeId: string | null): Theme => {
+    const base = themeId !== null ? (THEMES[themeId] ?? instanceTheme) : instanceTheme;
+    return applyCustomization(base, importedCustomization[base.id]);
+  };
 
   const sortedFolderDirs = [...foldersByDir.keys()].sort((a, b) => a.split('/').length - b.split('/').length);
   db.transaction((tx) => {
@@ -187,6 +202,13 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
       .values({ key: 'theme', value: manifest.settings.theme })
       .onConflictDoUpdate({ target: settingsTable.key, set: { value: manifest.settings.theme } })
       .run();
+    if (Object.keys(importedCustomization).length > 0) {
+      const json = JSON.stringify(importedCustomization);
+      tx.insert(settingsTable)
+        .values({ key: 'themeCustomization', value: json })
+        .onConflictDoUpdate({ target: settingsTable.key, set: { value: json } })
+        .run();
+    }
     for (const m of manifest.blobs) {
       tx.insert(blobs)
         .values({ hash: m.hash, mimeType: m.mimeType, size: m.size, createdAt: new Date(m.createdAt) })
