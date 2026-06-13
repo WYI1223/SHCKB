@@ -79,6 +79,7 @@ Audit register 详 [AUDIT-2026-05.md]（footer 含 link）。
 | [ADR-0025](./ADR-0025-theme-slots.md) | Theme render slots & surface tokens（theme = tokens + 槽位；几何/视觉分权；动效分层；手帐深度样板）| proposed | —（PRD-informed；source = theme-engine-v2 spec；owner 裁定 token-only 风格化不足）|
 | [ADR-0026](./ADR-0026-tool-panel-theme-customization.md) | 工具面板贡献点 & 主题自定义层（module.tools 分权 + ui-kit 控件词汇 + 调色板变体/白名单覆写 + 格式 v3）| proposed | —（PRD-informed；source = [mvp5-scope-2026-06-12.md](../design/discussions/mvp5-scope-2026-06-12.md)；自由调色 rejected；plugin host API 三件套成形）|
 | [ADR-0027](./ADR-0027-properties-author-appearance.md) | Selection→Properties 检查器 & 作者级外观轴（壳选项/页面背景/两态外观/格式 v4 + theme registry 解链）| proposed | —（PRD-informed；source = [mvp6-scope-2026-06-12.md](../design/discussions/mvp6-scope-2026-06-12.md)；三自定义轴各就各位）|
+| [ADR-0028](./ADR-0028-autofit-gravity-carveout.md) | Autofit grow 在原子编辑会话内挂起 gravity（pushResize 下推原语 + 手势瞬态 carve-out + 提交即压实 invariant + base 快照住 web 控制器）| proposed | —（PRD-informed；source = [2026-06-13-block-autofit-height-design.md](../../superpowers/specs/2026-06-13-block-autofit-height-design.md) §4.4/§9；C5 base-snapshot+re-push 择优；C1/C3/C4 rejected；收窄 CONTRACT invariant 4）|
 
 ## 编号约定
 
