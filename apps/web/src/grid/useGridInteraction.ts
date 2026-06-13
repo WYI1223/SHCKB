@@ -94,10 +94,6 @@ export type Interaction = {
   /** Author floor per block id; null = off/legacy. */
   minRowSpan: Record<string, number | null>;
   setMinRowSpan: (id: string, floor: number | null) => void;
-  /** Autofit reconcile shorthand (delegates to ops.reconcileTo). */
-  reconcileTo: (base: GridState, id: string, targetRowSpan: number) => void;
-  /** Gesture commit shorthand (delegates to ops.commitGesture). */
-  commitGesture: (id: string, baseRowSpan: number) => void;
   blockDragProps: (block: Block) => {
     draggable: boolean;
     onDragStart: (e: React.DragEvent) => void;
@@ -437,6 +433,7 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      // TODO(autofit): move commit setters out of the resize updater (StrictMode-safety)
       setResize((r) => {
         if (r.blockId !== null) {
           const verticalOnly = r.axis === 'bottom' || r.axis === 'top';
@@ -485,8 +482,6 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     setAutofit,
     minRowSpan,
     setMinRowSpan,
-    reconcileTo,
-    commitGesture,
     blockDragProps,
     paletteDragProps,
     canvasDropProps,

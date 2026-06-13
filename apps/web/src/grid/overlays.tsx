@@ -158,11 +158,6 @@ export function ResizePreview({
 }) {
   const { resize } = interaction;
   if (!resize.active || resize.blockId === null) return null;
-  // Spec §7: when the content fit exceeds the dragged floor, the ghost
-  // is held at the fit line and a faint marker shows where the floor was
-  // recorded — the block won't fall below content, but the floor intent
-  // is honest to the author.
-  const floorBelowFit = resize.currentFit > 0 && resize.previewH > resize.currentFit ? false : resize.currentFit > resize.previewH;
   return (
     <div
       style={{
@@ -177,21 +172,6 @@ export function ResizePreview({
         zIndex: 3,
       }}
       data-skb-resize-preview
-    >
-      {floorBelowFit && (
-        <div
-          aria-hidden
-          data-skb-floor-marker
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            borderTop: `1px dashed ${BENCH.blue}`,
-            opacity: 0.5,
-          }}
-        />
-      )}
-    </div>
+    />
   );
 }

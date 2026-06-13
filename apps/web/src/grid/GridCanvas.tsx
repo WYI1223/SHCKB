@@ -78,6 +78,10 @@ export function GridCanvas(props: GridCanvasProps) {
   const SLOT = theme.slot;
   const PAD = theme.pad;
   const Surface = theme.CanvasSurface ?? DefaultCanvasSurface;
+  // ATOMICITY (spec §4.4 STRESS-1): true while an autofit grow gesture is
+  // live on the active block. Sheet-level insert is suppressed to prevent
+  // interleaving structural ops that would clobber the gesture base.
+  const sheetInsertLocked = activeId !== null && interaction.autofit[activeId] === 'grow';
 
   return (
     <div
@@ -114,7 +118,11 @@ export function GridCanvas(props: GridCanvasProps) {
               ...(papers.length > 0 ? [{ kind: 'label', label: 'insert block' } as MenuItem] : []),
               ...Object.values(BLOCK_KINDS).map<MenuItem>((mod) => ({
                 label: `${mod.glyph} ${mod.label}`,
-                onSelect: () => interaction.ops.insertAt(col, row, mod.kind),
+                // ATOMICITY: suppress insert while an autofit gesture is live.
+                disabled: sheetInsertLocked,
+                onSelect: sheetInsertLocked
+                  ? () => {}
+                  : () => interaction.ops.insertAt(col, row, mod.kind),
               })),
             ],
             { header: papers.length > 0 ? 'sheet' : 'insert block' },
@@ -174,6 +182,12 @@ function BlockShell({
   const Frame = resolveBlockFrame(theme, block.kind, shell) ?? theme.BlockFrame ?? DefaultBlockFrame;
   // Autofit: 'grow' = content drives rowSpan; 'off'/null = legacy.
   const isAutofit = interaction.autofit[block.id] === 'grow';
+  // True when ANOTHER block is in an active autofit grow gesture (spec §4.4
+  // STRESS-1 atomicity): interleaving drag/insert/delete would mutate
+  // interaction.state while useAutofitGesture holds a stale base snapshot,
+  // silently clobbering the interleaved op on the next debounced reconcile.
+  const autofitGestureLocked =
+    !isActive && activeId !== null && interaction.autofit[activeId] === 'grow';
   // Content fit measurement (rows) — fed by MeasureProbe, used by gesture.
   const [fit, setFit] = useState(block.rowSpan);
   // Autofit gesture controller (C5 reconcile-from-base; gestureActive gates autosave).
@@ -191,7 +205,7 @@ function BlockShell({
       data-block-kind={block.kind}
       data-pu-active={isActive || undefined}
       className="pu-block"
-      {...(isActive ? {} : interaction.blockDragProps(block))}
+      {...(isActive || autofitGestureLocked ? {} : interaction.blockDragProps(block))}
       onClick={(e) => {
         e.stopPropagation();
         if (!isActive) onActivate(block.id);
@@ -239,10 +253,16 @@ function BlockShell({
             {
               label: 'delete',
               danger: true,
-              onSelect: () => {
-                interaction.ops.remove(block.id);
-                onBlockDeleted(block.id);
-              },
+              // ATOMICITY (spec §4.4 STRESS-1): suppress structural delete
+              // while an autofit gesture is live on another block. The base
+              // snapshot is stale after a delete; next reconcile would clobber.
+              disabled: autofitGestureLocked,
+              onSelect: autofitGestureLocked
+                ? () => {}
+                : () => {
+                    interaction.ops.remove(block.id);
+                    onBlockDeleted(block.id);
+                  },
             },
           ],
           { header: `${mod ? mod.label : block.kind} · ${block.colSpan}×${block.rowSpan}` },
@@ -314,7 +334,7 @@ function BlockShell({
       {/* MeasureProbe: offscreen measurement surface for autofit markdown
           blocks; doubles as visible ghost preview when the block is active
           (spec §5.3 / §7). Mounted ONLY for active autofit markdown blocks. */}
-      {isAutofit && block.kind === 'markdown' && (
+      {isActive && isAutofit && block.kind === 'markdown' && (
         <MeasureProbe
           kind={block.kind}
           blockId={block.id}
