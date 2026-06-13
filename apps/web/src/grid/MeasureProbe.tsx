@@ -9,9 +9,8 @@
  * mount). We measure the FRAME WRAPPER's outer height and never subtract
  * chrome, never measure a bare RenderView.
  *
- * The same node doubles as the visible right-aligned ghost preview for
- * the active block (spec §7) — GridCanvas positions it; here it is
- * absolutely-positioned and offscreen by default (`visible=false`).
+ * This node is ALWAYS offscreen/invisible (measurement-only). The sole
+ * visible preview is the EditView ghost (data-skb-ghost-preview, spec §7).
  */
 import { useLayoutEffect, useRef } from 'react';
 import { blockModule, DefaultBlockFrame } from '@skb/block-kinds';
@@ -25,12 +24,9 @@ export type MeasureProbeProps = {
   shell: string | null;
   content: unknown;
   onFit: (fit: number) => void;
-  /** When true the probe is shown as the right-aligned ghost preview;
-   * otherwise it is offscreen instrumentation (default). */
-  visible?: boolean;
 };
 
-export function MeasureProbe({ kind, blockId, colSpan, shell, content, onFit, visible }: MeasureProbeProps) {
+export function MeasureProbe({ kind, blockId, colSpan, shell, content, onFit }: MeasureProbeProps) {
   const theme = useTheme();
   const mod = blockModule(kind);
   const Frame = resolveBlockFrame(theme, kind, shell) ?? theme.BlockFrame ?? DefaultBlockFrame;
@@ -62,10 +58,10 @@ export function MeasureProbe({ kind, blockId, colSpan, shell, content, onFit, vi
       style={{
         position: 'absolute',
         width: `${width}px`,
-        // offscreen unless promoted to a visible ghost preview
-        ...(visible
-          ? { right: 0, top: 0, zIndex: 25, pointerEvents: 'none', opacity: 0.9 }
-          : { left: '-99999px', top: 0, visibility: 'hidden' }),
+        // always offscreen — measurement-only; EditView ghost is the visible preview
+        left: '-99999px',
+        top: 0,
+        visibility: 'hidden',
       }}
     >
       <Frame kind={kind} blockId={blockId} colSpan={colSpan} rowSpan={1} shell={shell}>

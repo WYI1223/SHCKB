@@ -332,8 +332,9 @@ function BlockShell({
         </div>
       </Frame>
       {/* MeasureProbe: offscreen measurement surface for autofit markdown
-          blocks; doubles as visible ghost preview when the block is active
-          (spec §5.3 / §7). Mounted ONLY for active autofit markdown blocks. */}
+          blocks (spec §5.3). ALWAYS offscreen/invisible — the EditView ghost
+          (data-skb-ghost-preview) is the sole visible preview (spec §7).
+          Mounted ONLY for active autofit markdown blocks. */}
       {isActive && isAutofit && block.kind === 'markdown' && (
         <MeasureProbe
           kind={block.kind}
@@ -342,7 +343,6 @@ function BlockShell({
           shell={shell}
           content={contents[block.id]}
           onFit={setFit}
-          visible={isActive}
         />
       )}
       <DeleteButton
