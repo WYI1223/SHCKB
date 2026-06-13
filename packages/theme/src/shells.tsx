@@ -4,10 +4,10 @@
  * implementation, there is no second branch to keep in sync.
  */
 import { useTheme } from './context';
-import type { BlockFrameProps } from './themes';
+import { blockOverflow, type BlockFrameProps } from './themes';
 
 /** 'flat': no card chrome — content sits directly on the canvas. */
-export function FlatShellFrame({ kind, shell, children }: BlockFrameProps) {
+export function FlatShellFrame({ kind, shell, autofit, children }: BlockFrameProps) {
   const theme = useTheme();
   return (
     <div
@@ -18,7 +18,7 @@ export function FlatShellFrame({ kind, shell, children }: BlockFrameProps) {
         padding: '8px 10px',
         width: '100%',
         height: '100%',
-        overflow: 'auto',
+        overflow: blockOverflow(autofit),
         fontSize: '14px',
         lineHeight: 1.55,
         color: theme.textColor,

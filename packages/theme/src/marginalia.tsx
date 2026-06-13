@@ -13,7 +13,7 @@
  * are deterministic, and renderToStaticMarkup-safe [ADR-0025].
  */
 import { useTheme } from './context';
-import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps, Theme, ThemeTokens } from './themes';
+import { blockOverflow, type BlockFrameProps, type CanvasSurfaceProps, type PageTitleProps, type Theme, type ThemeTokens } from './themes';
 
 /** Quiet warm code colors — ink tones with one rubric note, AA on the
  * faint inset surface. */
@@ -66,7 +66,7 @@ const TOKENS: ThemeTokens = {
 
 /** Default shell: the passage — content printed on the paper, generous
  * line height, no chrome at all. */
-function MarginaliaBlockFrame({ kind, children }: BlockFrameProps) {
+function MarginaliaBlockFrame({ kind, autofit, children }: BlockFrameProps) {
   const t = useTheme();
   return (
     <div
@@ -75,7 +75,7 @@ function MarginaliaBlockFrame({ kind, children }: BlockFrameProps) {
       style={{
         width: '100%',
         height: '100%',
-        overflow: 'auto',
+        overflow: blockOverflow(autofit),
         padding: '8px 10px',
         fontSize: '15px',
         lineHeight: 1.7,
@@ -90,7 +90,7 @@ function MarginaliaBlockFrame({ kind, children }: BlockFrameProps) {
 
 /** 'plate' shell: a figure plate — hairline box, the way printed books
  * frame illustrations and tables. */
-function PlateFrame({ kind, shell, children }: BlockFrameProps) {
+function PlateFrame({ kind, shell, autofit, children }: BlockFrameProps) {
   const t = useTheme();
   return (
     <div
@@ -100,7 +100,7 @@ function PlateFrame({ kind, shell, children }: BlockFrameProps) {
       style={{
         width: '100%',
         height: '100%',
-        overflow: 'auto',
+        overflow: blockOverflow(autofit),
         padding: '12px 14px',
         fontSize: '15px',
         lineHeight: 1.7,
@@ -117,7 +117,7 @@ function PlateFrame({ kind, shell, children }: BlockFrameProps) {
 
 /** 'aside' shell: a margin note — smaller, muted, rubric-ruled on the
  * left, like an editor's gloss beside the text. */
-function AsideFrame({ kind, shell, children }: BlockFrameProps) {
+function AsideFrame({ kind, shell, autofit, children }: BlockFrameProps) {
   const t = useTheme();
   return (
     <div
@@ -127,7 +127,7 @@ function AsideFrame({ kind, shell, children }: BlockFrameProps) {
       style={{
         width: '100%',
         height: '100%',
-        overflow: 'auto',
+        overflow: blockOverflow(autofit),
         padding: '4px 10px 4px 12px',
         fontSize: '13px',
         lineHeight: 1.65,

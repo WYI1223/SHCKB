@@ -11,7 +11,7 @@
  * are deterministic, and renderToStaticMarkup-safe [ADR-0025].
  */
 import { useTheme } from './context';
-import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps, Theme, ThemeTokens } from './themes';
+import { blockOverflow, type BlockFrameProps, type CanvasSurfaceProps, type PageTitleProps, type Theme, type ThemeTokens } from './themes';
 
 /** Warm-paper code colors — process black with restrained ink hues. */
 const GALLEY_CODE_CSS = `
@@ -66,7 +66,7 @@ const TOKENS: ThemeTokens = {
 
 /** Default shell: a pasted galley strip — white stock, cut edge, the
  * faintest paste-up lift. */
-function GalleyBlockFrame({ kind, children }: BlockFrameProps) {
+function GalleyBlockFrame({ kind, autofit, children }: BlockFrameProps) {
   const t = useTheme();
   return (
     <div
@@ -75,7 +75,7 @@ function GalleyBlockFrame({ kind, children }: BlockFrameProps) {
       style={{
         width: '100%',
         height: '100%',
-        overflow: 'auto',
+        overflow: blockOverflow(autofit),
         padding: '10px 12px',
         fontSize: '14.5px',
         lineHeight: 1.62,
@@ -93,7 +93,7 @@ function GalleyBlockFrame({ kind, children }: BlockFrameProps) {
 
 /** 'keyline' shell: a keyline box — the hairline frame print production
  * draws around figures and tables before the plates exist. */
-function KeylineFrame({ kind, shell, children }: BlockFrameProps) {
+function KeylineFrame({ kind, shell, autofit, children }: BlockFrameProps) {
   const t = useTheme();
   return (
     <div
@@ -103,7 +103,7 @@ function KeylineFrame({ kind, shell, children }: BlockFrameProps) {
       style={{
         width: '100%',
         height: '100%',
-        overflow: 'auto',
+        overflow: blockOverflow(autofit),
         padding: '14px 16px',
         fontSize: '14.5px',
         lineHeight: 1.62,
@@ -122,7 +122,7 @@ function KeylineFrame({ kind, shell, children }: BlockFrameProps) {
 
 /** 'cutout' shell: pasted without a strip — the content (a photo, a
  * clipped paragraph) sits directly on the sheet. */
-function CutoutFrame({ kind, shell, children }: BlockFrameProps) {
+function CutoutFrame({ kind, shell, autofit, children }: BlockFrameProps) {
   const t = useTheme();
   return (
     <div
@@ -132,7 +132,7 @@ function CutoutFrame({ kind, shell, children }: BlockFrameProps) {
       style={{
         width: '100%',
         height: '100%',
-        overflow: 'auto',
+        overflow: blockOverflow(autofit),
         fontSize: '14.5px',
         lineHeight: 1.62,
         color: t.textColor,

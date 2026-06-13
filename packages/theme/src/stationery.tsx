@@ -15,7 +15,7 @@
  */
 import type { ReactNode } from 'react';
 import { useTheme } from './context';
-import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps, Theme, ThemeTokens } from './themes';
+import { blockOverflow, type BlockFrameProps, type CanvasSurfaceProps, type PageTitleProps, type Theme, type ThemeTokens } from './themes';
 
 /** Code slips pasted into a journal: warm, low-saturation ink tones
  * that hold WCAG AA on the off-white paper slip (blockBg L 98%). */
@@ -91,7 +91,7 @@ function curlSideOf(id: string): 'left' | 'right' {
  * precisely for this): images become Polaroid prints — stiff card,
  * clean edges (no tear), thick white border with the classic deep
  * bottom margin. Content stays kind-owned; only the shell changes. */
-function PolaroidFrame({ kind, blockId, colSpan, tape, children }: { kind: string; blockId: string; colSpan: number; tape: string; children: ReactNode }) {
+function PolaroidFrame({ kind, blockId, colSpan, tape, autofit, children }: { kind: string; blockId: string; colSpan: number; tape: string; autofit?: boolean; children: ReactNode }) {
   const tilt = (tiltOf(blockId, colSpan) * 1.4).toFixed(3);
   return (
     <div
@@ -138,7 +138,7 @@ function PolaroidFrame({ kind, blockId, colSpan, tape, children }: { kind: strin
             width: '100%',
             height: '100%',
             background: 'oklch(30% 0.01 80)',
-            overflow: 'auto',
+            overflow: blockOverflow(autofit),
             fontSize: '14px',
             lineHeight: 1.55,
             color: 'oklch(90% 0.01 80)',
@@ -159,7 +159,7 @@ function PolaroidFrame({ kind, blockId, colSpan, tape, children }: { kind: strin
 
 /** 'card' shell: clean white card stock — no torn edge, no curl; the
  * washi tape stays (it is the pinning, not the paper). */
-function CardFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
+function CardFrame({ kind, blockId, colSpan, autofit, children }: BlockFrameProps) {
   const t = useTheme();
   const tape = t.kindHues[kind] ?? t.kindHueFallback;
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
@@ -191,7 +191,7 @@ function CardFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
           position: 'absolute',
           inset: 0,
           padding: '10px 8px 8px',
-          overflow: 'auto',
+          overflow: blockOverflow(autofit),
           fontSize: '14px',
           lineHeight: 1.55,
           borderRadius: '3px',
@@ -207,7 +207,7 @@ function CardFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
 
 /** 'bare' shell: no paper at all — the content itself lies on the
  * desk with a slight tilt and shadow (for image: just the photo). */
-function BareFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
+function BareFrame({ kind, blockId, colSpan, autofit, children }: BlockFrameProps) {
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
   return (
     <div
@@ -218,7 +218,7 @@ function BareFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
         width: '100%',
         height: '100%',
         transform: `rotate(${tilt}deg)`,
-        overflow: 'auto',
+        overflow: blockOverflow(autofit),
         fontSize: '14px',
         lineHeight: 1.55,
         filter: 'drop-shadow(0 3px 7px oklch(38% 0.04 60 / 30%))',
@@ -230,7 +230,7 @@ function BareFrame({ kind, blockId, colSpan, children }: BlockFrameProps) {
   );
 }
 
-function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: BlockFrameProps) {
+function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, autofit, children }: BlockFrameProps) {
   const t = useTheme();
   const tilt = tiltOf(blockId, colSpan).toFixed(3);
   const tape = t.kindHues[kind] ?? t.kindHueFallback;
@@ -239,7 +239,7 @@ function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: Blo
   // Frames via theme.shells (declaration IS implementation, M6-D3).
   if (kind === 'image') {
     return (
-      <PolaroidFrame kind={kind} blockId={blockId} colSpan={colSpan} tape={tape}>
+      <PolaroidFrame kind={kind} blockId={blockId} colSpan={colSpan} tape={tape} autofit={autofit}>
         {children}
       </PolaroidFrame>
     );
@@ -281,7 +281,7 @@ function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, children }: Blo
           position: 'absolute',
           inset: '3px',
           padding: '10px 8px 8px',
-          overflow: 'auto',
+          overflow: blockOverflow(autofit),
           fontSize: '14px',
           lineHeight: 1.55,
         }}
