@@ -53,9 +53,16 @@ export function ReadPage() {
   if (notFound) return message('This page does not exist.');
   if (!resp) return message('Loading…');
 
+  // Coerce string autofit ('grow' | 'off' | null) to the boolean render
+  // shape expected by PublishedDocShape / BlockFrameProps.
+  const renderDoc = {
+    ...resp.doc,
+    blocks: resp.doc.blocks.map((b) => ({ ...b, autofit: b.autofit === 'grow' })),
+  };
+
   return (
     <ThemeProvider theme={applyCustomization(THEMES[resp.theme] ?? graphPaper, resp.customization)}>
-      <PublishedCanvas doc={resp.doc} />
+      <PublishedCanvas doc={renderDoc} />
     </ThemeProvider>
   );
 }

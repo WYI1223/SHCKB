@@ -11,7 +11,7 @@ import type { BlobStore } from '../blobstore';
 import type { Db } from '../db/client';
 import { blobs, blocks, folders, notepages, type PublishedDoc } from '../db/schema';
 import { DEFAULT_THEME_ID, THEMES, applyCustomization, isSafeCssColor, sanitizeCustomization, type Theme, type ThemeCustomization } from '@skb/theme';
-import { renderStaticPage } from '../render/publish-html';
+import { renderStaticPage, toRenderDoc } from '../render/publish-html';
 import { settings as settingsTable } from '../db/schema';
 import { FORMAT_VERSION, type ExportManifest, type ExportPage } from './format';
 import { upgradeToVersion, type JsonFiles } from './migrate-format';
@@ -258,7 +258,7 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
           folderId,
           sortKey: page.sortKey,
           publishedDoc: published === null ? null : JSON.stringify(published),
-          publishedHtml: published === null ? null : renderStaticPage(published, page.slug, themeFor(page.themeId)),
+          publishedHtml: published === null ? null : renderStaticPage(toRenderDoc(published), page.slug, themeFor(page.themeId)),
           createdAt: new Date(page.createdAt),
           updatedAt: new Date(page.updatedAt),
         })

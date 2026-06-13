@@ -15,7 +15,7 @@ import type { Db } from '../db/client';
 import { blobs as blobsTable, blocks, notepages, type PublishedDoc } from '../db/schema';
 import { THEMES, isSafeCssColor } from '@skb/theme';
 import { safeParse } from '../json';
-import { NOT_FOUND_HTML, renderStaticPage } from '../render/publish-html';
+import { NOT_FOUND_HTML, renderStaticPage, toRenderDoc } from '../render/publish-html';
 import { effectiveTheme, themeCustomizations } from '../settings';
 
 type WorkingBlock = {
@@ -253,7 +253,7 @@ export function notepageRoutes(db: Db) {
       .set({
         slug,
         publishedDoc: JSON.stringify(doc),
-        publishedHtml: renderStaticPage(doc, slug, effectiveTheme(db, page)),
+        publishedHtml: renderStaticPage(toRenderDoc(doc), slug, effectiveTheme(db, page)),
         updatedAt: new Date(),
       })
       .where(eq(notepages.id, page.id))
@@ -292,7 +292,7 @@ export function notepageRoutes(db: Db) {
       const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
       if (doc !== null) {
         db.update(notepages)
-          .set({ publishedHtml: renderStaticPage(doc, page.slug, effectiveTheme(db, { themeId })) })
+          .set({ publishedHtml: renderStaticPage(toRenderDoc(doc), page.slug, effectiveTheme(db, { themeId })) })
           .where(eq(notepages.id, page.id))
           .run();
       }
