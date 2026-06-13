@@ -66,6 +66,15 @@ export const blocks = sqliteTable(
     rowSpan: integer('row_span').notNull(),
     /** Author-picked theme shell option id (M6-D3); null = default shell. */
     shell: text('shell'),
+    /** Block-level autofit mode (block-autofit-height): 'off' | 'grow' |
+     * 'grow+shrink'; null = off/legacy. MVP writes/reads only 'grow' and
+     * treats null/'off' as off. TEXT (not int-bool) so the A→three-state
+     * upgrade is pure interpretation-widening, no second DDL migration. */
+    autofit: text('autofit'),
+    /** Author floor = minimum intended rowSpan (block-autofit-height);
+     * null = off/legacy. Engine stays floor-blind; this is web/server
+     * metadata, the `max(floor, fit)` reconcile reads it. */
+    minRowSpan: integer('min_row_span'),
     content: text('content').notNull(),
   },
   (t) => [primaryKey({ columns: [t.notepageId, t.id] }), index('idx_blocks_notepage').on(t.notepageId)],
