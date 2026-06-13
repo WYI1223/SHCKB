@@ -11,6 +11,7 @@
  */
 import { describe, expect, test } from 'vitest';
 import {
+  type Block,
   type GridState,
   createEmptyState,
   insertBlock,

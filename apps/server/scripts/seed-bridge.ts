@@ -139,11 +139,15 @@ async function seedBridge(folderId: string) {
       minRowSpan: null,
       content: md('**K** — 旁列块（手势内绝不应被挪动）'),
     },
-    // The exercise recipe on the page itself (cols 6-11, row 1).
+    // The exercise recipe on the page itself (cols 6-11, row 0). Must
+    // sit at row 0: nothing occupies cols 6-11 above it, so any lower
+    // row would be gravity-UNstable (canRise) and the gravity-on
+    // working-state PUT would 422 ("not gravity-stable"). Row 0 is where
+    // gravity settles it and keeps the seeded layout valid.
     {
       id: 'howto',
       kind: 'markdown',
-      col: 6, row: 1, colSpan: 6, rowSpan: 3,
+      col: 6, row: 0, colSpan: 6, rowSpan: 3,
       autofit: 'off',
       minRowSpan: null,
       content: md(
