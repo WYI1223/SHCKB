@@ -40,6 +40,11 @@ export type BlockFrameProps = {
   /** Author-picked shell option id; null/unknown = the theme's default
    * shell (a theme update may remove an option — pages keep rendering). */
   shell?: string | null;
+  /** Autofit blocks clip overflow (the no-scrollbar aesthetic: rowSpan
+   * already fits the content); non-autofit blocks scroll. block-level
+   * metadata, threaded from PublishedDocShape.blocks / working state —
+   * the frame only consumes it, it never measures. */
+  autofit?: boolean;
   children: ReactNode;
 };
 export type CanvasSurfaceProps = {
@@ -349,5 +354,13 @@ export function canvasBaseplateStyle(theme: Theme): React.CSSProperties {
     backgroundSize: `${theme.slot}px ${theme.slot}px`,
     backgroundPosition: `${theme.slot - theme.dotSize / 2}px ${theme.slot - theme.dotSize / 2}px`,
   };
+}
+
+/** Block body overflow under the autofit contract: autofit blocks clip
+ * (no scrollbar — rowSpan ≥ fit so content lands exactly), every other
+ * block keeps the theme's scroll behavior. Single truth source so the
+ * default frame and every curated shell agree. */
+export function blockOverflow(autofit: boolean | undefined): 'hidden' | 'auto' {
+  return autofit ? 'hidden' : 'auto';
 }
 
