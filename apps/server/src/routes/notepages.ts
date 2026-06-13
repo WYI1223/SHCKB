@@ -183,12 +183,25 @@ export function notepageRoutes(db: Db) {
 
     // Server-side re-validation with the same engine the client ran
     // (notepage-editing algorithm contract: invalid mutation must not land).
+    // autofit + minRowSpan are block metadata, NOT engine geometry — strip
+    // them so the engine stays floor-blind (spec §4.3). content is dropped too.
     const state: GridState = {
       totalCols: TOTAL_COLS,
-      blocks: body.blocks.map(({ content: _content, ...geom }) => geom),
+      blocks: body.blocks.map(({ content: _content, autofit: _autofit, minRowSpan: _minRowSpan, ...geom }) => geom),
     };
     const v = validateState(state, { gravity: body.gravityEnabled });
     if (!v.ok) return c.json({ error: 'layout invariant violation', details: v.errors }, 422);
+
+    // Floor invariant (spec §4.3/§6): minRowSpan never enters the engine, so
+    // validateState is floor-blind. The route is the sole backstop — assert
+    // rowSpan >= minRowSpan >= 1 (integer) per block. Runs before any write,
+    // so a violation is a clean reject with no partial apply.
+    const floorViolation = body.blocks.some(
+      (b) =>
+        b.minRowSpan !== null &&
+        (!Number.isInteger(b.minRowSpan) || b.minRowSpan < 1 || b.rowSpan < b.minRowSpan),
+    );
+    if (floorViolation) return c.json({ error: 'floor invariant violation' }, 422);
 
     db.transaction((tx) => {
       tx.update(notepages)
