@@ -467,3 +467,96 @@ describe('format v4 (author appearance, MVP-6)', () => {
     }
   });
 });
+
+describe('format v5 (block autofit + minRowSpan, Phase 3)', () => {
+  test('autofit/minRowSpan survive export → import round trip', async () => {
+    // Seed an instance with a block that has autofit:'grow' and minRowSpan:2
+    const src = await freshContext();
+    const p = await json(await src.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Autofit Page' }) }));
+    await src.authed(`/api/notepages/${p.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: 'Autofit Page',
+        gravityEnabled: false,
+        blocks: [
+          { id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 4, autofit: 'grow', minRowSpan: 2, content: { markdown: '# hi' } },
+        ],
+      }),
+    });
+
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    // Verify the export carries the fields
+    const pageJson = JSON.parse(bundle.files.get('tree/autofit-page.page.json')!);
+    expect(pageJson.blocks[0].autofit).toBe('grow');
+    expect(pageJson.blocks[0].minRowSpan).toBe(2);
+
+    // Import into a fresh instance
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(true);
+
+    // Re-export to verify the fields survived the DB round trip
+    const again = buildExport(dst.db, dst.blobStore, OPTS);
+    const againPage = JSON.parse(again.files.get('tree/autofit-page.page.json')!);
+    expect(againPage.blocks[0].autofit).toBe('grow');   // CRITICAL: must not be null
+    expect(againPage.blocks[0].minRowSpan).toBe(2);     // CRITICAL: must not be null
+  });
+
+  test('parsePage rejects autofit with wrong type (type guard)', async () => {
+    const src = await freshContext();
+    const p = await json(await src.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Guard Test' }) }));
+    await src.authed(`/api/notepages/${p.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: 'Guard Test',
+        gravityEnabled: false,
+        blocks: [
+          { id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 1, content: { markdown: 'x' } },
+        ],
+      }),
+    });
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const pageJson = JSON.parse(bundle.files.get('tree/guard-test.page.json')!);
+
+    // Inject autofit: 5 (number, not string|null) — must be rejected
+    pageJson.blocks[0].autofit = 5;
+    bundle.files.set('tree/guard-test.page.json', JSON.stringify(pageJson));
+
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+      expect(result.details!.some((d) => d.includes('malformed block'))).toBe(true);
+    }
+  });
+
+  test('parsePage rejects minRowSpan with wrong type (type guard)', async () => {
+    const src = await freshContext();
+    const p = await json(await src.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Guard Test 2' }) }));
+    await src.authed(`/api/notepages/${p.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: 'Guard Test 2',
+        gravityEnabled: false,
+        blocks: [
+          { id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 1, content: { markdown: 'x' } },
+        ],
+      }),
+    });
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const pageJson = JSON.parse(bundle.files.get('tree/guard-test-2.page.json')!);
+
+    // Inject minRowSpan: "foo" (string, not number|null) — must be rejected
+    pageJson.blocks[0].minRowSpan = 'foo';
+    bundle.files.set('tree/guard-test-2.page.json', JSON.stringify(pageJson));
+
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+      expect(result.details!.some((d) => d.includes('malformed block'))).toBe(true);
+    }
+  });
+});

@@ -77,7 +77,9 @@ function parsePage(path: string, value: unknown, errors: string[]): ExportPage |
       typeof b.colSpan !== 'number' ||
       typeof b.rowSpan !== 'number' ||
       !('content' in b) ||
-      (b.shell !== undefined && b.shell !== null && typeof b.shell !== 'string')
+      (b.shell !== undefined && b.shell !== null && typeof b.shell !== 'string') ||
+      (b.autofit !== undefined && b.autofit !== null && typeof b.autofit !== 'string') ||
+      (b.minRowSpan !== undefined && b.minRowSpan !== null && typeof b.minRowSpan !== 'number')
     ) {
       return e('malformed block');
     }
@@ -272,6 +274,8 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
             colSpan: b.colSpan,
             rowSpan: b.rowSpan,
             shell: b.shell ?? null,
+            autofit: b.autofit ?? null,
+            minRowSpan: b.minRowSpan ?? null,
             content: JSON.stringify(b.content ?? null),
           })
           .run();

@@ -27,6 +27,10 @@ type WorkingBlock = {
   rowSpan: number;
   /** Author-picked theme shell option id (M6-D3); null = default. */
   shell: string | null;
+  /** Block-level autofit mode (Phase 3); null = off/legacy. */
+  autofit: string | null;
+  /** Author floor = minimum intended rowSpan (Phase 3); null = off/legacy. */
+  minRowSpan: number | null;
   content: unknown;
 };
 
@@ -78,7 +82,9 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
       typeof r.colSpan !== 'number' ||
       typeof r.rowSpan !== 'number' ||
       !('content' in r) ||
-      (r.shell !== undefined && r.shell !== null && typeof r.shell !== 'string')
+      (r.shell !== undefined && r.shell !== null && typeof r.shell !== 'string') ||
+      (r.autofit !== undefined && r.autofit !== null && typeof r.autofit !== 'string') ||
+      (r.minRowSpan !== undefined && r.minRowSpan !== null && typeof r.minRowSpan !== 'number')
     ) {
       return null;
     }
@@ -90,6 +96,8 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
       colSpan: r.colSpan,
       rowSpan: r.rowSpan,
       shell: typeof r.shell === 'string' ? r.shell : null,
+      autofit: typeof r.autofit === 'string' ? r.autofit : null,
+      minRowSpan: typeof r.minRowSpan === 'number' ? r.minRowSpan : null,
       content: r.content,
     });
   }
@@ -110,6 +118,8 @@ function loadWorkingBlocks(db: Db, notepageId: string): WorkingBlock[] {
       colSpan: row.colSpan,
       rowSpan: row.rowSpan,
       shell: row.shell,
+      autofit: row.autofit,
+      minRowSpan: row.minRowSpan,
       // corrupt content degrades to null — the rest of the page loads
       content: safeParse<unknown>(row.content, null),
     }));
@@ -197,6 +207,8 @@ export function notepageRoutes(db: Db) {
             colSpan: b.colSpan,
             rowSpan: b.rowSpan,
             shell: b.shell,
+            autofit: b.autofit,
+            minRowSpan: b.minRowSpan,
             content: JSON.stringify(b.content ?? null),
           })
           .run();
