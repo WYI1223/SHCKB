@@ -156,6 +156,86 @@ export const FORMAT_TRANSFORMS: FormatTransform[] = [
       return { files: next, losses };
     },
   },
+  {
+    // v5: block-level autofit metadata — autofit mode + author floor
+    // (block-autofit-height). Block-level (web/server owned), not kind
+    // content. up() defaults BOTH to null (= off/legacy); the floor
+    // default is the ENGINE MINIMUM (null→treated as 1), never the
+    // current rowSpan, so a v6→v5→v6 (or v5→v4→v5) round trip can never
+    // raise the floor to a content-grown height.
+    to: 5,
+    up(files) {
+      const addAutofit = (b: Record<string, unknown>): Record<string, unknown> => {
+        // explicit key order: …, shell, autofit, minRowSpan, content, …
+        const { shell, content, ...brest } = b as { shell?: unknown; content?: unknown };
+        return { ...brest, shell, autofit: null, minRowSpan: null, content };
+      };
+      const next: JsonFiles = new Map();
+      for (const [path, value] of files) {
+        if (path.endsWith('.page.json')) {
+          const { blocks, published, ...rest } = value as Record<string, unknown> & {
+            blocks: Array<Record<string, unknown>>;
+            published?: Record<string, unknown> | null;
+          };
+          const upPublished =
+            published == null || typeof published !== 'object'
+              ? published
+              : {
+                  ...published,
+                  blocks: ((published.blocks as Array<Record<string, unknown>>) ?? []).map(addAutofit),
+                };
+          next.set(path, { ...rest, published: upPublished, blocks: blocks.map(addAutofit) });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return next;
+    },
+    down(files) {
+      const next: JsonFiles = new Map();
+      const losses: string[] = [];
+      const dropAutofit = (
+        b: Record<string, unknown>,
+        path: string,
+        where: string,
+      ): Record<string, unknown> => {
+        const { autofit, minRowSpan, ...brest } = b as Record<string, unknown> & { autofit?: unknown; minRowSpan?: unknown };
+        if (autofit != null && autofit !== 'off') {
+          losses.push(`${path}: ${where}block "${String(brest.id)}" autofit "${String(autofit)}" dropped (v4 has no autofit)`);
+        }
+        if (minRowSpan != null) {
+          // BEHAVIORAL loss, not cosmetic: dropping the floor changes how
+          // the block behaves on re-import — its minimum height resets and
+          // it can no longer shrink below the current rendered content.
+          losses.push(
+            `${path}: ${where}block "${String(brest.id)}" min height resets, can no longer shrink below current (v4 has no minRowSpan)`,
+          );
+        }
+        return brest;
+      };
+      for (const [path, value] of files) {
+        if (path.endsWith('.page.json')) {
+          const { blocks, published, ...rest } = value as Record<string, unknown> & {
+            blocks: Array<Record<string, unknown>>;
+            published?: Record<string, unknown> | null;
+          };
+          const downPublished =
+            published == null || typeof published !== 'object'
+              ? published
+              : {
+                  ...published,
+                  blocks: ((published.blocks as Array<Record<string, unknown>>) ?? []).map((b) =>
+                    dropAutofit(b, path, 'published '),
+                  ),
+                };
+          next.set(path, { ...rest, published: downPublished, blocks: blocks.map((b) => dropAutofit(b, path, '')) });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return { files: next, losses };
+    },
+  },
 ];
 
 function versionOf(files: JsonFiles): number {

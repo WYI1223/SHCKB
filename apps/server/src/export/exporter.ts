@@ -116,6 +116,8 @@ export function buildExport(
           colSpan: b.colSpan,
           rowSpan: b.rowSpan,
           shell: b.shell,
+          autofit: b.autofit,
+          minRowSpan: b.minRowSpan,
           content: safeParse<unknown>(b.content, null),
         })),
     };

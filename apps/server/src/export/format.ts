@@ -13,7 +13,7 @@
 import type { PageBackground, ThemeCustomization } from '@skb/theme';
 import type { PublishedDoc } from '../db/schema';
 
-export const FORMAT_VERSION = 4;
+export const FORMAT_VERSION = 5;
 
 export type ExportManifest = {
   formatVersion: number;
@@ -44,6 +44,12 @@ export type ExportBlock = {
   rowSpan: number;
   /** Author-picked theme shell option id (v4+); null = default shell. */
   shell: string | null;
+  /** Block-level autofit mode (v5+): 'off' | 'grow' | 'grow+shrink';
+   * null = off/legacy. Block-level metadata, not kind content. */
+  autofit: string | null;
+  /** Author floor = minimum intended rowSpan (v5+); null = off/legacy.
+   * Engine minimum is 1; up() defaults to that, never to current rowSpan. */
+  minRowSpan: number | null;
   content: unknown; // kind-owned, verbatim
 };
 

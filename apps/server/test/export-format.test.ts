@@ -21,8 +21,8 @@ describe('collectHashLikeStrings', () => {
 import { canonicalJson, sanitizeDirName, FORMAT_VERSION } from '../src/export/format';
 
 describe('canonical format helpers', () => {
-  test('FORMAT_VERSION is 4', () => {
-    expect(FORMAT_VERSION).toBe(4);
+  test('FORMAT_VERSION is 5', () => {
+    expect(FORMAT_VERSION).toBe(5);
   });
 
   test('canonicalJson: 2-space pretty print, trailing LF, no CR', () => {
@@ -132,6 +132,97 @@ function productionV1Files(): JsonFiles {
     ],
   ]);
 }
+
+// ----- v5: block autofit + minRowSpan (block-autofit-height) -----
+
+/** A v4 bundle whose single block has rowSpan 4 — i.e. content has
+ * already grown the block past any author floor. Used to prove the
+ * down→up floor-reset rule. */
+function productionV4Files(): JsonFiles {
+  return upgradeToVersion(
+    new Map<string, unknown>([
+      ['manifest.json', { formatVersion: 1, blobs: [] }],
+      [
+        'tree/a.page.json',
+        {
+          id: 'p1', slug: 'a', title: 'A', visibility: 'public', gravityEnabled: true,
+          sortKey: 0, createdAt: 1, updatedAt: 2,
+          published: {
+            title: 'A', gravityEnabled: true,
+            blocks: [{ id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 4, content: {} }],
+            publishedAt: 3,
+          },
+          blocks: [{ id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 4, content: {} }],
+        },
+      ],
+    ]),
+    4,
+  );
+}
+
+describe('production format registry v5 (block autofit)', () => {
+  test('v4→v5 adds autofit=null + minRowSpan=null to working AND published blocks', () => {
+    const up = upgradeToVersion(productionV4Files(), 5);
+    const page = up.get('tree/a.page.json') as {
+      blocks: Array<{ autofit: unknown; minRowSpan: unknown; rowSpan: number }>;
+      published: { blocks: Array<{ autofit: unknown; minRowSpan: unknown }> };
+    };
+    expect(page.blocks[0]!.autofit).toBeNull();
+    expect(page.blocks[0]!.minRowSpan).toBeNull(); // floor = engine minimum, NOT rowSpan(4)
+    expect(page.published.blocks[0]!.autofit).toBeNull();
+    expect(page.published.blocks[0]!.minRowSpan).toBeNull();
+  });
+
+  test('v4→v5→v4 round trip is lossless when autofit is off (null)', () => {
+    const v4 = productionV4Files();
+    const up = upgradeToVersion(v4, 5);
+    const { files, losses } = downgradeToVersion(up, 4);
+    expect(losses).toEqual([]); // null autofit / null floor are not behavioral losses
+    expect(files.get('tree/a.page.json')).toEqual(v4.get('tree/a.page.json'));
+  });
+
+  test('v5→v4 drops autofit + emits BEHAVIORAL minRowSpan loss when floor is set', () => {
+    const up = upgradeToVersion(productionV4Files(), 5);
+    const page = up.get('tree/a.page.json') as {
+      blocks: Array<{ autofit: unknown; minRowSpan: unknown }>;
+      published: { blocks: Array<{ autofit: unknown; minRowSpan: unknown }> };
+    };
+    page.blocks[0]!.autofit = 'grow';
+    page.blocks[0]!.minRowSpan = 2;
+    page.published.blocks[0]!.autofit = 'grow';
+    page.published.blocks[0]!.minRowSpan = 2;
+
+    const { files, losses } = downgradeToVersion(up, 4);
+    expect((files.get('manifest.json') as { formatVersion: number }).formatVersion).toBe(4);
+    // behavioral loss wording for the floor, on both working + published block
+    expect(losses.filter((l) => l.includes('min height resets, can no longer shrink below current')).length).toBe(2);
+    expect(losses.filter((l) => l.includes('autofit "grow" dropped')).length).toBe(2);
+    // the v4 block carries neither axis
+    const v4page = files.get('tree/a.page.json') as { blocks: Array<Record<string, unknown>> };
+    expect('autofit' in v4page.blocks[0]!).toBe(false);
+    expect('minRowSpan' in v4page.blocks[0]!).toBe(false);
+  });
+
+  test('v5→v4→v5 does NOT raise the floor (the load-bearing assertion)', () => {
+    // start at v5 with a SET floor of 1 on a block already grown to rowSpan 4
+    const up = upgradeToVersion(productionV4Files(), 5);
+    const page0 = up.get('tree/a.page.json') as { blocks: Array<{ minRowSpan: unknown }> };
+    page0.blocks[0]!.minRowSpan = 1; // author floor = 1, well below content-grown rowSpan 4
+
+    // round-trip through v4 (which cannot express the floor) and back to v5
+    const { files: v4 } = downgradeToVersion(up, 4);
+    const reUp = upgradeToVersion(v4, 5);
+    const page1 = reUp.get('tree/a.page.json') as {
+      blocks: Array<{ minRowSpan: unknown; rowSpan: number }>;
+    };
+    // floor came back as the engine minimum (null), NOT raised to the
+    // current rowSpan (4). Raising it would permanently destroy the
+    // author's "floor below current content" intent.
+    expect(page1.blocks[0]!.minRowSpan).toBeNull();
+    expect(page1.blocks[0]!.minRowSpan).not.toBe(4);
+    expect(page1.blocks[0]!.rowSpan).toBe(4); // rowSpan itself is preserved across the trip
+  });
+});
 
 describe('production format registry v1→v4', () => {
   test('full upgrade chain fills every version’s additions with neutral values', () => {

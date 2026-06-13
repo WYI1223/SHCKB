@@ -117,6 +117,10 @@ export type PublishedDoc = {
     rowSpan: number;
     /** Author-picked theme shell option id (M6-D3). */
     shell?: string | null;
+    /** Block-level autofit mode (block-autofit-height); null/absent = off. */
+    autofit?: string | null;
+    /** Author floor = minimum intended rowSpan; null/absent = off/legacy. */
+    minRowSpan?: number | null;
     content: unknown;
   }>;
   publishedAt: number;

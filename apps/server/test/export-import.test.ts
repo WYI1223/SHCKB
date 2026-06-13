@@ -46,7 +46,7 @@ describe('buildExport', () => {
     expect([...bundle.blobs.keys()]).toEqual([seeded.hash]);
 
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(4);
+    expect(manifest.formatVersion).toBe(5);
     expect(manifest.counts).toEqual({ folders: 1, pages: 2, blocks: 2, blobs: 1 });
     expect(manifest.pages).toEqual(['tree/A/page-one.page.json', 'tree/page-two.page.json']);
 
@@ -271,7 +271,7 @@ describe('format v2 (theme data)', () => {
 
     const bundle = buildExport(src.db, src.blobStore, OPTS);
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(4);
+    expect(manifest.formatVersion).toBe(5);
     expect(manifest.settings).toEqual({ theme: 'ink' });
     const p2 = JSON.parse(bundle.files.get('tree/page-two.page.json')!);
     expect(p2.themeId).toBe('graph-paper');
