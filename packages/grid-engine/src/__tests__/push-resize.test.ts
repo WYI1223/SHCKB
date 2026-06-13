@@ -309,3 +309,55 @@ describe('pushResize: named reversibility fixtures (C5 re-push from base)', () =
     assertReversible(base, 'A', 6, ['R']);
   });
 });
+
+describe('pushResize: determinism + termination', () => {
+  function buildStack(n: number, cols: number): GridState {
+    const blocks: Block[] = [];
+    for (let i = 0; i < n; i++) {
+      blocks.push({
+        id: `b${i}`,
+        col: 0,
+        row: i,
+        colSpan: cols,
+        rowSpan: 1,
+        kind: 'markdown',
+      });
+    }
+    return { blocks, totalCols: cols };
+  }
+
+  test('two identical calls produce identical output (deterministic)', () => {
+    const s = buildStack(200, 12);
+    const a = pushResize(s, 'b0', 5);
+    const b = pushResize(s, 'b0', 5);
+    expect(a.ok && b.ok).toBe(true);
+    if (a.ok && b.ok) expect(norm(a.state)).toBe(norm(b.state));
+  });
+
+  test('terminates on a deep same-column cascade (B=300) and stays no-overlap', () => {
+    const s = buildStack(300, 12);
+    const r = pushResize(s, 'b0', 10);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // b0 grew to 10 rows; every block below cascaded down, no overlap.
+    expect(r.state.blocks.find((b) => b.id === 'b0')!.rowSpan).toBe(10);
+    expect(validateState(r.state, { gravity: false }).ok).toBe(true);
+    // each pushed block's row strictly increased (push-down only, never up)
+    for (let i = 1; i < 300; i++) {
+      const before = s.blocks.find((b) => b.id === `b${i}`)!.row;
+      const after = r.state.blocks.find((b) => b.id === `b${i}`)!.row;
+      expect(after).toBeGreaterThanOrEqual(before);
+    }
+  });
+
+  test('idempotent re-apply: pushResize to the same target twice = once', () => {
+    const s = buildStack(50, 12);
+    const once = pushResize(s, 'b0', 6);
+    expect(once.ok).toBe(true);
+    if (!once.ok) return;
+    const twice = pushResize(once.state, 'b0', 6);
+    expect(twice.ok).toBe(true);
+    if (!twice.ok) return;
+    expect(norm(twice.state)).toBe(norm(once.state));
+  });
+});

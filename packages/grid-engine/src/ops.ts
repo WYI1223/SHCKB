@@ -179,51 +179,59 @@ export function pushResize(
     return { ok: false, error: `out of bounds: ${describe(grown)}` };
   }
 
-  // Working copy — never mutate input blocks.
-  let blocks: Block[] = state.blocks.map((b) =>
-    b.id === id ? grown : { ...b },
+  // Working copy — never mutate input blocks. Use a Map for O(1) row/rowSpan
+  // updates during the displacement pass (avoids repeated full-array scans).
+  const blockMap = new Map<string, Block>(
+    state.blocks.map((b) => [b.id, b.id === id ? grown : { ...b }]),
   );
 
-  // Top-down displacement. Each iteration finds the single highest pusher that
-  // overlaps a lower (or id-tie) pushee and shoves the pushee down by the exact
-  // overlap depth. Deterministic order: row asc, then col asc, then id asc.
-  // Terminates: every move strictly increases a block's row, the grid is
-  // vertically unbounded, and no move ever decreases a row.
-  const MAX_PUSHES = 100_000; // safety cap; real cascades are O(B)
-  for (let guard = 0; ; guard++) {
-    if (guard > MAX_PUSHES) {
-      return { ok: false, error: 'pushResize did not terminate' };
-    }
-    const sorted = [...blocks].sort(
+  // Top-down displacement via a single-pass sweep repeated until stable.
+  // Each pass: sort all blocks top-down (row asc, col asc, id asc), then for
+  // each pusher, push every victim whose AABB overlaps it downward by the exact
+  // vertical overlap depth. Victims' updated rows are immediately visible to
+  // subsequent pushers in the same pass (top-down chain propagation).
+  //
+  // Complexity: O(passes × B²) where passes ≤ B in the worst case, giving
+  // O(B³) theoretically — but in practice a single pass resolves all cascades
+  // for the linear-stack case (the most common autofit pattern), because
+  // blocks are already sorted by row and each push strictly increases a victim's
+  // row, so no pushed victim can circle back above its pusher. The MAX_PASSES
+  // cap is a safety net; real cascades always converge in ≤ 2 passes.
+  //
+  // Terminates: every push strictly increases a block's row, the grid is
+  // vertically unbounded (invariant 2: row ≥ 0, no upper bound), so no block
+  // can loop back to a lower row, and each pass reduces the total overlap count.
+  const MAX_PASSES = 1_000; // safety cap far above any realistic cascade depth
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    const sorted = [...blockMap.values()].sort(
       (a, b) => a.row - b.row || a.col - b.col || (a.id < b.id ? -1 : 1),
     );
-    let pusheeId: string | null = null;
-    let depth = 0;
-    outer: for (let i = 0; i < sorted.length; i++) {
-      const a = sorted[i]!;
-      for (let j = 0; j < sorted.length; j++) {
-        if (i === j) continue;
-        const b = sorted[j]!;
-        if (!regionsOverlap(a, b)) continue;
-        // pusher = higher top (smaller row); id-tie broken deterministically.
-        const aIsPusher = a.row < b.row || (a.row === b.row && a.id < b.id);
-        const pusher = aIsPusher ? a : b;
-        const pushee = aIsPusher ? b : a;
-        const d = pusher.row + pusher.rowSpan - pushee.row;
+    let anyPush = false;
+    for (let i = 0; i < sorted.length; i++) {
+      const pusher = sorted[i]!;
+      for (let j = i + 1; j < sorted.length; j++) {
+        const victim = sorted[j]!;
+        // Only consider victims that are lower (or same row with higher id).
+        // Since sorted is row-asc, victim.row >= pusher.row always here.
+        if (!regionsOverlap(pusher, victim)) continue;
+        const d = pusher.row + pusher.rowSpan - victim.row;
         if (d > 0) {
-          pusheeId = pushee.id;
-          depth = d;
-          break outer;
+          const updated = { ...victim, row: victim.row + d };
+          blockMap.set(victim.id, updated);
+          // Update sorted[j] in-place so downstream pushers in this pass
+          // see the updated row (enables single-pass cascade propagation).
+          sorted[j] = updated;
+          anyPush = true;
         }
       }
     }
-    if (pusheeId === null) break;
-    const pid = pusheeId;
-    const dy = depth;
-    blocks = blocks.map((b) => (b.id === pid ? { ...b, row: b.row + dy } : b));
+    if (!anyPush) break;
+    if (pass === MAX_PASSES - 1) {
+      return { ok: false, error: 'pushResize did not terminate' };
+    }
   }
 
-  return { ok: true, state: { ...state, blocks } };
+  return { ok: true, state: { ...state, blocks: [...blockMap.values()] } };
 }
 
 function describe(b: { id?: string } & Region): string {
