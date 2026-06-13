@@ -16,7 +16,7 @@
  * deleteBlock returns GridState directly (no failure mode — deleting a
  * non-existent id is a silent no-op).
  */
-import { findCollidingBlocks, isRegionInBounds } from './collision';
+import { findCollidingBlocks, isRegionInBounds, regionsOverlap } from './collision';
 import { applyGravity } from './gravity';
 import type { Block, GridState, OpResult, Region } from './types';
 
@@ -137,6 +137,93 @@ export function deleteBlock(
 ): GridState {
   const newBlocks = state.blocks.filter((b) => b.id !== id);
   return withGravity({ ...state, blocks: newBlocks }, options);
+}
+
+/**
+ * Autofit "limited-height + grow" engine op (markdown-first; kind-opaque).
+ *
+ * Sets block `id`'s rowSpan to `newRowSpan`, then resolves the resulting AABB
+ * collisions by pushing every colliding block DOWN by exactly the vertical
+ * overlap depth, recursing top-down. The SAME engine serves grow AND shrink:
+ * the caller (web autofit controller) passes the gesture's BASE snapshot plus
+ * a target rowSpan, so reconcile(base, target) = pushResize(base, growerId,
+ * target). It is the caller's job to re-derive from the base snapshot every
+ * reconcile — pushResize keeps no journal and applies no clamp.
+ *
+ * NEVER calls applyGravity: gravity is suspended within the atomic autofit
+ * gesture. The COMMIT RULE (page-level applyGravity once on gesture commit when
+ * net rowSpan delta != 0 and gravity is ON) lives in the web controller, not
+ * here. `opts` is accepted for signature parity with sibling ops; the gravity
+ * field is intentionally not consulted by the layout pass.
+ *
+ * Guards via isRegionInBounds: newRowSpan must be an integer >= 1 with valid
+ * col/colSpan, else { ok:false } ('invalid span' / 'out of bounds'). Vertical
+ * space is unbounded so grow never fails for lack of room. Pure: returns a new
+ * GridState; never mutates the input (invariant 6). Leaf-preserving (invariant
+ * 7): only `row` and the grower's `rowSpan` change; col/colSpan/kind/id never.
+ */
+export function pushResize(
+  state: GridState,
+  id: string,
+  newRowSpan: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _opts?: OpOptions,
+): OpResult {
+  const grower = state.blocks.find((b) => b.id === id);
+  if (!grower) return { ok: false, error: `no such block: ${id}` };
+  if (!Number.isInteger(newRowSpan) || newRowSpan < 1) {
+    return { ok: false, error: `invalid span: ${describe({ ...grower, rowSpan: newRowSpan })}` };
+  }
+  const grown: Block = { ...grower, rowSpan: newRowSpan };
+  if (!isRegionInBounds(state, grown)) {
+    return { ok: false, error: `out of bounds: ${describe(grown)}` };
+  }
+
+  // Working copy — never mutate input blocks.
+  let blocks: Block[] = state.blocks.map((b) =>
+    b.id === id ? grown : { ...b },
+  );
+
+  // Top-down displacement. Each iteration finds the single highest pusher that
+  // overlaps a lower (or id-tie) pushee and shoves the pushee down by the exact
+  // overlap depth. Deterministic order: row asc, then col asc, then id asc.
+  // Terminates: every move strictly increases a block's row, the grid is
+  // vertically unbounded, and no move ever decreases a row.
+  const MAX_PUSHES = 100_000; // safety cap; real cascades are O(B)
+  for (let guard = 0; ; guard++) {
+    if (guard > MAX_PUSHES) {
+      return { ok: false, error: 'pushResize did not terminate' };
+    }
+    const sorted = [...blocks].sort(
+      (a, b) => a.row - b.row || a.col - b.col || (a.id < b.id ? -1 : 1),
+    );
+    let pusheeId: string | null = null;
+    let depth = 0;
+    outer: for (let i = 0; i < sorted.length; i++) {
+      const a = sorted[i]!;
+      for (let j = 0; j < sorted.length; j++) {
+        if (i === j) continue;
+        const b = sorted[j]!;
+        if (!regionsOverlap(a, b)) continue;
+        // pusher = higher top (smaller row); id-tie broken deterministically.
+        const aIsPusher = a.row < b.row || (a.row === b.row && a.id < b.id);
+        const pusher = aIsPusher ? a : b;
+        const pushee = aIsPusher ? b : a;
+        const d = pusher.row + pusher.rowSpan - pushee.row;
+        if (d > 0) {
+          pusheeId = pushee.id;
+          depth = d;
+          break outer;
+        }
+      }
+    }
+    if (pusheeId === null) break;
+    const pid = pusheeId;
+    const dy = depth;
+    blocks = blocks.map((b) => (b.id === pid ? { ...b, row: b.row + dy } : b));
+  }
+
+  return { ok: true, state: { ...state, blocks } };
 }
 
 function describe(b: { id?: string } & Region): string {
