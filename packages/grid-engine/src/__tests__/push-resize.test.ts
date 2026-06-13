@@ -137,3 +137,48 @@ describe('pushResize: basic grow pushes colliders down by overlap depth', () => 
     expect(r.state.blocks.find((b) => b.id === 'N')!.row).toBe(5);
   });
 });
+
+describe('pushResize: input guards via isRegionInBounds (engine, not caller)', () => {
+  function seedOne(): GridState {
+    const r = insertBlock(createEmptyState(12), {
+      id: 'A',
+      col: 0,
+      row: 0,
+      colSpan: 6,
+      rowSpan: 2,
+      kind: 'markdown',
+    });
+    if (!r.ok) throw new Error('seed A');
+    return r.state;
+  }
+
+  test('newRowSpan = 0 rejected (invalid span), state unchanged', () => {
+    const s = seedOne();
+    const before = norm(s);
+    const r = pushResize(s, 'A', 0);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('invalid span');
+    expect(norm(s)).toBe(before);
+  });
+
+  test('newRowSpan = -3 rejected (invalid span)', () => {
+    const r = pushResize(seedOne(), 'A', -3);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('invalid span');
+  });
+
+  test('non-integer newRowSpan (2.5) rejected (invalid span), state unchanged', () => {
+    const s = seedOne();
+    const before = norm(s);
+    const r = pushResize(s, 'A', 2.5);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('invalid span');
+    expect(norm(s)).toBe(before);
+  });
+
+  test('unknown id rejected (no such block) — aligns with sibling ops', () => {
+    const r = pushResize(seedOne(), 'ghost', 3);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('no such block');
+  });
+});
