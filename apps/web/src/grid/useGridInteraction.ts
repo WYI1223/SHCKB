@@ -24,6 +24,7 @@ import {
   pushResize,
   transformBlock,
 } from '@skb/grid-engine';
+import { captureLayoutSnapshot } from './captureLayoutSnapshot';
 
 export type ResizeAxis = 'right' | 'bottom' | 'corner' | 'left' | 'top' | 'top-left';
 
@@ -56,6 +57,8 @@ export type ResizeState = {
   previewRow: number;
   previewW: number;
   previewH: number;
+  /** Content fit at gesture start — clamps the ghost for autofit blocks. */
+  currentFit: number;
 };
 
 export type GridOps = {
@@ -110,7 +113,13 @@ export type Interaction = {
     onDragLeave: () => void;
     onDrop: (e: React.DragEvent) => void;
   };
-  beginResize: (e: React.PointerEvent, block: Block, axis: ResizeAxis, slotSize: number) => void;
+  beginResize: (
+    e: React.PointerEvent,
+    block: Block,
+    axis: ResizeAxis,
+    slotSize: number,
+    autofitCtx?: { autofit: boolean; currentFit: number },
+  ) => void;
 };
 
 export type GridInteractionConfig = {
@@ -136,6 +145,16 @@ function newBlockId(): string {
  * shows is what lands (preview honesty). Pure and exported for tests
  * (T4, mvp7 review).
  */
+/**
+ * Floor-resize ghost honesty (spec §7): a vertical drag on an autofit
+ * block sets the FLOOR, but the block never falls below its current
+ * content fit — so the preview clamps to max(currentFit, draggedH).
+ * Shared by the ghost and the commit. Pure, exported for tests.
+ */
+export function clampFloorPreview(draggedH: number, currentFit: number): number {
+  return Math.max(1, currentFit, draggedH);
+}
+
 export function moveAnchor(
   point: { clientX: number; clientY: number },
   canvasRect: { left: number; top: number },
@@ -170,6 +189,7 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     previewRow: 0,
     previewW: 0,
     previewH: 0,
+    currentFit: 0,
   });
   const [gravityEnabled, setGravityEnabled] = useState(config.initialGravity);
   const [autofit, setAutofitState] = useState<Record<string, string | null>>(
@@ -364,6 +384,7 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     block: Block,
     axis: ResizeAxis,
     slotSize: number,
+    autofitCtx?: { autofit: boolean; currentFit: number },
   ): void {
     e.stopPropagation();
     e.preventDefault();
@@ -378,6 +399,7 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
       previewRow: block.row,
       previewW: block.colSpan,
       previewH: block.rowSpan,
+      currentFit: autofitCtx?.currentFit ?? 0,
     });
 
     const onMove = (ev: PointerEvent) => {
@@ -399,6 +421,9 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
       }
       if (axis === 'bottom' || axis === 'corner') {
         previewH = Math.max(1, Math.round((ev.clientY - rect.top) / slotSize));
+        if (autofitCtx?.autofit) {
+          previewH = clampFloorPreview(previewH, autofitCtx.currentFit);
+        }
       } else if (axis === 'top' || axis === 'top-left') {
         const newRowRaw = Math.round((ev.clientY - rect.top + block.row * slotSize) / slotSize);
         const newRow = Math.max(0, Math.min(block.row + block.rowSpan - 1, newRowRaw));
@@ -414,12 +439,23 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
       window.removeEventListener('pointerup', onUp);
       setResize((r) => {
         if (r.blockId !== null) {
-          transform(r.blockId, {
-            col: r.previewCol,
-            row: r.previewRow,
-            colSpan: r.previewW,
-            rowSpan: r.previewH,
-          });
+          const verticalOnly = r.axis === 'bottom' || r.axis === 'top';
+          if (autofitCtx?.autofit && verticalOnly) {
+            // Spec §7: vertical handle SETS THE FLOOR; effective rowSpan
+            // is then max(floor, fit). Record the floor; the autofit
+            // gesture controller reconciles via §5.1 "floor-resize" trigger.
+            setMinRowSpan(r.blockId, r.previewH);
+            const base = captureLayoutSnapshot(stateRef.current);
+            reconcileTo(base, r.blockId, Math.max(r.previewH, r.currentFit));
+            commitGesture(r.blockId, base.blocks.find((b) => b.id === r.blockId)?.rowSpan ?? 1);
+          } else {
+            transform(r.blockId, {
+              col: r.previewCol,
+              row: r.previewRow,
+              colSpan: r.previewW,
+              rowSpan: r.previewH,
+            });
+          }
         }
         return {
           active: false,
@@ -429,6 +465,7 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
           previewRow: 0,
           previewW: 0,
           previewH: 0,
+          currentFit: 0,
         };
       });
     };
