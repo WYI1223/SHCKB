@@ -19,6 +19,11 @@ export type WorkingBlock = {
   rowSpan: number;
   /** Theme shell option id (M6-D3); null = the theme's default shell. */
   shell?: string | null;
+  /** Autofit mode (block metadata, web/server-owned): 'off' | 'grow' |
+   * 'grow+shrink'. null/'off' = off. MVP writes/reads only 'grow'. */
+  autofit?: string | null;
+  /** Author floor (minimum row span); null = off/legacy. */
+  minRowSpan?: number | null;
   content: unknown;
 };
 

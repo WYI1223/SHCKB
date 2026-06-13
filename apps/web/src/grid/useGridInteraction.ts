@@ -16,10 +16,12 @@ import {
   type DropIntent,
   type GridState,
   TOTAL_COLS,
+  applyGravity,
   deleteBlock as engineDelete,
   inferDropIntent,
   insertBlock,
   moveBlock,
+  pushResize,
   transformBlock,
 } from '@skb/grid-engine';
 
@@ -66,6 +68,13 @@ export type GridOps = {
   /** Pointer-free insert (context menu, M8-D3) — same clamp/reject path
    * as a palette drop at that cell. */
   insertAt: (col: number, row: number, kind: string) => void;
+  /** Autofit reconcile (spec §4.4 C5): pushResize(base, id, target) with
+   * gravity SUSPENDED — re-derived from the gesture BASE every time. */
+  reconcileTo: (base: GridState, id: string, targetRowSpan: number) => void;
+  /** COMMIT RULE (PROBE-2 invariant): on gesture commit, if net rowSpan
+   * delta != 0 && gravity is ON, run applyGravity ONCE; gravity-off
+   * commits the pushed layout as-is. */
+  commitGesture: (id: string, baseRowSpan: number) => void;
 };
 
 export type Interaction = {
@@ -75,6 +84,17 @@ export type Interaction = {
   resize: ResizeState;
   gravityEnabled: boolean;
   setGravityEnabled: (v: boolean) => void;
+  /** BLOCK METADATA (web-owned): autofit mode per block id. null/'off' =
+   * off; MVP writes/reads only 'grow'. */
+  autofit: Record<string, string | null>;
+  setAutofit: (id: string, mode: string | null) => void;
+  /** Author floor per block id; null = off/legacy. */
+  minRowSpan: Record<string, number | null>;
+  setMinRowSpan: (id: string, floor: number | null) => void;
+  /** Autofit reconcile shorthand (delegates to ops.reconcileTo). */
+  reconcileTo: (base: GridState, id: string, targetRowSpan: number) => void;
+  /** Gesture commit shorthand (delegates to ops.commitGesture). */
+  commitGesture: (id: string, baseRowSpan: number) => void;
   blockDragProps: (block: Block) => {
     draggable: boolean;
     onDragStart: (e: React.DragEvent) => void;
@@ -99,6 +119,9 @@ export type GridInteractionConfig = {
   defaultSizeFor: (kind: string) => BlockSize;
   /** Notepage host hook: create content for a block born via palette drop. */
   onBlockInserted: (block: Block) => void;
+  /** Seed block metadata from the server detail (web/server-owned). */
+  initialAutofit?: Record<string, string | null>;
+  initialMinRowSpan?: Record<string, number | null>;
 };
 
 let insertSeq = 0;
@@ -149,6 +172,16 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     previewH: 0,
   });
   const [gravityEnabled, setGravityEnabled] = useState(config.initialGravity);
+  const [autofit, setAutofitState] = useState<Record<string, string | null>>(
+    () => config.initialAutofit ?? {},
+  );
+  const [minRowSpan, setMinRowSpanState] = useState<Record<string, number | null>>(
+    () => config.initialMinRowSpan ?? {},
+  );
+  const setAutofit = (id: string, mode: string | null) =>
+    setAutofitState((m) => ({ ...m, [id]: mode }));
+  const setMinRowSpan = (id: string, floor: number | null) =>
+    setMinRowSpanState((m) => ({ ...m, [id]: floor }));
 
   const stateRef = useRef(state);
   const dragRef = useRef(drag);
@@ -200,7 +233,26 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     setState(engineDelete(stateRef.current, id, opts()));
   }
 
-  const ops: GridOps = { move, transform, remove, insertAt };
+  function reconcileTo(base: GridState, id: string, targetRowSpan: number): void {
+    // C5: ALWAYS re-derive from the immutable gesture base (no journal,
+    // no clamp). pushResize never calls gravity — gravity stays suspended
+    // within the edit gesture (spec §4.4 atomicity).
+    const r = pushResize(base, id, targetRowSpan);
+    if (r.ok) setState(r.state);
+  }
+
+  function commitGesture(id: string, baseRowSpan: number): void {
+    setState((s) => {
+      const block = s.blocks.find((b) => b.id === id);
+      const netDelta = block ? block.rowSpan - baseRowSpan : 0;
+      // COMMIT RULE / PROBE-2: only compact when the block truly changed
+      // height AND the page runs gravity. gravity-off commits as-is.
+      if (netDelta !== 0 && gravityRef.current) return applyGravity(s).state;
+      return s;
+    });
+  }
+
+  const ops: GridOps = { move, transform, remove, insertAt, reconcileTo, commitGesture };
 
   function blockDragProps(block: Block) {
     return {
@@ -392,6 +444,12 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     resize,
     gravityEnabled,
     setGravityEnabled,
+    autofit,
+    setAutofit,
+    minRowSpan,
+    setMinRowSpan,
+    reconcileTo,
+    commitGesture,
     blockDragProps,
     paletteDragProps,
     canvasDropProps,
