@@ -306,7 +306,7 @@ function BlockShell({
           {block.colSpan}×{block.rowSpan}
         </span>
       </div>
-      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} shell={shell}>
+      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} shell={shell} autofit={isAutofit}>
         <div
           style={{
             display: 'flex',
