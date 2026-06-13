@@ -11,13 +11,13 @@
  */
 import { describe, expect, test } from 'vitest';
 import {
-  type Block,
   type GridState,
   createEmptyState,
   insertBlock,
   pushResize,
   validateState,
 } from '../index';
+import { buildStack } from './helpers';
 
 /** Stable string snapshot of a layout for exact-equality assertions. */
 function norm(s: GridState): string {
@@ -311,21 +311,6 @@ describe('pushResize: named reversibility fixtures (C5 re-push from base)', () =
 });
 
 describe('pushResize: determinism + termination', () => {
-  function buildStack(n: number, cols: number): GridState {
-    const blocks: Block[] = [];
-    for (let i = 0; i < n; i++) {
-      blocks.push({
-        id: `b${i}`,
-        col: 0,
-        row: i,
-        colSpan: cols,
-        rowSpan: 1,
-        kind: 'markdown',
-      });
-    }
-    return { blocks, totalCols: cols };
-  }
-
   test('two identical calls produce identical output (deterministic)', () => {
     const s = buildStack(200, 12);
     const a = pushResize(s, 'b0', 5);

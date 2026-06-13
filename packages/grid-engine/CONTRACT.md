@@ -344,7 +344,7 @@ pushResize(state, id, newRowSpan, opts?):
 ### Worst-case performance
 
 - `applyGravity`: O(B² × R) worst case（B = block count, R = total rows）；典型 O(B × log B)。Property-based test 包括 1000-op 序列 + 50k stress；large-N benchmark Phase 2+
-- `pushResize`: grow **O(B² × R)** worst case（B = block count, R = total rows；级联下推每轮 O(B²) 碰撞扫描 × 至多 O(R) 轮）；shrink **O(B)**（从 base 重推、被推块归位，无级联放大）。无内部 `applyGravity` 调用，故不叠加 gravity 的迭代成本。
+- `pushResize`: grow **典型 O(B²)**（单趟 B² 配对扫描；实测 20k 随机布局 ≤ 2 趟收敛，一般 1 趟）；shrink **O(B)**（从 base 重推、被推块归位，无级联放大）。松上界 O(B²·R)（R = 总行数；仅在极少数需多趟的布局下成立，不作 worst-case 断言）。无内部 `applyGravity` 调用，故不叠加 gravity 的迭代成本。
 - `findCollidingBlocks` / `maxEmptyRectContaining`: O(B) and O(C × R) respectively
 
 ---

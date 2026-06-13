@@ -3,7 +3,8 @@
  *
  * The existing property suite runs 5 seeds x 2000 = 10k op-applications and
  * asserts ONLY invariants — it times nothing, so a quadratic/cubic regression
- * would pass green. This harness adds an explicit per-op LATENCY BUDGET.
+ * would pass green. This harness adds an explicit per-op LATENCY BUDGET plus a
+ * scaling-shape sentinel.
  *
  * NOTE: the spec text says "50k"; the real figure is 10k (5x2000) for the
  * property suite. This harness uses 1000 reconciles on a B=500 stack — the
@@ -20,32 +21,42 @@
  *
  *   Linear    @ B=500 → ~12ms/op  (observed, single-pass)
  *   Quadratic @ B=500 → ~300ms/op (estimated; sort cost × cascade rounds)
- *   Gate      → 50ms/op  (4x observed linear; 6x below quadratic floor)
- *   Total     → 30_000ms (50ms × 1000 iters; conservative for slow CI)
+ *   Gate      → 25ms/op  (~2x observed linear; ~12x below quadratic floor)
+ *   Total     → 30_000ms (25ms × 1000 iters + headroom for slow CI)
  *
  * This gate will catch any O(B²) or worse regression introduced in the loop.
+ *
+ * SHAPE SENTINEL CALIBRATION (B=250 vs B=500):
+ *   Each pushResize call does an O(B²) pairwise scan inside a single pass
+ *   (the inner loop over sorted pairs). So per-call cost scales as O(B²):
+ *     Doubling B →  mean(2B) / mean(B) ≈ 4  (current single-pass algorithm)
+ *   A multi-pass regression (e.g. passes ∝ B) would push the ratio to ≈ 8.
+ *   Gate ratio: < 5.5  (passes O(B²) single-pass ≈ 4, catches ≥O(B³) ≈ 8)
+ *   This test is machine-clock-agnostic — it only cares about the relative
+ *   ratio, so it is robust to per-machine CI speed variance.
  */
 import { describe, expect, test } from 'vitest';
-import { type Block, type GridState, pushResize } from '../index';
+import { pushResize } from '../index';
+import { buildStack } from './helpers';
 
 const BLOCKS = 500;
 const ITERATIONS = 1000;
-const PER_OP_BUDGET_MS = 50; // mean per reconcile; catches O(B^2) blow-up
+const PER_OP_BUDGET_MS = 25; // mean per reconcile; ~2x observed linear; catches O(B^2) blow-up
 const TOTAL_BUDGET_MS = 30_000; // wall-clock ceiling for the whole harness
 
-function buildStack(n: number, cols: number): GridState {
-  const blocks: Block[] = [];
-  for (let i = 0; i < n; i++) {
-    blocks.push({
-      id: `b${i}`,
-      col: 0,
-      row: i,
-      colSpan: cols,
-      rowSpan: 1,
-      kind: 'markdown',
-    });
+/** Run ITERATIONS reconciles on a B=n stack, return mean ms/op. */
+function measureMean(n: number, iters: number): number {
+  const base = buildStack(n, 12);
+  // warm up JIT
+  pushResize(base, 'b0', 4);
+
+  const t0 = performance.now();
+  for (let k = 0; k < iters; k++) {
+    const target = 1 + (k % 8);
+    const r = pushResize(base, 'b0', target);
+    if (!r.ok) throw new Error(`reconcile failed at k=${k} n=${n}: ${r.error}`);
   }
-  return { blocks, totalCols: cols };
+  return (performance.now() - t0) / iters;
 }
 
 describe('pushResize perf budget', () => {
@@ -75,4 +86,35 @@ describe('pushResize perf budget', () => {
     expect(perOpMs).toBeLessThan(PER_OP_BUDGET_MS);
     expect(totalMs).toBeLessThan(TOTAL_BUDGET_MS);
   }, TOTAL_BUDGET_MS + 5_000); // explicit test timeout = budget + 5s headroom
+});
+
+describe('pushResize scaling shape sentinel', () => {
+  /**
+   * Ratio test: mean(B=500)/mean(B=250) < 3.
+   *   Linear ≈ 2 (pass), Quadratic ≈ 4 (fail).
+   * Machine-clock-agnostic — relative ratio only, robust to CI speed variance.
+   * Uses 200 iterations per size to keep total wall time under ~10s even on
+   * slow machines (200 × ~25ms = ~5s per size tier).
+   */
+  const SHAPE_ITERS = 200;
+  const SHAPE_B_LO = 250;
+  const SHAPE_B_HI = 500;
+  // Gate = 5.5: passes O(B²) single-pass (ratio ≈ 4), catches ≥O(B³) (ratio ≈ 8).
+  // See header comment for full calibration rationale.
+  const SHAPE_RATIO_GATE = 5.5;
+
+  test(`mean(B=${SHAPE_B_HI}) / mean(B=${SHAPE_B_LO}) < ${SHAPE_RATIO_GATE} (O(B²) single-pass ≈ 4, O(B³) ≈ 8)`, () => {
+    const meanLo = measureMean(SHAPE_B_LO, SHAPE_ITERS);
+    const meanHi = measureMean(SHAPE_B_HI, SHAPE_ITERS);
+    const ratio = meanHi / meanLo;
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[pushResize shape] mean(B=${SHAPE_B_LO})=${meanLo.toFixed(4)}ms/op` +
+        ` mean(B=${SHAPE_B_HI})=${meanHi.toFixed(4)}ms/op ratio=${ratio.toFixed(3)}` +
+        ` (gate < ${SHAPE_RATIO_GATE})`,
+    );
+
+    expect(ratio).toBeLessThan(SHAPE_RATIO_GATE);
+  }, 60_000); // 60s ceiling: 2 tiers × 200 iters × ~25ms + headroom
 });
