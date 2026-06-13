@@ -105,6 +105,22 @@ This avoids overloading `canvas` across:
 - the HTML canvas implementation primitive;
 - a future bounded drawing/sketch/diagram block.
 
+### Auto-fit height (limited-height + grow)
+
+A block MAY declare an **auto-fit** height policy. When on, the block shows **no scrollbar**
+and its height tracks its rendered content, in whole grid rows, never falling below an
+author-set **floor** (the block's minimum height; defaults to its insert/hole-fill size).
+The author controls width (colSpan) and floor; content drives height within that floor.
+
+- Auto-fit is a **block-level capability** (generalizable to any kind); markdown enables it by
+  default in this round, other kinds opt in later (dev/UI gating, not a product restriction).
+- Turning auto-fit **off** restores manual height resize + scrolling.
+- Height changes reflow the page **locally and reversibly within one active editing session**
+  (typing then deleting returns the layout to where it was). Once an author pauses and a
+  genuinely-taller block is committed, normal page compaction applies. See [ADR-0028].
+- The engine never measures content; rendered height is measured in the browser at edit time
+  and persisted; published/static pages trust the stored height and clip (no scrollbar).
+
 ### Built-In Catalog Roadmap
 
 | Milestone | Block catalog product target |
@@ -263,3 +279,4 @@ See [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) for P
 - 2026-05-23 initial draft: created separate `blocks/` feature PRD for block content-kind capability; separated block product contract from notepage workflow and plugin-system extension-author lifecycle.
 - 2026-05-23 parent/sub-PRD split: narrowed `blocks.md` to the top-level block abstraction; moved markdown-specific M2/editor detail to [block-markdown.md](./block-markdown.md); added skeleton sub-PRDs for image, code, and drawing; removed callout and standalone math from the current candidate list.
 - 2026-05-23 closeout pass: clarified block instance placement ownership, removed concrete sub-PRDs from upstream dependencies, replaced legacy markdown editor wording with editor replacement framing, and captured the block-kind module as the stable product interface.
+- 2026-06-14 autofit PRD pass: added "Auto-fit height (limited-height + grow)" capability subsection — block-level policy, floor semantics, session-reversibility, engine-side measurement boundary, [ADR-0028] citation (source: autofit spec §9).

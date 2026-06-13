@@ -107,6 +107,12 @@ The author can:
 
 Layout operations must preserve grid invariants and surface failures. The user must be able to understand that an operation failed and broadly why.
 
+- **Vertical resize handle on an auto-fit block sets the floor** (minimum height), not a fixed
+  height: content taller than the floor keeps the block at content height; dragging shorter
+  than current content "bottoms out" at the content line. Width resize behaves as before.
+- Auto-fit reflow is **reversible within an active editing session** and never disturbs blocks
+  in columns the edited block does not occupy, within that session (see blocks.md / [ADR-0028]).
+
 ### Gravity Toggle
 
 The authoring surface exposes the per-notepage gravity setting ([notepage.md] Gravity Setting): with gravity ON, layout operations re-settle blocks upward; with gravity OFF, the author places blocks freely and floating layouts persist. The toggle's exact control form factor is a dev/theme decision; the behavior — author-only ownership, per-page persistence, no GridState rewrite on toggle itself — is product-locked. Re-enable collapse UX follows the parent PRD's open question.
@@ -333,3 +339,4 @@ PRD-layer upstream dependencies:
 - 2026-05-22 pass 5 — authoring state + BDD rewrite：改为 What / Why / Whole picture / Author-facing experience / BDD Acceptance / Reference；同步 parent private/public、author working state vs public read state、update-public action、BDD acceptance discipline，同时保留 algorithm contract as product-facing obligations。
 - 2026-06-11 gravity toggle absorption：Author-Facing Experience 加 Gravity Toggle 节（行为 product-locked / 形态 dev-theme / re-enable UX 随 parent open question）；对应 [notepage.md] 2026-06-11 Gravity Setting 决策。
 - 2026-05-23 closeout：收窄 update-public Open Question；只保留 label / placement / save-control coupling，explicit reader-visible update boundary 不再重开。
+- 2026-06-14 autofit PRD pass: Layout Operations 增 auto-fit resize 语义（floor-not-fixed-height / bottoms-out / width-unchanged）+ session-reversibility + 旁列不扰（source: autofit spec §9 / [ADR-0028]）。
