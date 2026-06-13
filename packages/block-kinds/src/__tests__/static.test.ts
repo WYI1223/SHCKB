@@ -39,6 +39,21 @@ describe('renderStaticPage', () => {
   });
 });
 
+describe('autofit publish overflow', () => {
+  test('autofit block renders overflow:hidden; non-autofit keeps overflow:auto', () => {
+    const doc = {
+      title: 'autofit',
+      blocks: [
+        { id: 'a', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 2, autofit: true, content: { markdown: 'clip me' } },
+        { id: 'b', kind: 'markdown', col: 6, row: 0, colSpan: 6, rowSpan: 2, content: { markdown: 'scroll me' } },
+      ],
+    };
+    const html = renderStaticPage(doc, 's', graphPaper);
+    expect(html).toContain('overflow:hidden');
+    expect(html).toContain('overflow:auto');
+  });
+});
+
 // ----- v2: surface tokens (dark-theme hardcode fix) -----
 
 import { blueprint } from '@skb/theme';
