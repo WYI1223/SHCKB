@@ -182,3 +182,130 @@ describe('pushResize: input guards via isRegionInBounds (engine, not caller)', (
     if (!r.ok) expect(r.error).toContain('no such block');
   });
 });
+
+describe('pushResize: named reversibility fixtures (C5 re-push from base)', () => {
+  /**
+   * Reconcile-from-base round trip:
+   *   grown = pushResize(base, id, target)
+   *   restored = pushResize(base, id, origRowSpan)   // SAME base, not grown
+   * Asserts restored === base exactly, AND every id in `frozen` kept its row
+   * (disjoint columns must never leapfrog).
+   */
+  function assertReversible(
+    base: GridState,
+    id: string,
+    target: number,
+    frozen: string[],
+  ): void {
+    const orig = base.blocks.find((b) => b.id === id)!.rowSpan;
+    const baseN = norm(base);
+
+    const grown = pushResize(base, id, target);
+    expect(grown.ok).toBe(true);
+    if (!grown.ok) return;
+    expect(grown.state.blocks.find((b) => b.id === id)!.rowSpan).toBe(target);
+    expect(validateState(grown.state, { gravity: false }).ok).toBe(true);
+
+    // disjoint-column blocks must not have moved in the grown layout
+    for (const fid of frozen) {
+      expect(grown.state.blocks.find((b) => b.id === fid)!.row).toBe(
+        base.blocks.find((b) => b.id === fid)!.row,
+      );
+    }
+
+    // re-push from BASE back to original span → exact return to base
+    const restored = pushResize(base, id, orig);
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(norm(restored.state)).toBe(baseN);
+  }
+
+  test('G/W/K bridge: grow G, W bridges down, K (shares W cols) reverses cleanly', () => {
+    // G{c0-1,r0,h1} W{c0-5,r1,h1} K{c4-5,r2,h1}. K shares columns with the
+    // bridge W, so K is NOT disjoint; nothing here is frozen-disjoint.
+    const base: GridState = {
+      blocks: [
+        { id: 'G', col: 0, row: 0, colSpan: 2, rowSpan: 1, kind: 'markdown' },
+        { id: 'W', col: 0, row: 1, colSpan: 6, rowSpan: 1, kind: 'markdown' },
+        { id: 'K', col: 4, row: 2, colSpan: 2, rowSpan: 1, kind: 'markdown' },
+      ],
+      totalCols: 12,
+    };
+    assertReversible(base, 'G', 3, []);
+  });
+
+  test('double bridge: two stacked bridges over the grower column', () => {
+    const base: GridState = {
+      blocks: [
+        { id: 'G', col: 0, row: 0, colSpan: 2, rowSpan: 1, kind: 'markdown' },
+        { id: 'W1', col: 0, row: 1, colSpan: 6, rowSpan: 1, kind: 'markdown' },
+        { id: 'W2', col: 0, row: 2, colSpan: 8, rowSpan: 1, kind: 'markdown' },
+        { id: 'K', col: 6, row: 3, colSpan: 2, rowSpan: 1, kind: 'markdown' },
+      ],
+      totalCols: 12,
+    };
+    assertReversible(base, 'G', 4, []);
+  });
+
+  test('full-width stack: every block shares all columns; cascade then reverse', () => {
+    const base: GridState = {
+      blocks: [
+        { id: 'A', col: 0, row: 0, colSpan: 12, rowSpan: 1, kind: 'markdown' },
+        { id: 'B', col: 0, row: 1, colSpan: 12, rowSpan: 1, kind: 'markdown' },
+        { id: 'C', col: 0, row: 2, colSpan: 12, rowSpan: 1, kind: 'markdown' },
+      ],
+      totalCols: 12,
+    };
+    assertReversible(base, 'A', 3, []);
+  });
+
+  test('disjoint columns: right-column block R never moves', () => {
+    // L{c0-2} grows; R{c6-8} shares no column with L → frozen.
+    const base: GridState = {
+      blocks: [
+        { id: 'L', col: 0, row: 0, colSpan: 3, rowSpan: 1, kind: 'markdown' },
+        { id: 'L2', col: 0, row: 1, colSpan: 3, rowSpan: 1, kind: 'markdown' },
+        { id: 'R', col: 6, row: 0, colSpan: 3, rowSpan: 5, kind: 'markdown' },
+      ],
+      totalCols: 12,
+    };
+    assertReversible(base, 'L', 3, ['R']);
+  });
+
+  test('same-column cascade: A pushes B,C,D in one column', () => {
+    const base: GridState = {
+      blocks: [
+        { id: 'A', col: 0, row: 0, colSpan: 2, rowSpan: 1, kind: 'markdown' },
+        { id: 'B', col: 0, row: 1, colSpan: 2, rowSpan: 1, kind: 'markdown' },
+        { id: 'C', col: 0, row: 2, colSpan: 2, rowSpan: 1, kind: 'markdown' },
+        { id: 'D', col: 0, row: 3, colSpan: 2, rowSpan: 1, kind: 'markdown' },
+      ],
+      totalCols: 12,
+    };
+    assertReversible(base, 'A', 4, []);
+  });
+
+  test('gravity-off + autofit-shrink: shrink from base recovers space, no lift', () => {
+    // Start from a grown layout's base, shrink the grower below original.
+    // pushResize is gravity-agnostic, so shrinking just re-derives from base:
+    // the disjoint block stays put and nothing is pulled up.
+    const base: GridState = {
+      blocks: [
+        { id: 'A', col: 0, row: 0, colSpan: 6, rowSpan: 4, kind: 'markdown' },
+        { id: 'B', col: 0, row: 4, colSpan: 6, rowSpan: 1, kind: 'markdown' },
+        { id: 'R', col: 6, row: 0, colSpan: 6, rowSpan: 1, kind: 'markdown' },
+      ],
+      totalCols: 12,
+    };
+    // shrink A 4 -> 2: B does NOT rise (no gravity); A just occupies less.
+    const shrunk = pushResize(base, 'A', 2);
+    expect(shrunk.ok).toBe(true);
+    if (!shrunk.ok) return;
+    expect(shrunk.state.blocks.find((b) => b.id === 'A')!.rowSpan).toBe(2);
+    expect(shrunk.state.blocks.find((b) => b.id === 'B')!.row).toBe(4); // unmoved
+    expect(shrunk.state.blocks.find((b) => b.id === 'R')!.row).toBe(0); // disjoint, unmoved
+    expect(validateState(shrunk.state, { gravity: false }).ok).toBe(true);
+    // and grow-then-shrink-from-base round trip back to base
+    assertReversible(base, 'A', 6, ['R']);
+  });
+});
