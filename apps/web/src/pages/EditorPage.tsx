@@ -103,18 +103,42 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     initialBlocks: useMemo(() => detail.blocks.map(({ content: _c, ...geom }) => geom), [detail.blocks]),
     initialGravity: detail.page.gravityEnabled,
     defaultSizeFor,
+    initialAutofit: useMemo(
+      () => Object.fromEntries(detail.blocks.map((b) => [b.id, b.autofit ?? null])),
+      [detail.blocks],
+    ),
+    initialMinRowSpan: useMemo(
+      () => Object.fromEntries(detail.blocks.map((b) => [b.id, b.minRowSpan ?? null])),
+      [detail.blocks],
+    ),
     onBlockInserted: (block: Block) => {
       const mod = blockModule(block.kind);
       setContents((c) => ({ ...c, [block.id]: mod ? mod.createContent() : null }));
+      if (block.kind === 'markdown') {
+        interaction.setAutofit(block.id, 'grow');
+        interaction.setMinRowSpan(block.id, block.rowSpan);
+      }
     },
   });
 
   // ----- autosave (debounced) -----
   const save = useCallback(async (): Promise<boolean> => {
+    // ATOMICITY / CORRECTNESS (spec §4.4 手势边界): the grown interim is
+    // non-gravity-stable (a neighbor was pushed down with gravity suspended),
+    // and the server PUT runs validateState({ gravity: true }) which REJECTS
+    // a non-stable layout on gravity-on pages (422). So we NEVER PUT the
+    // grown interim. While a block is active its autofit gesture owns the
+    // layout; the gesture commits on deactivation (Escape/blur) or typing-idle
+    // debounce — the controller runs the commit-recompact applyGravity once
+    // (gravity-on pages) and ONLY that gravity-stable committed state is PUT.
+    // Reversibility is therefore scoped to one active editing session / burst.
+    if (activeId !== null) return true; // treat as a no-op success; re-armed on next change
     setStatus({ kind: 'saving' });
     const blocks: WorkingBlock[] = interaction.state.blocks.map((b) => ({
       ...b,
       shell: shellsRef.current[b.id] ?? null,
+      autofit: interaction.autofit[b.id] ?? null,
+      minRowSpan: interaction.minRowSpan[b.id] ?? null,
       content: contentsRef.current[b.id] ?? null,
     }));
     try {
@@ -134,7 +158,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
       }
       return false;
     }
-  }, [pageId, title, interaction.state, interaction.gravityEnabled]);
+  }, [pageId, title, interaction.state, interaction.gravityEnabled, interaction.autofit, interaction.minRowSpan, activeId]);
 
   useAutosave({
     save,

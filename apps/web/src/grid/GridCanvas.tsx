@@ -6,6 +6,7 @@
  * blocks render the module RenderView (preview), only the active block
  * mounts its EditView (block-markdown.md performance boundary).
  */
+import { useState } from 'react';
 import { totalRows, type Block } from '@skb/grid-engine';
 import { BLOCK_KINDS, blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
 import { resolveBlockFrame, shellOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
@@ -13,6 +14,8 @@ import { BENCH } from '../chrome/bench';
 import { useOverlays, type MenuItem } from '../chrome/overlays';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
+import { MeasureProbe } from './MeasureProbe';
+import { useAutofitGesture } from './useAutofitGesture';
 
 const MIN_ROWS_PADDING = 4;
 /** Sheet margin around the grid — the board's edge belongs to the sheet. */
@@ -169,6 +172,18 @@ function BlockShell({
   // author shell choice resolves to its own Frame (M6-D3).
   const shell = shells[block.id] ?? null;
   const Frame = resolveBlockFrame(theme, block.kind, shell) ?? theme.BlockFrame ?? DefaultBlockFrame;
+  // Autofit: 'grow' = content drives rowSpan; 'off'/null = legacy.
+  const isAutofit = interaction.autofit[block.id] === 'grow';
+  // Content fit measurement (rows) — fed by MeasureProbe, used by gesture.
+  const [fit, setFit] = useState(block.rowSpan);
+  // Autofit gesture controller (C5 reconcile-from-base; gestureActive gates autosave).
+  useAutofitGesture({
+    interaction,
+    activeId: isActive ? block.id : null,
+    enabled: isAutofit,
+    floor: interaction.minRowSpan[block.id] ?? block.rowSpan,
+    fit,
+  });
 
   return (
     <div
@@ -209,6 +224,16 @@ function BlockShell({
           { x: e.clientX, y: e.clientY },
           [
             { label: 'edit', onSelect: () => onActivate(block.id) },
+            ...(block.kind === 'markdown'
+              ? [
+                  {
+                    label: 'auto height',
+                    checked: isAutofit,
+                    onSelect: () =>
+                      interaction.setAutofit(block.id, isAutofit ? 'off' : 'grow'),
+                  } as MenuItem,
+                ]
+              : []),
             ...shellSection,
             { kind: 'separator' },
             {
@@ -275,7 +300,7 @@ function BlockShell({
             color: theme.textColor,
           }}
         >
-          <div style={{ flex: 1, minHeight: 0, overflow: 'visible' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: isAutofit ? 'hidden' : 'visible' }}>
             <BlockBody
               block={block}
               mod={mod}
@@ -286,13 +311,34 @@ function BlockShell({
           </div>
         </div>
       </Frame>
+      {/* MeasureProbe: offscreen measurement surface for autofit markdown
+          blocks; doubles as visible ghost preview when the block is active
+          (spec §5.3 / §7). Mounted ONLY for active autofit markdown blocks. */}
+      {isAutofit && block.kind === 'markdown' && (
+        <MeasureProbe
+          kind={block.kind}
+          blockId={block.id}
+          colSpan={block.colSpan}
+          shell={shell}
+          content={contents[block.id]}
+          onFit={setFit}
+          visible={isActive}
+        />
+      )}
       <DeleteButton
         onClick={() => {
           interaction.ops.remove(block.id);
           onBlockDeleted(block.id);
         }}
       />
-      {!isActive && <ResizeHandles block={block} interaction={interaction} slot={slot} />}
+      {!isActive && (
+        <ResizeHandles
+          block={block}
+          interaction={interaction}
+          slot={slot}
+          autofitCtx={{ autofit: isAutofit, currentFit: fit }}
+        />
+      )}
     </div>
   );
 }
