@@ -1,22 +1,28 @@
 /**
  * Seed in-product developer docs for the UNIFIED BLOCK-CAPABILITY
  * architecture (frame-core slice, ADR-0029). Two pages under 开发者文档 /
- * 架构, designed as CANVAS DIAGRAMS (position carries meaning), galley
- * theme — cutout bands = layers/section-rules, keyline plates = pieces:
+ * 架构, designed IMAGE-FORWARD: the spatial reasoning lives in rendered
+ * figures (tools/block-doc-art → PNG blobs), while titles, real code,
+ * and cross-links stay as crisp, selectable, searchable text.
  *
- *   块系统 · 抽象逻辑    — layer-cake + host/satellite composition + a
- *                          nesting staircase (indent = containment) + the
- *                          two capability contracts
- *   块系统 · 实现与权衡  — frame-core/skin code + a 前→后 side-by-side
- *                          tradeoff split + the deferred north-star band
+ *   块系统 · 抽象逻辑    — ① 一个块的解剖（缩进即包含）② 组合而非继承
+ *                          ③ autofit（floor/fit/effective）
+ *   块系统 · 实现与权衡  — ④ 类型即护栏 ⑤ 测量管线 ⑥ 前→后，配真实代码
  *
- * Free placement (gravityEnabled:false) so the spatial layout is exact;
- * rowSpans sized generously (autofit off → scroll, never clip).
+ * Figures are authored at the 12-col content-box width (712px) so they
+ * display ~1:1 and stay legible; rendered at 2x for retina. Free
+ * placement (gravityEnabled:false); image kind = autofit off → fixed box.
+ *
+ * Prereq: render the figures first —
+ *   node tools/block-doc-art/render.mjs
  *
  * Usage:
  *   bun apps/server/scripts/seed-block-system-doc.ts --base http://localhost:4410 \
  *     --email admin@local.dev --password dev-admin-password [--replace]
  */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -28,6 +34,8 @@ const BASE = arg('base').replace(/\/$/, '');
 const EMAIL = arg('email');
 const PASSWORD = arg('password');
 const REPLACE = process.argv.includes('--replace');
+
+const ART = resolve(dirname(fileURLToPath(import.meta.url)), '../../../tools/block-doc-art/out');
 
 let cookie = '';
 async function req(method: string, path: string, body?: unknown) {
@@ -47,6 +55,14 @@ async function login() {
   cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
   if (!cookie) throw new Error('sign-in returned no cookie');
 }
+/** Upload a PNG to the content-addressed blob store → hash (POST /api/blobs). */
+async function uploadPng(file: string): Promise<string> {
+  const bytes = readFileSync(resolve(ART, file));
+  const res = await fetch(`${BASE}/api/blobs`, { method: 'POST', headers: { cookie, 'content-type': 'image/png' }, body: bytes });
+  if (!res.ok) throw new Error(`upload ${file} -> ${res.status}: ${await res.text()}`);
+  const { hash } = (await res.json()) as { hash: string };
+  return hash;
+}
 
 type SeedBlock = { id: string; kind: string; col: number; row: number; colSpan: number; rowSpan: number; shell?: string | null; content: unknown };
 const md = (markdown: string) => ({ markdown });
@@ -58,166 +74,120 @@ function b(id: string, col: number, row: number, colSpan: number, rowSpan: numbe
 function cb(id: string, col: number, row: number, colSpan: number, rowSpan: number, language: string, source: string, shell?: string): SeedBlock {
   return { id, kind: 'code', col, row, colSpan, rowSpan, shell: shell ?? null, content: code(language, source) };
 }
-
-async function createPage(opts: { title: string; folderId: string; themeId: string; blocks: SeedBlock[] }): Promise<string> {
-  const { id } = (await req('POST', '/api/notepages', { title: opts.title })) as { id: string };
-  await req('POST', `/api/notepages/${id}/move`, { folderId: opts.folderId });
-  // gravityEnabled:false → free spatial placement (this is a diagram, not a stack)
-  await req('PUT', `/api/notepages/${id}/working-state`, { title: opts.title, gravityEnabled: false, blocks: opts.blocks });
-  await req('POST', `/api/notepages/${id}/theme`, { themeId: opts.themeId });
-  const pub = (await req('POST', `/api/notepages/${id}/publish`)) as { slug: string };
-  await req('POST', `/api/notepages/${id}/visibility`, { visibility: 'public' });
-  console.log(`  ✓ ${opts.title} -> /edit/${id}  ·  /notes/${pub.slug}`);
-  return id;
+/** image block: im(id, col,row,w,h, blobHash, alt) — figures float bare (own card frame). */
+function im(id: string, col: number, row: number, colSpan: number, rowSpan: number, blobHash: string, alt: string): SeedBlock {
+  return { id, kind: 'image', col, row, colSpan, rowSpan, shell: null, content: { blobHash, alt } };
 }
+
+type Art = Record<'anatomy' | 'composition' | 'autofit' | 'firewall' | 'measure' | 'tradeoff', string>;
 
 const PAGE_ABSTRACT = '块系统 · 抽象逻辑';
 const PAGE_IMPL = '块系统 · 实现与权衡';
 
-// ====================== PAGE 1 — 抽象逻辑（层级 + 组合 + 嵌套楼梯）======================
+// ====================== PAGE 1 — 抽象逻辑（解剖 / 组合 / autofit）======================
 
-function abstractBlocks(): SeedBlock[] {
+function abstractBlocks(H: Art, implId: string): SeedBlock[] {
   return [
-    b('a-title', 0, 0, 12, 2,
+    b('a-title', 0, 0, 12, 3,
       '# 块系统 · 抽象逻辑\n\n' +
-      '**这张画布就是块系统的架构图。** 纵向 = 分层（上层消费下层）；同行并列 = 同层协作；缩进 = 嵌套包含。' +
-      '一句话：功能归 host，kind/theme/UI 是薄插件，在同一个 host 盒上组合，**无基类**。[ADR-0029]'),
+      '块系统的「是什么」，用三张图讲：**① 一个块的解剖（缩进即包含）· ② 组合而非继承 · ③ autofit**。' +
+      '一句话——功能归 host，kind / theme / UI 是薄插件，在同一个 host 盒上组合，**无基类**。`[ADR-0029]`\n\n' +
+      `👉 「怎么做 / 权衡了什么」见 [块系统 · 实现与权衡](/p/${implId})。`),
 
-    // —— 组合：UI 顶 / [kind · host · theme] 中 / canvas 底 ——
-    b('a-band-ui', 0, 2, 12, 1, '**◤ UI-plugin 层（L1）— chrome + frame-core 本体 · 可继承 / 重写（本轮延后）**', 'cutout'),
+    im('a-fig1', 0, 3, 12, 13, H.anatomy,
+      '图①块的解剖：canvas 定位框 → .skb-frame-root → .skb-content-box（host 拥有）→ RenderView，缩进即包含；host 最后落 position/size/overflow。'),
+    im('a-fig2', 0, 16, 12, 15, H.composition,
+      '图②组合而非继承：kind（内容）/ host（盒与能力）/ theme（材质）三个薄插件汇入同一个 host 盒；接口 + registry，无基类。'),
+    im('a-fig3', 0, 31, 12, 12, H.autofit,
+      '图③autofit：有效高 = max(floor, fit)，从不可变 base 快照重算所以可逆（C5）；逐 kind 策略 image=off、文本(md/rich/code)=grow。'),
 
-    b('a-kind', 0, 3, 4, 4,
-      '### kind = 内容\n\n`BlockKindModule`（接口 + registry，**非继承**）。供 RenderView / EditView / extractText + **autofit 策略**。' +
-      '只供内容，**碰不到盒**。', 'keyline'),
-    b('a-host', 4, 3, 4, 4,
-      '### ★ host · frame-core ★\n\n持有**可测量内容盒** · overflow · 几何 · autofit 测量与手势。' +
-      '编辑 / 发布 / 测量**三处同源**。一切在这里组合。', 'keyline'),
-    b('a-theme', 8, 3, 4, 4,
-      '### theme = skin（材质）\n\n供一个 **BlockSkin**（root / box / behind / front）。类型受限纯视觉，' +
-      '**碰不到盒**。原 `shells` → `skins`。', 'keyline'),
-
-    b('a-band-canvas', 0, 7, 12, 1, '**◤ canvas — 几何（定位 / 12 列格子）· vanilla 地板，不可抽走**', 'cutout'),
-
-    // —— 盒的解剖：嵌套楼梯（宽度递减 + 缩进 = 包含）——
-    b('a-band-anatomy', 0, 8, 12, 1, '**◤ 盒的解剖 · 从外到内（每层更窄 + 缩进 = 它被外层包住）**', 'cutout'),
-    b('a-nest-canvas', 0, 9, 12, 1,
-      '**canvas 定位外层** — host 给 `left/top/width/height` + 编辑光环 / 拖拽 / 缩放手柄（编辑器拥有）', 'keyline'),
-    b('a-nest-root', 1, 10, 10, 1,
-      '**.skb-frame-root** — `skin.root`（tilt / filter 纯视觉）；`behind(ctx)` / `front(ctx)` 装饰层在此前后', 'keyline'),
-    b('a-nest-box', 2, 11, 8, 2,
-      '**.skb-content-box ★不变量★** — in-flow · 撑出内容自然高 · 持 `overflow`。' +
-      'host **最后**落 position/size/overflow，skin 类型上写不出这些 → **构造上碰不到**', 'keyline'),
-    b('a-nest-content', 3, 13, 6, 1,
-      '**RenderView** — kind 的内容（markdown / richtext / image / code）', 'keyline'),
-
-    // —— 两个能力契约 ——
-    b('a-band-cap', 0, 14, 12, 1, '**◤ 两个能力契约**', 'cutout'),
-    b('a-autofit', 0, 15, 6, 6,
-      '### autofit · 限高 + grow\n\n' +
-      '- **floor**（`minRowSpan`）= 作者意图的最小高\n' +
-      '- **fit** = 实测行数 `ceil((内容+chrome+2·pad)/slot)`，仅编辑时测、不持久\n' +
-      '- **有效 = `max(floor, fit)`** — 整行往上撑，不回退\n\n' +
-      '逐 kind 策略：image=不可用 · 文本(md/rich/code)=grow。\n' +
-      '**可逆（C5）**：手势内从不可变 base 快照重算 → 打字撑高 / 删回精确归位。', 'keyline'),
-    b('a-skin', 6, 15, 6, 6,
-      '### skin · 材质契约\n\n' +
-      '`BlockSkin { root, box, behind, front, kinds? }`\n\n' +
-      '- `box` / `root` 是**只视觉的 `Pick<>`** → 写不出 `position/overflow/height/display`\n' +
-      '- 故盒不变量是**编译期强制**，不是约定\n' +
-      '- `shells → skins`；`papers`/`palettes` 并入 = 北极星\n' +
-      '- 未知 kind → 框架默认 skin（地板）', 'keyline'),
-
-    b('a-codemap', 0, 21, 12, 3,
-      '**◤ 代码地图** — ' +
+    b('a-close', 0, 43, 12, 4,
+      '**代码地图** — ' +
       'skin 契约 `packages/theme/src/skin.ts` · host 盒 `packages/block-kinds/src/BlockFrameCore.tsx` · ' +
       'kind 契约 `…/block-kinds/src/types.ts` · 测量 `apps/web/src/grid/MeasureProbe.tsx` · ' +
       'C5 手势 `…/grid/useAutofitGesture.ts` · 不变量护栏 `…/block-kinds/src/__tests__/frame-invariant.test.tsx`。\n\n' +
-      '决策档（git）：**[ADR-0029]**（host frame-core + BlockSkin；修订 [ADR-0025] / 扩展 [ADR-0028]）。' +
-      '详见同层「实现与权衡」页。', 'cutout'),
+      '决策档（git）：**[ADR-0029]** host frame-core + BlockSkin（修订 `[ADR-0025]` §1/§2、扩展 `[ADR-0028]`）。',
+      'keyline'),
   ];
 }
 
-// ====================== PAGE 2 — 实现与权衡（代码 + 前→后并列）======================
+// ====================== PAGE 2 — 实现与权衡（代码 + 前→后）======================
 
-function implBlocks(): SeedBlock[] {
+const SKIN_CODE =
+  'type SkinBoxStyle = Pick<CSSProperties,\n' +
+  "  | 'background' | 'backgroundImage' | 'backgroundSize'\n" +
+  "  | 'border' | 'borderLeft' | 'borderRadius' | 'borderImage'\n" +
+  "  | 'padding' | 'color' | 'boxShadow'\n" +
+  "  | 'fontSize' | 'lineHeight' | 'scrollbarWidth'>;\n" +
+  '// ✗ 没有 position/overflow/height/display/inset —— 不可表达 = 不可破坏';
+
+const CORE_CODE =
+  'return (\n' +
+  "  <div className={`skb-frame-root ${skin.root?.className ?? ''}`} data-kind={kind}\n" +
+  "       style={{ position:'relative', width:'100%', height:'100%',\n" +
+  '                ...skin.root?.style, ...skin.rootStyleOf?.(ctx) }}>\n' +
+  '    {skin.behind?.(ctx)}                          {/* 撕边/卷角等装饰 */}\n' +
+  "    <div className={`skb-content-box ${skin.box?.className ?? ''}`}\n" +
+  '         style={{ ...defaultBox, ...skin.box?.style,    /* skin 视觉先铺 */\n' +
+  "                  position:'relative', width:'100%', height:'100%',\n" +
+  '                  overflow: blockOverflow(autofit) }}>  {/* ★host 最后落★ */}\n' +
+  '      {children}                                  {/* kind 的 RenderView */}\n' +
+  '    </div>\n' +
+  '    {skin.front?.(ctx)}                           {/* 和纸胶带等装饰 */}\n' +
+  '  </div>\n' +
+  ');';
+
+const DEFERRED_TEXT =
+  '**延后 / 北极星 — 记录在案，不随时间消失（PRD Phase-2+ · ADR-0029 Deferred）**\n\n' +
+  '本轮 = internal slice：设计统一目标，只落地内部归位。\n\n' +
+  '- **UI-plugin extension type** — L1 正式契约（如何注册 / 可替换 / 可扩展）\n' +
+  '- **frame-core 替换 / 扩展** — Open/Closed：整体替换 + 加法扩展，**永不局部改写**；替换者必守「可测量 + 持 overflow」盒能力\n' +
+  '- **theme 完全简化** — `CanvasSurface` / `PageTitle` 也移出 theme（本轮暂留）\n' +
+  '- **skin 统一** — `papers` + `palettes` + block `skins` 合一 · **theme asset pipeline** · **published-asset 安全闸门**（第三方 SVG/url XSS）\n\n' +
+  '**纪律**：chrome 契约**最后冻结**——先见够多形态（5 主题 + 3 个 ui-fork 分支），再固化。';
+
+function implBlocks(H: Art, absId: string): SeedBlock[] {
   return [
-    b('i-title', 0, 0, 12, 2,
+    b('i-title', 0, 0, 12, 3,
       '# 块系统 · 实现与权衡\n\n' +
-      '左半=问题/前，右半=解法/后——**横向对照**。上半是真实代码，下半是权衡与延后。'),
+      '「怎么做」「权衡了什么」，三张图配两段真实代码：**④ 类型即护栏 · ⑤ 测量管线 · ⑥ 前 → 后**。\n\n' +
+      `👈 「是什么」见 [块系统 · 抽象逻辑](/p/${absId})。`),
 
-    b('i-band-core', 0, 2, 12, 1, '**◤ host frame-core — 盒不变量：host 属性最后落，skin 永远赢不了**', 'cutout'),
-    cb('i-core', 0, 3, 12, 8, 'tsx',
-      'return (\n' +
-      '  <div className={`skb-frame-root ${skin.root?.className ?? \'\'}`} data-kind={kind}\n' +
-      '       style={{ position:\'relative\', width:\'100%\', height:\'100%\',\n' +
-      '                ...skin.root?.style, ...skin.rootStyleOf?.(ctx) }}>\n' +
-      '    {skin.behind?.(ctx)}                         {/* 撕边/卷角等装饰 */}\n' +
-      '    <div className={`skb-content-box ${skin.box?.className ?? \'\'}`}\n' +
-      '         style={{ ...defaultBox, ...skin.box?.style,   /* skin 视觉先铺 */\n' +
-      '                  position:\'relative\', width:\'100%\', height:\'100%\',\n' +
-      '                  overflow: blockOverflow(autofit) }}>  {/* ★host 最后落★ */}\n' +
-      '      {children}                                 {/* kind 的 RenderView */}\n' +
-      '    </div>\n' +
-      '    {skin.front?.(ctx)}                          {/* 和纸胶带等装饰 */}\n' +
-      '  </div>\n' +
-      ');'),
+    im('i-fig4', 0, 3, 12, 11, H.firewall,
+      '图④类型即护栏：skin 的 box.style 是只含视觉属性的 Pick<>；position/overflow/height/display 在类型里根本不存在 → 编译期拦住。'),
+    cb('i-code-skin', 0, 14, 12, 6, 'ts', SKIN_CODE, 'keyline'),
 
-    b('i-band-skin', 0, 11, 12, 1, '**◤ BlockSkin — 类型即护栏（写不出 position / overflow / height）**', 'cutout'),
-    b('i-skin-md', 0, 12, 5, 4,
-      '### 类型 = 强制\n\n`box.style` 不是任意 `CSSProperties`，是**只视觉**的 `Pick<>` 子集。' +
-      '插件作者（或 skin）**物理上**写不出破坏布局的属性 → stationery 那种塌缩不可能再发生。\n\n' +
-      '`rootStyleOf(ctx)` 给逐块视觉（如 tilt）。', 'keyline'),
-    cb('i-skin-code', 5, 12, 7, 4, 'ts',
-      'type SkinBoxStyle = Pick<CSSProperties,\n' +
-      '  | \'background\' | \'backgroundImage\' | \'backgroundSize\'\n' +
-      '  | \'border\' | \'borderLeft\' | \'borderRadius\' | \'borderImage\'\n' +
-      '  | \'padding\' | \'color\' | \'boxShadow\'\n' +
-      '  | \'fontSize\' | \'lineHeight\' | \'scrollbarWidth\'>;\n' +
-      '// ✗ 没有 position/overflow/height/display/inset\n' +
-      '//   不可表达 = 不可破坏'),
+    im('i-fig5', 0, 20, 12, 13, H.measure,
+      '图⑤测量管线：前 = 量 frame 外层 auto 高，绝对定位主题塌成 0；后 = 离屏定高探针，量 AREA/CONTENT，chrome = 格高 − area 反推，与壳无关。'),
+    im('i-fig6', 0, 33, 12, 13, H.tradeoff,
+      '图⑥前→后：同 6 行内容，stationery 塌成 1 行 vs host 持盒撑成 6 行；盒结构 / autofit / 测量 / 空块占位 四项权衡。'),
 
-    // —— 权衡：前 → 后 并列 ——
-    b('i-band-tradeoff', 0, 16, 12, 1, '**◤ 权衡 · 前 → 后（左：问题　右：解法）**', 'cutout'),
-    b('i-before-hdr', 0, 17, 6, 1, '**前 · 结构是 theme 的权力**', 'cutout'),
-    b('i-after-hdr', 6, 17, 6, 1, '**后 · 盒归 host，类型守门**', 'cutout'),
+    cb('i-code-core', 0, 46, 12, 9, 'tsx', CORE_CODE, 'keyline'),
 
-    b('i-b1', 0, 18, 6, 3,
-      '**盒结构**\n\n`theme.BlockFrame` 自画盒；stationery `.skb-paper{position:absolute;inset:3px}` → ' +
-      '离屏测量塌成 0 高 → **fit 恒为 1，6 行内容压进 1 行**（galley 对照量到 6）。', 'keyline'),
-    b('i-a1', 6, 18, 6, 3,
-      '**盒结构**\n\nhost 持盒 + 类型受限 skin + 不变量测试（逐 theme×kind×skin）→ ' +
-      '**这类 bug 构造上不可能**，对第三方插件 kind 也一样。', 'keyline'),
-
-    b('i-b2', 0, 21, 6, 2,
-      '**autofit**\n\n两个 `kind === \'markdown\'` 闸门 + markdown 专属 seeding。', 'keyline'),
-    b('i-a2', 6, 21, 6, 2,
-      '**autofit**\n\n机制本就 kind-agnostic → 解闸 + `BlockKindModule.autofit` 字段（image=false · 文本=grow）。', 'keyline'),
-
-    b('i-b3', 0, 23, 6, 2,
-      '**测量**\n\n量 frame 外层 auto 高 → 绝对定位主题塌成 0 + 漏 `2·pad` 格内缩。', 'keyline'),
-    b('i-a3', 6, 23, 6, 2,
-      '**测量**\n\n确定高离屏 + AREA(`height:100%`)/CONTENT(`auto`) + `chrome=格高−area` 反推。', 'keyline'),
-
-    b('i-b4', 0, 25, 6, 2,
-      '**空块占位**\n\n「Empty markdown block」泄漏到发布页（读者看见编辑器术语）。', 'keyline'),
-    b('i-a4', 6, 25, 6, 2,
-      '**空块占位**\n\n空 = 空白；编辑态靠卡片框 + EditView「Write markdown…」提示。', 'keyline'),
-
-    // —— 延后 / 北极星 ——
-    b('i-band-deferred', 0, 27, 12, 1, '**◤ 延后 / 北极星 — 记录在案，不随时间消失（PRD Phase-2+ · ADR-0029 Deferred）**', 'cutout'),
-    b('i-deferred', 0, 28, 12, 4,
-      '**本轮 = internal slice：设计统一目标，只落地内部归位。**\n\n' +
-      '- **UI-plugin extension type** — L1 正式契约（如何注册 / 可替换 / 可扩展）\n' +
-      '- **frame-core 替换/扩展** — Open/Closed：整体替换 + 加法扩展，**永不局部改写**；替换者必守「可测量 + 持 overflow」盒能力\n' +
-      '- **theme 完全简化** — `CanvasSurface`/`PageTitle` 也移出 theme（本轮暂留）\n' +
-      '- **skin 统一** — `papers` + `palettes` + block `skins` 合一 · **theme asset pipeline**（打包字体/图片文件）· **published-asset 安全闸门**（第三方 SVG/url XSS）\n\n' +
-      '**纪律**：chrome 契约**最后冻结**——先见够多形态（5 主题 + 3 个 ui-fork 分支），再固化。', 'keyline'),
+    b('i-deferred', 0, 55, 12, 5, DEFERRED_TEXT, 'cutout'),
   ];
+}
+
+// ====================== drive ======================
+
+async function createBlank(title: string, folderId: string): Promise<string> {
+  const { id } = (await req('POST', '/api/notepages', { title })) as { id: string };
+  await req('POST', `/api/notepages/${id}/move`, { folderId });
+  return id;
+}
+async function populate(id: string, title: string, themeId: string, blocks: SeedBlock[]): Promise<void> {
+  // gravityEnabled:false → exact placement (figures stacked, no compaction)
+  await req('PUT', `/api/notepages/${id}/working-state`, { title, gravityEnabled: false, blocks });
+  await req('POST', `/api/notepages/${id}/theme`, { themeId });
+  const pub = (await req('POST', `/api/notepages/${id}/publish`)) as { slug: string };
+  await req('POST', `/api/notepages/${id}/visibility`, { visibility: 'public' });
+  console.log(`  ✓ ${title} -> /edit/${id}  ·  /notes/${pub.slug}`);
 }
 
 async function main() {
-  console.log(`seeding block-system docs (canvas-diagram redesign) -> ${BASE}`);
+  console.log(`seeding block-system docs (image-forward redesign) -> ${BASE}`);
   await login();
+
   const tree = (await req('GET', '/api/tree')) as {
     folders: Array<{ id: string; name: string; parentId: string | null }>;
     notepages: Array<{ id: string; folderId: string | null; title: string }>;
@@ -233,8 +203,21 @@ async function main() {
     for (const p of existing) { await req('DELETE', `/api/notepages/${p.id}`); console.log(`  − ${p.title}`); }
   }
 
-  await createPage({ title: PAGE_ABSTRACT, folderId: arch.id, themeId: 'galley', blocks: abstractBlocks() });
-  await createPage({ title: PAGE_IMPL, folderId: arch.id, themeId: 'galley', blocks: implBlocks() });
+  console.log('uploading figures…');
+  const H: Art = {
+    anatomy: await uploadPng('01-anatomy.png'),
+    composition: await uploadPng('02-composition.png'),
+    autofit: await uploadPng('03-autofit.png'),
+    firewall: await uploadPng('04-firewall.png'),
+    measure: await uploadPng('05-measure.png'),
+    tradeoff: await uploadPng('06-tradeoff.png'),
+  };
+
+  // create both blanks first so each page can permalink the other (/p/:id)
+  const absId = await createBlank(PAGE_ABSTRACT, arch.id);
+  const implId = await createBlank(PAGE_IMPL, arch.id);
+  await populate(absId, PAGE_ABSTRACT, 'galley', abstractBlocks(H, implId));
+  await populate(implId, PAGE_IMPL, 'galley', implBlocks(H, absId));
   console.log('done.');
 }
 
