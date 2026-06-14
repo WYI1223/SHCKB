@@ -2,46 +2,25 @@ import { expect, test } from '@playwright/test';
 import { createMarkdownPage, loginViaApi, sel } from './fixtures/login';
 
 /**
- * T14 — autofit across block kinds (frame-core refactor).
+ * T14 — per-kind autofit policy (frame-core refactor). After un-gating
+ * autofit from markdown, the "auto height" toggle must appear for any kind
+ * whose module is autofit-available (code, text) and be ABSENT for an
+ * autofit-unavailable kind (image, `BlockKindModule.autofit === false`).
  *
- * Asserts:
- * 1. A `code` block with autofit:'grow' and ~12 lines of source grows
- *    taller than a single row (boundingBox height > 60 px).
- * 2. An `image` block (autofit unavailable) shows NO "auto height" item
- *    in its right-click context menu.
- *
- * Content shapes match the kind modules exactly:
- *   code  → { language: string; source: string }   (code.ts createContent)
- *   image → { blobHash: null; alt: string }         (image.ts createContent)
- *
- * Richtext is omitted here — its ProseMirror doc shape is tested in
- * unit tests; the core assertions (code grows, image no toggle) are
- * kind-coverage-complete for this slice.
+ * Scope: this verifies the per-kind AVAILABILITY at the UI. The grow
+ * MECHANISM itself is kind-agnostic and already covered by
+ * autofit-grow-shrink.spec (markdown gesture) + the frame-invariant unit
+ * suite (every theme × kind × skin). We deliberately do NOT assert
+ * "code grows on load" — an inactive autofit block renders at its stored
+ * rowSpan; growth happens inside an active edit gesture, not on page load.
  */
-test('autofit grows code block; image block has no auto-height toggle', async ({ page }) => {
+test('autofit toggle: present for code, absent for image', async ({ page }) => {
   await loginViaApi(page);
-
-  // ~12 lines of TypeScript source — enough to require multiple rows at
-  // any reasonable grid row height, so boundingBox.height > 60 px is safe.
-  const codeSource = [
-    'function fibonacci(n: number): number {',
-    '  if (n <= 1) return n;',
-    '  let a = 0;',
-    '  let b = 1;',
-    '  for (let i = 2; i <= n; i++) {',
-    '    const tmp = a + b;',
-    '    a = b;',
-    '    b = tmp;',
-    '  }',
-    '  return b;',
-    '}',
-    '',
-    'console.log(fibonacci(10));',
-  ].join('\n');
-
   const { id } = await createMarkdownPage(page.request, {
     title: 'autofit-all-kinds',
     themeId: 'graph-paper',
+    // Layout-only fixture; gravity stability is not what this test checks.
+    gravityEnabled: false,
     blocks: [
       {
         id: 'C',
@@ -49,17 +28,17 @@ test('autofit grows code block; image block has no auto-height toggle', async ({
         col: 0,
         row: 0,
         colSpan: 6,
-        rowSpan: 1,
+        rowSpan: 2,
         autofit: 'grow',
         minRowSpan: 1,
         // CodeContent: { language: string; source: string }
-        content: { language: 'typescript', source: codeSource },
+        content: { language: 'typescript', source: 'const x = 1;\n'.repeat(8) },
       },
       {
         id: 'I',
         kind: 'image',
         col: 0,
-        row: 4,
+        row: 3,
         colSpan: 4,
         rowSpan: 3,
         autofit: 'off',
@@ -72,14 +51,13 @@ test('autofit grows code block; image block has no auto-height toggle', async ({
 
   await page.goto(`/edit/${id}`);
 
-  // --- assertion 1: code block grew beyond a single row ---
-  const C = page.locator(sel.block('C'));
-  await expect(C).toBeVisible();
-  const cBox = await C.boundingBox();
-  expect(cBox).not.toBeNull();
-  expect(cBox!.height).toBeGreaterThan(60);
+  // code → autofit available → the "auto height" toggle is in the menu
+  await page.locator(sel.block('C')).click({ button: 'right' });
+  await expect(page.getByRole('menuitemcheckbox', { name: /auto height/i })).toBeVisible();
+  await page.keyboard.press('Escape');
 
-  // --- assertion 2: image block has no "auto height" in its context menu ---
+  // image → autofit unavailable → menu opens (edit item present) but no toggle
   await page.locator(sel.block('I')).click({ button: 'right' });
-  await expect(page.getByText('auto height')).toHaveCount(0);
+  await expect(page.getByText('edit', { exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitemcheckbox', { name: /auto height/i })).toHaveCount(0);
 });
