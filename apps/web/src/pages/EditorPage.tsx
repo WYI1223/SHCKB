@@ -114,8 +114,9 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     onBlockInserted: (block: Block) => {
       const mod = blockModule(block.kind);
       setContents((c) => ({ ...c, [block.id]: mod ? mod.createContent() : null }));
-      if (block.kind === 'markdown') {
-        interaction.setAutofit(block.id, 'grow');
+      const af = mod?.autofit;
+      if (af && typeof af === 'object' && af.default !== 'off') {
+        interaction.setAutofit(block.id, af.default);
         interaction.setMinRowSpan(block.id, block.rowSpan);
       }
     },
