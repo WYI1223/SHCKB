@@ -37,13 +37,20 @@ const DOC = {
 
 describe('theme render slots', () => {
   test('default rendering exposes class hooks', () => {
+    // Published path now routes through BlockFrameCore: .skb-frame-root and
+    // .skb-content-box replace the legacy .skb-block class on the default skin.
     const html = renderStaticPage(DOC, 's', graphPaper);
     expect(html).toContain('class="skb-canvas"');
-    expect(html).toContain('skb-block');
+    expect(html).toContain('class="skb-frame-root"');
+    expect(html).toContain('class="skb-content-box"');
+    expect(html).not.toContain('class="skb-block"');
     expect(html).toContain('data-kind="markdown"');
   });
 
-  test('custom BlockFrame replaces the shell; custom PageTitle replaces h1', () => {
+  test('theme.BlockFrame slot is superseded; custom PageTitle still replaces h1', () => {
+    // The BlockFrame theme slot is now superseded by BlockSkin (ADR-0025 amendment):
+    // the published path uses BlockFrameCore + resolveSkin regardless of theme.BlockFrame.
+    // PageTitle is still honoured (it is a separate CanvasSurface-level slot).
     const themed: Theme = {
       ...graphPaper,
       id: 'custom',
@@ -52,8 +59,11 @@ describe('theme render slots', () => {
       PageTitle: ({ title }) => createElement('h2', { className: 'my-title' }, title),
     };
     const html = renderStaticPage(DOC, 's', themed);
-    expect(html).toContain('class="my-frame"');
-    expect(html).toContain('data-bid="b1"');
+    // BlockFrame slot is NOT used — block still renders via BlockFrameCore.
+    expect(html).not.toContain('class="my-frame"');
+    expect(html).toContain('class="skb-frame-root"');
+    expect(html).toContain('class="skb-content-box"');
+    // PageTitle slot IS still used.
     expect(html).toContain('<h2 class="my-title">slots</h2>');
     expect(html).toContain('hello'); // content still renders inside
   });
@@ -209,11 +219,11 @@ describe('stationery deep showcase', () => {
     ],
   };
 
-  // Stationery's block frame is now a BlockSkin rendered through
-  // BlockFrameCore (rotate/washi live on the skin's root/front, not on the
-  // legacy DefaultBlockFrame the published renderer still uses until its
-  // own migration task). Assert the skin output so per-block tilt is what's
-  // actually checked, not the static `.skb-curl` rotations in the <style>.
+  // Stationery's block frame is a BlockSkin rendered through BlockFrameCore
+  // (rotate/washi live on the skin's root/front). The published renderer now
+  // also routes through BlockFrameCore + resolveSkin (migration complete).
+  // Assert the skin output so per-block tilt is what's actually checked,
+  // not the static `.skb-curl` rotations in the <style>.
   test('deterministic: identical bytes across renders; distinct rotations per block', () => {
     const alphaA = renderSkin(stationery, 'markdown', null, 'alpha');
     const alphaB = renderSkin(stationery, 'markdown', null, 'alpha');
