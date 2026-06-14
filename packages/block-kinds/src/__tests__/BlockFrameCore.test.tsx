@@ -47,4 +47,17 @@ describe('BlockFrameCore', () => {
     const root = renderCore(false).container.querySelector('.skb-frame-root') as HTMLElement;
     expect(root.style.transform).toBe('rotate(1deg)');
   });
+
+  test('default skin renders framework card styling', () => {
+    const { container } = render(
+      <ThemeProvider theme={graphPaper}>
+        <BlockFrameCore kind="markdown" blockId="y" colSpan={4} rowSpan={2} skin={{ id: '__default', name: 'Default' }}>
+          <span />
+        </BlockFrameCore>
+      </ThemeProvider>,
+    );
+    const box = container.querySelector('.skb-content-box') as HTMLElement;
+    expect(box.style.background).toBe(graphPaper.blockBg);
+    expect(box.style.borderRadius).toBe(graphPaper.blockRadius);
+  });
 });
