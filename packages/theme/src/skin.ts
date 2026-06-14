@@ -19,7 +19,13 @@ export type SkinCtx = {
 
 export type SkinRootStyle = Pick<
   CSSProperties,
-  'transform' | 'transformOrigin' | 'filter' | 'opacity' | 'mixBlendMode' | 'isolation'
+  // transform/filter/opacity/blend = post-layout visual (tilt, drop-shadow).
+  // padding insets the in-flow content box from the geometry-fill root WITHOUT
+  // detaching it or touching overflow ownership — this is the stationery 3px
+  // torn rim (spec §5: the box insets, the absolute `.skb-paper-edge` behind
+  // shows through the gap). It is layout-benign for the box invariant: the host
+  // still applies position/overflow/width/height on the box last.
+  'transform' | 'transformOrigin' | 'filter' | 'opacity' | 'mixBlendMode' | 'isolation' | 'padding'
 >;
 
 export type SkinBoxStyle = Pick<

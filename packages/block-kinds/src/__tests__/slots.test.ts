@@ -1,7 +1,34 @@
 import { describe, expect, test } from 'vitest';
 import { createElement } from 'react';
-import { graphPaper, stationery, workbench, type Theme } from '@skb/theme';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { graphPaper, resolveSkin, skinOptionsFor, stationery, ThemeContext, workbench, type Theme } from '@skb/theme';
 import { renderStaticPage } from '../static';
+import { BlockFrameCore } from '../BlockFrameCore';
+
+/** Render a block's frame the way BlockFrameCore does — the NEW block-frame
+ * path (the published renderer's migration to BlockFrameCore is a later task;
+ * assert the skin contract directly so this test tracks the new architecture,
+ * not the legacy BlockFrame slot). Uses ThemeContext.Provider (not
+ * ThemeProvider) so globalCss is NOT injected — the output is pure block
+ * markup, so class/transform assertions don't match the <style> text. */
+function renderSkin(theme: Theme, kind: string, skinId: string | null, blockId = 'b1'): string {
+  const skin = resolveSkin(theme, kind, skinId);
+  return renderToStaticMarkup(
+    createElement(
+      ThemeContext.Provider,
+      { value: theme },
+      createElement(BlockFrameCore, {
+        kind,
+        blockId,
+        colSpan: 6,
+        rowSpan: 2,
+        autofit: false,
+        skin,
+        children: createElement('p', null, 'hello'),
+      }),
+    ),
+  );
+}
 
 const DOC = {
   title: 'slots',
@@ -57,34 +84,48 @@ describe('author appearance (MVP-6 M6-D3/D4)', () => {
     expect(unknown).toContain('border:1px solid'); // default card retained
   });
 
-  test('stationery shells: card drops torn edge, bare drops the paper entirely', () => {
-    // assert on element markup (class="…"), not bare names — globalCss
-    // in <style> contains the same selectors for every render
-    const paper = renderStaticPage(DOC, 's', stationery);
-    expect(paper).toContain('class="skb-paper-edge"');
+  test('stationery skins: card drops torn edge, bare drops the paper entirely', () => {
+    // Assert the NEW block-frame contract (BlockSkin via BlockFrameCore),
+    // not the legacy published-renderer slot. Class hooks (skb-paper-edge /
+    // skb-washi / skb-bare) are the stable surface the globalCss styles.
+    const paper = renderSkin(stationery, 'markdown', null); // default = paper slip
+    expect(paper).toContain('class="skb-paper-edge"'); // torn silhouette behind
+    expect(paper).toContain('class="skb-washi"'); // tape pinned in front
 
-    const card = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'card' }] }, 's', stationery);
-    expect(card).not.toContain('class="skb-paper-edge"');
+    const card = renderSkin(stationery, 'markdown', 'card');
+    expect(card).not.toContain('class="skb-paper-edge"'); // card has no tear
     expect(card).toContain('class="skb-washi"'); // tape stays — it's the pinning
 
-    const bare = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'bare' }] }, 's', stationery);
+    const bare = renderSkin(stationery, 'markdown', 'bare');
     expect(bare).toContain('skb-bare');
-    expect(bare).not.toContain('class="skb-washi"');
+    expect(bare).not.toContain('class="skb-washi"'); // bare = content on the desk
+    expect(bare).not.toContain('class="skb-paper-edge"');
   });
 
+  // Legacy shells path (workbench/graph-paper not yet migrated to skins —
+  // that is a later task in the unified-block-capability slice). Guards the
+  // remaining failure mode: a shell Frame that renders identically to the
+  // default. Stationery moved to the skins path (next test).
   test('every declared shell changes the rendered markup (declaration carries implementation)', () => {
-    // The shells map makes declaration-without-implementation a type
-    // error (owner feedback); this guards the remaining failure mode —
-    // a shell Frame that renders identically to the default.
-    for (const t of [graphPaper, workbench, stationery]) {
+    for (const t of [graphPaper, workbench]) {
       const def = renderStaticPage(DOC, 's', t);
       for (const id of Object.keys(t.shells ?? {})) {
         const out = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: id }] }, 's', t);
         expect(out, `${t.id}/${id} must differ from the default shell`).not.toBe(def);
       }
     }
-    expect(Object.keys(stationery.shells ?? {})).toEqual(['card', 'bare']);
     expect(Object.keys(workbench.shells ?? {})).toEqual(['flat']);
+  });
+
+  test('every author-pickable stationery skin changes the rendered markup (vs the default skin)', () => {
+    // BlockSkin replaces the shells map for stationery; same failure mode —
+    // an author skin that renders identically to the theme default skin.
+    const def = renderSkin(stationery, 'markdown', null);
+    for (const { id } of skinOptionsFor(stationery, 'markdown')) {
+      const out = renderSkin(stationery, 'markdown', id);
+      expect(out, `stationery/${id} must differ from the default skin`).not.toBe(def);
+    }
+    expect(skinOptionsFor(stationery, 'markdown').map((o) => o.id)).toEqual(['card', 'bare']);
   });
 
   test('page background: color replaces canvas, image layers as cover', () => {
@@ -110,18 +151,29 @@ describe('stationery deep showcase', () => {
     ],
   };
 
+  // Stationery's block frame is now a BlockSkin rendered through
+  // BlockFrameCore (rotate/washi live on the skin's root/front, not on the
+  // legacy DefaultBlockFrame the published renderer still uses until its
+  // own migration task). Assert the skin output so per-block tilt is what's
+  // actually checked, not the static `.skb-curl` rotations in the <style>.
   test('deterministic: identical bytes across renders; distinct rotations per block', () => {
-    const a = renderStaticPage(DOC2, 's', stationery);
-    const b = renderStaticPage(DOC2, 's', stationery);
-    expect(a).toBe(b);
-    const angles = [...a.matchAll(/rotate\((-?[\d.]+)deg\)/g)].map((m) => m[1]);
-    expect(new Set(angles).size).toBeGreaterThan(1); // alpha and beta tilt differently
+    const alphaA = renderSkin(stationery, 'markdown', null, 'alpha');
+    const alphaB = renderSkin(stationery, 'markdown', null, 'alpha');
+    expect(alphaA).toBe(alphaB); // deterministic (publishedHtml purity)
+    const beta = renderSkin(stationery, 'image', null, 'beta');
+    const tilt = (s: string) => s.match(/rotate\((-?[\d.]+)deg\)/)?.[1];
+    // pure block markup (no globalCss <style>), so the first rotate is the
+    // per-block root tilt — alpha and beta must differ.
+    expect(tilt(alphaA)).toBeTruthy();
+    expect(tilt(alphaA)).not.toBe(tilt(beta));
   });
 
-  test('washi tape carries the kind hue; globalCss ships keyframes + reduced-motion guard', () => {
-    const html = renderStaticPage(DOC2, 's', stationery);
-    expect(html).toContain(stationery.kindHues.markdown!); // tape color present
-    expect(html).toContain('@keyframes skb-paper-drop');
-    expect(html).toContain('prefers-reduced-motion');
+  test('washi tape carries the kind hue on the skin; globalCss ships keyframes + reduced-motion guard', () => {
+    const alpha = renderSkin(stationery, 'markdown', null, 'alpha');
+    expect(alpha).toContain('class="skb-washi"');
+    expect(alpha).toContain(stationery.kindHues.markdown!); // tape color present
+    const page = renderStaticPage(DOC2, 's', stationery);
+    expect(page).toContain('@keyframes skb-paper-drop'); // globalCss in <style>
+    expect(page).toContain('prefers-reduced-motion');
   });
 });
