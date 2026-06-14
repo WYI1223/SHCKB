@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { graphPaper, resolveSkin, skinOptionsFor, stationery, ThemeContext, workbench, type Theme } from '@skb/theme';
+import { galley, graphPaper, marginalia, resolveSkin, skinOptionsFor, stationery, ThemeContext, workbench, type Theme } from '@skb/theme';
 import { renderStaticPage } from '../static';
 import { BlockFrameCore } from '../BlockFrameCore';
 
@@ -66,21 +66,19 @@ describe('theme render slots', () => {
 });
 
 describe('author appearance (MVP-6 M6-D3/D4)', () => {
-  test("workbench curates 'flat'; unknown shells land on the default card", () => {
-    const flat = renderStaticPage(
-      { ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'flat' }] },
-      's',
-      workbench,
-    );
-    expect(flat).toContain('data-shell="flat"');
-    expect(flat).not.toContain('border:1px solid'); // card chrome dropped
+  test("workbench curates 'flat' skin; unknown skin id lands on the framework default card", () => {
+    // workbench migrated to the BlockSkin path: assert via renderSkin.
+    const flat = renderSkin(workbench, 'markdown', 'flat');
+    expect(flat).toContain('class="skb-content-box skb-block"'); // flat box class applied
+    // flat has no background/border on the box — framework card chrome is absent
+    expect(flat).not.toContain('border:1px solid');
 
-    // graph-paper curates no shells: any shell id lands on the default
-    const unknown = renderStaticPage(
-      { ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: 'flat' }] },
-      's',
-      graphPaper,
-    );
+    // workbench has no defaultSkin → framework default (sentinel) → card chrome injected
+    const def = renderSkin(workbench, 'markdown', null);
+    expect(def).toContain('border:1px solid'); // default card retained
+
+    // graph-paper curates no skins: any skin id is unknown → framework default card
+    const unknown = renderSkin(graphPaper, 'markdown', 'flat');
     expect(unknown).toContain('border:1px solid'); // default card retained
   });
 
@@ -102,19 +100,23 @@ describe('author appearance (MVP-6 M6-D3/D4)', () => {
     expect(bare).not.toContain('class="skb-paper-edge"');
   });
 
-  // Legacy shells path (workbench/graph-paper not yet migrated to skins —
-  // that is a later task in the unified-block-capability slice). Guards the
-  // remaining failure mode: a shell Frame that renders identically to the
-  // default. Stationery moved to the skins path (next test).
-  test('every declared shell changes the rendered markup (declaration carries implementation)', () => {
-    for (const t of [graphPaper, workbench]) {
-      const def = renderStaticPage(DOC, 's', t);
-      for (const id of Object.keys(t.shells ?? {})) {
-        const out = renderStaticPage({ ...DOC, blocks: [{ ...DOC.blocks[0]!, shell: id }] }, 's', t);
-        expect(out, `${t.id}/${id} must differ from the default shell`).not.toBe(def);
-      }
+  // Token-only themes (graphPaper, ink, blueprint) curate no skins — they
+  // resolve to the framework default. Guard the shape.
+  test('token-only themes (graphPaper) expose no skins', () => {
+    expect(skinOptionsFor(graphPaper, 'markdown')).toEqual([]);
+  });
+
+  // Skin contract: every author-pickable skin must change the rendered markup
+  // vs the theme's default (or vs the framework card for token-only themes).
+  // Declaration carries implementation — a registered skin that renders
+  // identically to the default is a bug.
+  test('every author-pickable workbench skin changes the rendered markup (vs the framework default card)', () => {
+    const def = renderSkin(workbench, 'markdown', null);
+    for (const { id } of skinOptionsFor(workbench, 'markdown')) {
+      const out = renderSkin(workbench, 'markdown', id);
+      expect(out, `workbench/${id} must differ from the framework default card`).not.toBe(def);
     }
-    expect(Object.keys(workbench.shells ?? {})).toEqual(['flat']);
+    expect(skinOptionsFor(workbench, 'markdown').map((o) => o.id)).toEqual(['flat']);
   });
 
   test('every author-pickable stationery skin changes the rendered markup (vs the default skin)', () => {
@@ -126,6 +128,62 @@ describe('author appearance (MVP-6 M6-D3/D4)', () => {
       expect(out, `stationery/${id} must differ from the default skin`).not.toBe(def);
     }
     expect(skinOptionsFor(stationery, 'markdown').map((o) => o.id)).toEqual(['card', 'bare']);
+  });
+
+  test('galley skins: strip default + keyline outline + cutout filter on root', () => {
+    // Default skin ('strip'): box shadow + border.
+    const strip = renderSkin(galley, 'markdown', null);
+    expect(strip).toContain('skb-block'); // box className
+    expect(strip).toContain('box-shadow:0 1px 2px oklch(40% 0.02 80 / 14%)');
+    expect(strip).toContain('border:1px solid oklch(87% 0.015 90)');
+
+    // 'keyline' skin: adds skb-keyline class (outline rule in globalCss).
+    const keyline = renderSkin(galley, 'markdown', 'keyline');
+    expect(keyline).toContain('skb-keyline'); // class hook for outline globalCss
+    expect(keyline).toContain('border:1px solid oklch(20% 0.01 80)'); // textColor border
+
+    // 'cutout' skin: drop-shadow on root, no border/background on box.
+    const cutout = renderSkin(galley, 'markdown', 'cutout');
+    expect(cutout).toContain('filter:drop-shadow(0 1px 2px oklch(40% 0.02 80 / 18%))');
+    expect(cutout).not.toContain('border:1px solid oklch(87%'); // no strip border
+
+    expect(skinOptionsFor(galley, 'markdown').map((o) => o.id)).toEqual(['keyline', 'cutout']);
+  });
+
+  test('every author-pickable galley skin changes the rendered markup (vs the default skin)', () => {
+    const def = renderSkin(galley, 'markdown', null);
+    for (const { id } of skinOptionsFor(galley, 'markdown')) {
+      const out = renderSkin(galley, 'markdown', id);
+      expect(out, `galley/${id} must differ from the default skin`).not.toBe(def);
+    }
+  });
+
+  test('marginalia skins: page default (no chrome) + plate (hairline box) + aside (rubric rule)', () => {
+    // Default skin ('page'): transparent/no-border passage.
+    const page = renderSkin(marginalia, 'markdown', null);
+    expect(page).toContain('skb-block');
+    expect(page).toContain('font-size:15px');
+    expect(page).not.toContain('border:1px solid'); // marginalia default has no border
+
+    // 'plate' skin: hairline border + slightly off-white background.
+    const plate = renderSkin(marginalia, 'markdown', 'plate');
+    expect(plate).toContain('border:1px solid oklch(88% 0.012 80)');
+    expect(plate).toContain('background:oklch(99% 0.004 90)');
+
+    // 'aside' skin: rubric left-border + reduced font size.
+    const aside = renderSkin(marginalia, 'markdown', 'aside');
+    expect(aside).toContain('border-left:2px solid oklch(50% 0.135 35)');
+    expect(aside).toContain('font-size:13px');
+
+    expect(skinOptionsFor(marginalia, 'markdown').map((o) => o.id)).toEqual(['plate', 'aside']);
+  });
+
+  test('every author-pickable marginalia skin changes the rendered markup (vs the default skin)', () => {
+    const def = renderSkin(marginalia, 'markdown', null);
+    for (const { id } of skinOptionsFor(marginalia, 'markdown')) {
+      const out = renderSkin(marginalia, 'markdown', id);
+      expect(out, `marginalia/${id} must differ from the default skin`).not.toBe(def);
+    }
   });
 
   test('page background: color replaces canvas, image layers as cover', () => {

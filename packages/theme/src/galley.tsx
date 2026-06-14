@@ -11,7 +11,8 @@
  * are deterministic, and renderToStaticMarkup-safe [ADR-0025].
  */
 import { useTheme } from './context';
-import { blockOverflow, type BlockFrameProps, type CanvasSurfaceProps, type PageTitleProps, type Theme, type ThemeTokens } from './themes';
+import type { BlockSkin } from './skin';
+import { type CanvasSurfaceProps, type PageTitleProps, type Theme, type ThemeTokens } from './themes';
 
 /** Warm-paper code colors — process black with restrained ink hues. */
 const GALLEY_CODE_CSS = `
@@ -63,87 +64,6 @@ const TOKENS: ThemeTokens = {
   kindHueFallback: 'oklch(35% 0.015 80)',
   codeCss: GALLEY_CODE_CSS,
 };
-
-/** Default shell: a pasted galley strip — white stock, cut edge, the
- * faintest paste-up lift. */
-function GalleyBlockFrame({ kind, autofit, children }: BlockFrameProps) {
-  const t = useTheme();
-  return (
-    <div
-      className="skb-block"
-      data-kind={kind}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: blockOverflow(autofit),
-        padding: '10px 12px',
-        fontSize: '14.5px',
-        lineHeight: 1.62,
-        color: t.textColor,
-        background: t.blockBg,
-        border: t.blockBorder,
-        boxShadow: '0 1px 2px oklch(40% 0.02 80 / 14%)',
-        scrollbarWidth: 'thin',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** 'keyline' shell: a keyline box — the hairline frame print production
- * draws around figures and tables before the plates exist. */
-function KeylineFrame({ kind, shell, autofit, children }: BlockFrameProps) {
-  const t = useTheme();
-  return (
-    <div
-      className="skb-block"
-      data-kind={kind}
-      data-shell={shell ?? undefined}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: blockOverflow(autofit),
-        padding: '14px 16px',
-        fontSize: '14.5px',
-        lineHeight: 1.62,
-        color: t.textColor,
-        background: t.blockBg,
-        border: `1px solid ${t.textColor}`,
-        outline: `1px solid ${t.hairline}`,
-        outlineOffset: '3px',
-        scrollbarWidth: 'thin',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** 'cutout' shell: pasted without a strip — the content (a photo, a
- * clipped paragraph) sits directly on the sheet. */
-function CutoutFrame({ kind, shell, autofit, children }: BlockFrameProps) {
-  const t = useTheme();
-  return (
-    <div
-      className="skb-block"
-      data-kind={kind}
-      data-shell={shell ?? undefined}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: blockOverflow(autofit),
-        fontSize: '14.5px',
-        lineHeight: 1.62,
-        color: t.textColor,
-        filter: 'drop-shadow(0 1px 2px oklch(40% 0.02 80 / 18%))',
-        scrollbarWidth: 'thin',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 /** One L-shaped crop mark; the four corners orient the trim. */
 function CropMark({ corner, color }: { corner: 'tl' | 'tr' | 'bl' | 'br'; color: string }) {
@@ -217,18 +137,79 @@ const GALLEY_GLOBAL_CSS = `
 .skb-block blockquote { border-left: 3px solid oklch(20% 0.01 80); padding-left: 12px; font-style: normal; }
 .skb-block pre, .skb-block code { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 0.87em; }
 .skb-block ::selection { background: oklch(54% 0.155 40 / 18%); }
+.skb-keyline { outline: 1px solid oklch(86% 0.018 90); outline-offset: 3px; }
 `;
+
+/** Default skin: a pasted galley strip — white stock, cut edge, the
+ * faintest paste-up lift. */
+export const galleyDefaultSkin: BlockSkin = {
+  id: 'strip',
+  name: 'Strip',
+  box: {
+    className: 'skb-block',
+    style: {
+      padding: '10px 12px',
+      fontSize: '14.5px',
+      lineHeight: 1.62,
+      color: 'oklch(20% 0.01 80)',
+      background: 'oklch(99.4% 0.003 95)',
+      border: '1px solid oklch(87% 0.015 90)',
+      boxShadow: '0 1px 2px oklch(40% 0.02 80 / 14%)',
+      scrollbarWidth: 'thin',
+    },
+  },
+};
+
+/** 'keyline' skin: a keyline box — the hairline frame print production
+ * draws around figures and tables before the plates exist. */
+export const keylineSkin: BlockSkin = {
+  id: 'keyline',
+  name: 'Keyline',
+  box: {
+    className: 'skb-block skb-keyline',
+    style: {
+      padding: '14px 16px',
+      fontSize: '14.5px',
+      lineHeight: 1.62,
+      color: 'oklch(20% 0.01 80)',
+      background: 'oklch(99.4% 0.003 95)',
+      border: '1px solid oklch(20% 0.01 80)',
+      scrollbarWidth: 'thin',
+    },
+  },
+};
+
+/** 'cutout' skin: pasted without a strip — the content (a photo, a
+ * clipped paragraph) sits directly on the sheet. */
+export const cutoutSkin: BlockSkin = {
+  id: 'cutout',
+  name: 'Cutout',
+  root: {
+    style: {
+      filter: 'drop-shadow(0 1px 2px oklch(40% 0.02 80 / 18%))',
+    },
+  },
+  box: {
+    className: 'skb-block',
+    style: {
+      fontSize: '14.5px',
+      lineHeight: 1.62,
+      color: 'oklch(20% 0.01 80)',
+      scrollbarWidth: 'thin',
+    },
+  },
+};
 
 export const galley: Theme = {
   ...TOKENS,
-  BlockFrame: GalleyBlockFrame,
   CanvasSurface: GalleyCanvasSurface,
   PageTitle: GalleyPageTitle,
   globalCss: GALLEY_GLOBAL_CSS,
 
-  shells: {
-    keyline: { name: 'Keyline', Frame: KeylineFrame },
-    cutout: { name: 'Cutout', Frame: CutoutFrame },
+  defaultSkin: galleyDefaultSkin,
+  skins: {
+    keyline: keylineSkin,
+    cutout: cutoutSkin,
   },
 
   palettes: [
