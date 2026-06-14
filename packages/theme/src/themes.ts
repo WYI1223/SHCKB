@@ -154,6 +154,12 @@ export type Theme = ThemeTokens &
     /** Page papers the theme curates (M8-D4); omitted = none — the
      * author still has the free background picker either way. */
     papers?: PaperOption[];
+    /** The theme's base block look (replaces the BlockFrame slot). May be a
+     * single skin or kind→skin (e.g. stationery image→polaroid). Omitted =
+     * framework default skin. */
+    defaultSkin?: import('./skin').BlockSkin | ((kind: string) => import('./skin').BlockSkin);
+    /** Author-pickable block skins (replaces `shells`), keyed by persisted id. */
+    skins?: Record<string, import('./skin').BlockSkin>;
   };
 
 /** Shell choices applicable to a kind under a theme (inspector feed). */

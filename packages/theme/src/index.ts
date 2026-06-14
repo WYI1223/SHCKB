@@ -1,4 +1,5 @@
 export * from './themes';
+export * from './skin';
 export { FlatShellFrame } from './shells';
 export { THEMES, DEFAULT_THEME_ID } from './registry';
 export { workbench } from './workbench';
