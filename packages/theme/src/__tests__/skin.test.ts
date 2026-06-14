@@ -26,6 +26,9 @@ describe('resolveSkin', () => {
     const t = { skins: { polaroid }, defaultSkin: paper } as unknown as Theme;
     expect(resolveSkin(t, 'markdown', 'polaroid').id).toBe('paper');
   });
+  test('unknown skinId falls through to theme default', () => {
+    expect(resolveSkin(theme, 'markdown', 'nonexistent').id).toBe('paper');
+  });
 });
 
 describe('skinOptionsFor', () => {

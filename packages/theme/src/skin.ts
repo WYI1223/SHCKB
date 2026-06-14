@@ -47,8 +47,6 @@ export type BlockSkin = {
 
 export const DEFAULT_SKIN_ID = '__default';
 
-type DefaultSkin = BlockSkin | ((kind: string) => BlockSkin);
-
 function skinApplies(s: BlockSkin, kind: string): boolean {
   return !s.kinds || s.kinds.includes(kind);
 }
@@ -60,7 +58,7 @@ const FRAMEWORK_DEFAULT: BlockSkin = { id: DEFAULT_SKIN_ID, name: 'Default' };
 export function resolveSkin(theme: Theme, kind: string, skinId: string | null | undefined): BlockSkin {
   const skins = theme.skins;
   if (skinId && skins?.[skinId] && skinApplies(skins[skinId], kind)) return skins[skinId];
-  const def = (theme as Theme & { defaultSkin?: DefaultSkin }).defaultSkin;
+  const def = theme.defaultSkin;
   if (def) return typeof def === 'function' ? def(kind) : def;
   return FRAMEWORK_DEFAULT;
 }
