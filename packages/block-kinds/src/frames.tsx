@@ -2,33 +2,13 @@
  * Default render-slot implementations [ADR-0025] — exactly the visual
  * shell PublishedCanvas/GridCanvas rendered before slots existed, so
  * token-only themes render unchanged. Canvas owns geometry (position/
- * size); frames own the visual shell. Class hooks (skb-block /
- * skb-canvas / data-kind) are the stable surface for theme globalCss.
+ * size); frames own the visual shell. Class hooks (skb-canvas /
+ * data-kind) are the stable surface for theme globalCss.
+ * Note: DefaultBlockFrame is removed — block rendering is now handled
+ * by BlockFrameCore + BlockSkin (defaultSkin/skins on the theme).
  */
-import { blockCardStyle, blockOverflow, canvasBaseplateStyle, useTheme } from '@skb/theme';
-import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps } from '@skb/theme';
-
-export function DefaultBlockFrame({ kind, blockId: _blockId, colSpan: _c, rowSpan: _r, autofit, children }: BlockFrameProps) {
-  const theme = useTheme();
-  // Default shell only — author shell choices resolve to their own
-  // Frames via theme.shells (resolveBlockFrame); unknown ids land here.
-  return (
-    <div
-      className="skb-block"
-      data-kind={kind}
-      style={{
-        ...blockCardStyle(theme, kind),
-        width: '100%',
-        height: '100%',
-        overflow: blockOverflow(autofit),
-        fontSize: '14px',
-        lineHeight: 1.55,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+import { canvasBaseplateStyle, useTheme } from '@skb/theme';
+import type { CanvasSurfaceProps, PageTitleProps } from '@skb/theme';
 
 export function DefaultCanvasSurface({ widthPx, heightPx, children }: CanvasSurfaceProps) {
   const theme = useTheme();

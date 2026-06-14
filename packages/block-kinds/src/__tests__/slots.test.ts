@@ -47,20 +47,17 @@ describe('theme render slots', () => {
     expect(html).toContain('data-kind="markdown"');
   });
 
-  test('theme.BlockFrame slot is superseded; custom PageTitle still replaces h1', () => {
-    // The BlockFrame theme slot is now superseded by BlockSkin (ADR-0025 amendment):
-    // the published path uses BlockFrameCore + resolveSkin regardless of theme.BlockFrame.
-    // PageTitle is still honoured (it is a separate CanvasSurface-level slot).
+  test('block renders via BlockFrameCore; custom PageTitle still replaces h1', () => {
+    // BlockFrame slot removed (ADR-0025 amendment): block appearance is now
+    // controlled via defaultSkin/skins on the theme, rendered through BlockFrameCore.
+    // PageTitle is still a CanvasSurface-level slot and is honoured.
     const themed: Theme = {
       ...graphPaper,
       id: 'custom',
-      BlockFrame: ({ kind, blockId, children }) =>
-        createElement('section', { className: 'my-frame', 'data-kind': kind, 'data-bid': blockId }, children),
       PageTitle: ({ title }) => createElement('h2', { className: 'my-title' }, title),
     };
     const html = renderStaticPage(DOC, 's', themed);
-    // BlockFrame slot is NOT used — block still renders via BlockFrameCore.
-    expect(html).not.toContain('class="my-frame"');
+    // Block renders via BlockFrameCore (not any legacy BlockFrame slot).
     expect(html).toContain('class="skb-frame-root"');
     expect(html).toContain('class="skb-content-box"');
     // PageTitle slot IS still used.

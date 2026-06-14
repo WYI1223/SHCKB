@@ -12,41 +12,6 @@ import type { ComponentType, ReactNode } from 'react';
  * how it composes with their own drawing (theme sovereignty). */
 export type PageBackground = { color?: string; blobHash?: string };
 
-/** A theme-curated block shell variant (MVP-6 M6-D3): the author picks
- * WITHIN what the theme offers — never free shell styling (same
- * discipline as palette variants). The map key is persisted in
- * block.shell; never rename.
- *
- * Declaration IS implementation (owner feedback 2026-06-12): each
- * entry carries its own Frame, so a declared shell without a renderer
- * is a type error and an unregistered renderer is unreachable — the
- * two-hand-synced-lists bug class cannot exist. */
-export type ShellDefinition = {
-  name: string;
-  /** Kinds this shell applies to; omitted = every kind. */
-  kinds?: string[];
-  /** The visual shell rendered when the author picks this option. */
-  Frame: ComponentType<BlockFrameProps>;
-};
-
-export type BlockFrameProps = {
-  kind: string;
-  blockId: string;
-  /** Geometry hints (grid units) — themes may scale effects by size
-   * (e.g. wide blocks tilt less). Never used for layout (canvas owns
-   * geometry). */
-  colSpan: number;
-  rowSpan: number;
-  /** Author-picked shell option id; null/unknown = the theme's default
-   * shell (a theme update may remove an option — pages keep rendering). */
-  shell?: string | null;
-  /** Autofit blocks clip overflow (the no-scrollbar aesthetic: rowSpan
-   * already fits the content); non-autofit blocks scroll. block-level
-   * metadata, threaded from PublishedDocShape.blocks / working state —
-   * the frame only consumes it, it never measures. */
-  autofit?: boolean;
-  children: ReactNode;
-};
 export type CanvasSurfaceProps = {
   widthPx: number;
   heightPx: number;
@@ -56,12 +21,13 @@ export type CanvasSurfaceProps = {
 export type PageTitleProps = { title: string };
 
 /** Optional render slots [ADR-0025]: a theme may replace the visual
- * shell of blocks/canvas/title and ship document-level CSS. Slots must
+ * shell of canvas/title and ship document-level CSS. Slots must
  * be deterministic (publishedHtml purity) and renderToStaticMarkup-safe.
  * Omitted slots fall back to the default rendering — token-only themes
- * stay valid unchanged. */
+ * stay valid unchanged.
+ * Note: BlockFrame slot is superseded by BlockSkin (ADR-0025 amendment);
+ * block appearance is now controlled via defaultSkin/skins + BlockFrameCore. */
 export type ThemeSlots = {
-  BlockFrame?: ComponentType<BlockFrameProps>;
   CanvasSurface?: ComponentType<CanvasSurfaceProps>;
   PageTitle?: ComponentType<PageTitleProps>;
   /** Injected into SPA (via ThemeProvider) and static page head.
@@ -148,9 +114,6 @@ export type Theme = ThemeTokens &
     palettes?: PaletteVariant[];
     /** Tokens open for direct operator override; omitted = all locked. */
     customizableTokens?: OverridableTokenKey[];
-    /** Block shell variants the theme curates (M6-D3), keyed by the
-     * persisted id; omitted = the default shell is the only shell. */
-    shells?: Record<string, ShellDefinition>;
     /** Page papers the theme curates (M8-D4); omitted = none — the
      * author still has the free background picker either way. */
     papers?: PaperOption[];
@@ -162,28 +125,6 @@ export type Theme = ThemeTokens &
     /** Author-pickable block skins (replaces `shells`), keyed by persisted id. */
     skins?: Record<string, import('./skin').BlockSkin>;
   };
-
-/** Shell choices applicable to a kind under a theme (inspector feed). */
-export function shellOptionsFor(theme: Theme, kind: string): Array<{ id: string; name: string }> {
-  return Object.entries(theme.shells ?? {})
-    .filter(([, d]) => !d.kinds || d.kinds.includes(kind))
-    .map(([id, d]) => ({ id, name: d.name }));
-}
-
-/** Frame for a block under an author shell choice: the shell's own
- * Frame when the choice is valid for this kind, otherwise undefined —
- * callers fall back to theme.BlockFrame / the default frame (unknown
- * ids keep rendering, same discipline as palette variants). */
-export function resolveBlockFrame(
-  theme: Theme,
-  kind: string,
-  shell: string | null | undefined,
-): ComponentType<BlockFrameProps> | undefined {
-  if (!shell) return undefined;
-  const d = theme.shells?.[shell];
-  if (!d || (d.kinds && !d.kinds.includes(kind))) return undefined;
-  return d.Frame;
-}
 
 /** Public blob URL (server contract, [ADR-0022]) — surfaces resolve
  * background images from it. */
