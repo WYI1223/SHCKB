@@ -29,12 +29,15 @@ for (const themeId of ['galley', 'stationery'] as const) {
     await page.keyboard.press('Escape');
     await expect(G).not.toHaveAttribute('data-pu-active', /.*/);
 
-    // Inactive block shows the measured RenderView inside the real
-    // Frame. fit == live row count => the rendered content fits the
-    // committed geometry: scrollHeight <= clientHeight (no overflow).
-    const frame = page.locator(sel.skbBlock('G'));
-    await expect(frame).toBeVisible();
-    const fits = await frame.evaluate((el) => el.scrollHeight <= el.clientHeight + 1);
+    // Inactive block shows the measured RenderView inside the real Frame.
+    // fit == live row count => the content fits the committed geometry:
+    // its CLIP CONTAINER (the box that owns overflow — `.skb-md`'s parent:
+    // `.skb-block` for galley, `.skb-paper` for stationery, NOT the
+    // decorated outer slip which carries washi/curl/torn-edge overflow of
+    // its own) does not scroll: scrollHeight <= clientHeight.
+    const clip = page.locator(`[data-block-id="G"] .skb-md`).locator('xpath=..');
+    await expect(clip).toBeVisible();
+    const fits = await clip.evaluate((el) => el.scrollHeight <= el.clientHeight + 1);
     expect(fits).toBe(true);
   });
 }

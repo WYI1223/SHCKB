@@ -11,7 +11,23 @@ import type { MarkdownContent } from './markdown';
 export function MarkdownRenderView({ content }: { content: MarkdownContent }) {
   const theme = useTheme();
   if (content.markdown.trim() === '') {
-    return <div style={{ color: theme.mutedColor, fontSize: '13px', fontStyle: 'italic' }}>Empty markdown block</div>;
+    // Single line: this is an empty-state affordance, not content — it must
+    // never wrap into extra rows, or an emptied autofit block could not
+    // shrink back to its floor (autofit measures the rendered height).
+    return (
+      <div
+        style={{
+          color: theme.mutedColor,
+          fontSize: '13px',
+          fontStyle: 'italic',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        Empty markdown block
+      </div>
+    );
   }
   return (
     // overflow-wrap: anywhere — prose (incl. long inline code / URLs)

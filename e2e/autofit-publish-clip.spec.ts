@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createMarkdownPage, loginViaApi, md, sel } from './fixtures/login';
+import { createMarkdownPage, loginViaApi, md } from './fixtures/login';
 
 test('published autofit block clips (overflow:hidden); non-autofit scrolls (auto)', async ({ page }) => {
   await loginViaApi(page);
@@ -15,8 +15,10 @@ test('published autofit block clips (overflow:hidden); non-autofit scrolls (auto
   // The clean public share route (standalone, no shell).
   await page.goto(`/notes/${slug}`);
 
-  const autofitFrame = page.locator(sel.skbBlock('A'));
-  const plainFrame = page.locator(sel.skbBlock('B'));
+  // Published markup is read-only: blocks render as `.skb-block` with NO
+  // editor-only data-block-id, so target by their rendered content.
+  const autofitFrame = page.locator('.skb-block').filter({ hasText: 'clipped' });
+  const plainFrame = page.locator('.skb-block').filter({ hasText: 'scrolls' });
   await expect(autofitFrame).toBeVisible();
   await expect(plainFrame).toBeVisible();
 
