@@ -8,8 +8,8 @@
  */
 import { useState } from 'react';
 import { totalRows, type Block } from '@skb/grid-engine';
-import { BLOCK_KINDS, blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
-import { resolveBlockFrame, shellOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
+import { BLOCK_KINDS, blockModule, BlockFrameCore, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
+import { resolveSkin, skinOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
 import { BENCH } from '../chrome/bench';
 import { useOverlays, type MenuItem } from '../chrome/overlays';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
@@ -179,7 +179,7 @@ function BlockShell({
   // (editor-owned); the theme's BlockFrame owns the visual shell. An
   // author shell choice resolves to its own Frame (M6-D3).
   const shell = shells[block.id] ?? null;
-  const Frame = resolveBlockFrame(theme, block.kind, shell) ?? theme.BlockFrame ?? DefaultBlockFrame;
+  const skin = resolveSkin(theme, block.kind, shell);
   // Autofit: 'grow' = content drives rowSpan; 'off'/null = legacy.
   const isAutofit = interaction.autofit[block.id] === 'grow';
   // True when ANOTHER block is in an active autofit grow gesture (spec §4.4
@@ -218,7 +218,7 @@ function BlockShell({
         e.preventDefault();
         // theme-curated shells (M8-D4) — same data Properties feeds on;
         // pill choices because shells have no single swatch color.
-        const shellOpts = shellOptionsFor(theme, block.kind);
+        const shellOpts = skinOptionsFor(theme, block.kind);
         const shellSection: MenuItem[] =
           shellOpts.length > 0
             ? [
@@ -238,7 +238,10 @@ function BlockShell({
           { x: e.clientX, y: e.clientY },
           [
             { label: 'edit', onSelect: () => onActivate(block.id) },
-            ...(block.kind === 'markdown'
+            // Autofit toggle: shown for any kind whose module does not
+            // declare `autofit: false` (image excluded; markdown/richtext/code
+            // in). Per-kind policy replaces the old markdown-only gate.
+            ...(blockModule(block.kind)?.autofit !== false
               ? [
                   {
                     label: 'auto height',
@@ -306,7 +309,7 @@ function BlockShell({
           {block.colSpan}×{block.rowSpan}
         </span>
       </div>
-      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} shell={shell} autofit={isAutofit}>
+      <BlockFrameCore kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} autofit={isAutofit} skin={skin}>
         <div
           style={{
             display: 'flex',
@@ -330,12 +333,13 @@ function BlockShell({
             />
           </div>
         </div>
-      </Frame>
-      {/* MeasureProbe: offscreen measurement surface for autofit markdown
-          blocks (spec §5.3). ALWAYS offscreen/invisible — the EditView ghost
+      </BlockFrameCore>
+      {/* MeasureProbe: offscreen measurement surface for autofit blocks
+          (spec §5.3). ALWAYS offscreen/invisible — the EditView ghost
           (data-skb-ghost-preview) is the sole visible preview (spec §7).
-          Mounted ONLY for active autofit markdown blocks. */}
-      {isActive && isAutofit && block.kind === 'markdown' && (
+          Mounted ONLY for active autofit blocks whose kind permits autofit
+          (per-kind policy: image excluded). */}
+      {isActive && isAutofit && blockModule(block.kind)?.autofit !== false && (
         <MeasureProbe
           kind={block.kind}
           blockId={block.id}

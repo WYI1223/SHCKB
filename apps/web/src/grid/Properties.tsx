@@ -14,7 +14,7 @@
  */
 import { useRef } from 'react';
 import { blockModule, useHost } from '@skb/block-kinds';
-import { ThemeProvider, shellOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
+import { ThemeProvider, skinOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
 import { UiButton } from '@skb/ui-kit';
 import { BENCH, SectionLabel, benchTheme, labelStyle } from '../chrome/bench';
 import type { Interaction } from './useGridInteraction';
@@ -142,7 +142,7 @@ function BlockSection({
   if (!block) return null;
   const mod = blockModule(block.kind);
   // options come from the CONTENT theme (the sheet), not the bench
-  const options = shellOptionsFor(contentTheme, block.kind);
+  const options = skinOptionsFor(contentTheme, block.kind);
   const current = shells[blockId] ?? null;
   const content = contents[blockId] ?? mod?.createContent();
 
