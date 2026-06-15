@@ -27,10 +27,9 @@ type WorkingBlock = {
   rowSpan: number;
   /** Author-picked theme shell option id (M6-D3); null = default. */
   shell: string | null;
-  /** Block-level autofit mode (Phase 3); null = off/legacy. */
+  /** Block-level autofit mode (follow/fix redesign): 'follow' | 'fix';
+   * null = unset (resolves to the kind default on read). */
   autofit: string | null;
-  /** Author floor = minimum intended rowSpan (Phase 3); null = off/legacy. */
-  minRowSpan: number | null;
   content: unknown;
 };
 
@@ -83,8 +82,7 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
       typeof r.rowSpan !== 'number' ||
       !('content' in r) ||
       (r.shell !== undefined && r.shell !== null && typeof r.shell !== 'string') ||
-      (r.autofit !== undefined && r.autofit !== null && typeof r.autofit !== 'string') ||
-      (r.minRowSpan !== undefined && r.minRowSpan !== null && typeof r.minRowSpan !== 'number')
+      (r.autofit !== undefined && r.autofit !== null && typeof r.autofit !== 'string')
     ) {
       return null;
     }
@@ -96,8 +94,9 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
       colSpan: r.colSpan,
       rowSpan: r.rowSpan,
       shell: typeof r.shell === 'string' ? r.shell : null,
-      autofit: typeof r.autofit === 'string' ? r.autofit : null,
-      minRowSpan: typeof r.minRowSpan === 'number' ? r.minRowSpan : null,
+      // follow/fix only; any other value (legacy enum, garbage) → null,
+      // which resolves to the kind default on read (spec §4.4).
+      autofit: r.autofit === 'follow' || r.autofit === 'fix' ? r.autofit : null,
       content: r.content,
     });
   }
@@ -119,7 +118,6 @@ function loadWorkingBlocks(db: Db, notepageId: string): WorkingBlock[] {
       rowSpan: row.rowSpan,
       shell: row.shell,
       autofit: row.autofit,
-      minRowSpan: row.minRowSpan,
       // corrupt content degrades to null — the rest of the page loads
       content: safeParse<unknown>(row.content, null),
     }));
@@ -183,25 +181,15 @@ export function notepageRoutes(db: Db) {
 
     // Server-side re-validation with the same engine the client ran
     // (notepage-editing algorithm contract: invalid mutation must not land).
-    // autofit + minRowSpan are block metadata, NOT engine geometry — strip
-    // them so the engine stays floor-blind (spec §4.3). content is dropped too.
+    // autofit is block metadata, NOT engine geometry — strip it (and content)
+    // so the engine validates pure geometry (spec §4.3). The follow/fix mode
+    // never enters the engine and carries no separate invariant.
     const state: GridState = {
       totalCols: TOTAL_COLS,
-      blocks: body.blocks.map(({ content: _content, autofit: _autofit, minRowSpan: _minRowSpan, ...geom }) => geom),
+      blocks: body.blocks.map(({ content: _content, autofit: _autofit, ...geom }) => geom),
     };
     const v = validateState(state, { gravity: body.gravityEnabled });
     if (!v.ok) return c.json({ error: 'layout invariant violation', details: v.errors }, 422);
-
-    // Floor invariant (spec §4.3/§6): minRowSpan never enters the engine, so
-    // validateState is floor-blind. The route is the sole backstop — assert
-    // rowSpan >= minRowSpan >= 1 (integer) per block. Runs before any write,
-    // so a violation is a clean reject with no partial apply.
-    const floorViolation = body.blocks.some(
-      (b) =>
-        b.minRowSpan !== null &&
-        (!Number.isInteger(b.minRowSpan) || b.minRowSpan < 1 || b.rowSpan < b.minRowSpan),
-    );
-    if (floorViolation) return c.json({ error: 'floor invariant violation' }, 422);
 
     db.transaction((tx) => {
       tx.update(notepages)
@@ -221,7 +209,6 @@ export function notepageRoutes(db: Db) {
             rowSpan: b.rowSpan,
             shell: b.shell,
             autofit: b.autofit,
-            minRowSpan: b.minRowSpan,
             content: JSON.stringify(b.content ?? null),
           })
           .run();
