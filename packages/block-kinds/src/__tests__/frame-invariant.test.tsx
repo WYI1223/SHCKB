@@ -22,7 +22,7 @@ describe('frame invariant: content box stays host-owned for every theme/kind/ski
           const skin = resolveSkin(theme, kind, skinId);
           const { container } = render(
             <ThemeProvider theme={theme}>
-              <BlockFrameCore kind={kind} blockId="b" colSpan={6} rowSpan={2} autofit skin={skin}>
+              <BlockFrameCore kind={kind} blockId="b" colSpan={6} rowSpan={2} follow skin={skin}>
                 <p>content</p>
               </BlockFrameCore>
             </ThemeProvider>,
@@ -30,7 +30,7 @@ describe('frame invariant: content box stays host-owned for every theme/kind/ski
           const box = container.querySelector('.skb-content-box') as HTMLElement;
           expect(box).toBeTruthy();
           expect(box.style.position).toBe('relative');
-          expect(box.style.overflow).toBe('hidden'); // autofit
+          expect(box.style.overflow).toBe('hidden'); // follow
           expect(box.style.height).toBe('100%');
           expect(box.textContent).toContain('content');
         });

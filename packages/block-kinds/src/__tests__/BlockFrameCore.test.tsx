@@ -14,10 +14,10 @@ const skin: BlockSkin = {
   front: () => <div data-testid="front" />,
 };
 
-function renderCore(autofit: boolean) {
+function renderCore(follow: boolean) {
   return render(
     <ThemeProvider theme={graphPaper}>
-      <BlockFrameCore kind="markdown" blockId="x" colSpan={6} rowSpan={2} autofit={autofit} skin={skin}>
+      <BlockFrameCore kind="markdown" blockId="x" colSpan={6} rowSpan={2} follow={follow} skin={skin}>
         <p data-testid="content">hi</p>
       </BlockFrameCore>
     </ThemeProvider>,
@@ -34,7 +34,7 @@ describe('BlockFrameCore', () => {
     expect(box.contains(getByTestId('content'))).toBe(true);
   });
 
-  test('content box owns overflow per autofit; HOST invariants win over the skin', () => {
+  test('content box owns overflow per follow; HOST invariants win over the skin', () => {
     const box = renderCore(true).container.querySelector('.skb-content-box') as HTMLElement;
     expect(box.style.overflow).toBe('hidden');
     expect(box.style.position).toBe('relative');

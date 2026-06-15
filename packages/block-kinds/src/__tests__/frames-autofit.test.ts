@@ -12,16 +12,16 @@ const base = {
   content: { markdown: 'hello' },
 };
 
-function docWith(autofit: boolean | undefined) {
-  return { title: 't', blocks: [{ ...base, autofit }] };
+function docWith(follow: boolean | undefined) {
+  return { title: 't', blocks: [{ ...base, follow }] };
 }
 
-describe('BlockFrameCore autofit overflow (published path)', () => {
+describe('BlockFrameCore follow overflow (published path)', () => {
   // Published path now routes through BlockFrameCore + resolveSkin.
   // Overflow is set on .skb-content-box (not .skb-block — that class no
   // longer appears in the default-skin output). String assertions on
   // overflow:hidden / overflow:auto remain semantically identical.
-  test('autofit block clips (overflow:hidden on .skb-content-box)', () => {
+  test('follow block clips (overflow:hidden on .skb-content-box)', () => {
     const html = renderStaticPage(docWith(true), 's', graphPaper);
     expect(html).toContain('class="skb-frame-root"');
     expect(html).toContain('class="skb-content-box"');
@@ -30,7 +30,7 @@ describe('BlockFrameCore autofit overflow (published path)', () => {
     expect(html).not.toContain('overflow:auto');
   });
 
-  test('non-autofit block scrolls (overflow:auto on .skb-content-box)', () => {
+  test('fix block scrolls (overflow:auto on .skb-content-box)', () => {
     const html = renderStaticPage(docWith(false), 's', graphPaper);
     expect(html).toContain('class="skb-frame-root"');
     expect(html).toContain('class="skb-content-box"');
@@ -38,7 +38,7 @@ describe('BlockFrameCore autofit overflow (published path)', () => {
     expect(html).toContain('overflow:auto');
   });
 
-  test('absent autofit defaults to scroll (legacy/off)', () => {
+  test('absent follow defaults to scroll (fix fallback)', () => {
     const html = renderStaticPage(docWith(undefined), 's', graphPaper);
     expect(html).toContain('overflow:auto');
   });
@@ -51,18 +51,18 @@ const SHELL_CASES: Array<{ theme: Theme; shells: Array<string | null> }> = [
   { theme: stationery, shells: [null, 'card', 'bare'] },
 ];
 
-function docWithShell(autofit: boolean, shell: string | null) {
-  return { title: 't', blocks: [{ ...base, autofit, shell }] };
+function docWithShell(follow: boolean, shell: string | null) {
+  return { title: 't', blocks: [{ ...base, follow, shell }] };
 }
 
-describe('curated shell autofit overflow', () => {
+describe('curated shell follow overflow', () => {
   for (const { theme, shells } of SHELL_CASES) {
     for (const shell of shells) {
-      test(`${theme.id}/${shell ?? 'default'} clips when autofit`, () => {
+      test(`${theme.id}/${shell ?? 'default'} clips when follow`, () => {
         const html = renderStaticPage(docWithShell(true, shell), 's', theme);
         expect(html, `${theme.id}/${shell}`).toContain('overflow:hidden');
       });
-      test(`${theme.id}/${shell ?? 'default'} scrolls when not autofit`, () => {
+      test(`${theme.id}/${shell ?? 'default'} scrolls when fix`, () => {
         const html = renderStaticPage(docWithShell(false, shell), 's', theme);
         expect(html, `${theme.id}/${shell}`).toContain('overflow:auto');
       });

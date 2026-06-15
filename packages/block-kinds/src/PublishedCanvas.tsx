@@ -23,9 +23,9 @@ export type PublishedDocShape = {
     rowSpan: number;
     /** Author-picked theme shell option id (M6-D3). */
     shell?: string | null;
-    /** Autofit flag threaded from working state — clipping vs scrolling
-     * in the published view (see blockOverflow in @skb/theme). */
-    autofit?: boolean;
+    /** Follow flag threaded from working state — clipping (follow) vs
+     * scrolling (fix) in the published view (see blockOverflow in @skb/theme). */
+    follow?: boolean;
     content: unknown;
   }>;
 };
@@ -85,7 +85,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
                   height: `${b.rowSpan * SLOT - 2 * PAD}px`,
                 }}
               >
-                <BlockFrameCore kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan} autofit={b.autofit} skin={skin}>
+                <BlockFrameCore kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan} follow={b.follow} skin={skin}>
                   {mod ? (
                     <mod.RenderView content={(b.content ?? mod.createContent()) as never} />
                   ) : (

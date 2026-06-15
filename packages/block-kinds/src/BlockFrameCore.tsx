@@ -16,12 +16,12 @@ export type BlockFrameCoreProps = {
   blockId: string;
   colSpan: number;
   rowSpan: number;
-  autofit?: boolean;
+  follow?: boolean;
   skin: BlockSkin;
   children: ReactNode;
 };
 
-export function BlockFrameCore({ kind, blockId, colSpan, rowSpan, autofit, skin, children }: BlockFrameCoreProps) {
+export function BlockFrameCore({ kind, blockId, colSpan, rowSpan, follow, skin, children }: BlockFrameCoreProps) {
   const theme = useTheme();
   const { textColor, mutedColor, hairline, accent, blockBg, surfaceInsetBg, quoteColor, kindHues, kindHueFallback } = theme;
   const ctx: SkinCtx = {
@@ -53,7 +53,7 @@ export function BlockFrameCore({ kind, blockId, colSpan, rowSpan, autofit, skin,
           position: 'relative',
           width: '100%',
           height: '100%',
-          overflow: blockOverflow(autofit),
+          overflow: blockOverflow(follow),
         }}
       >
         {children}
