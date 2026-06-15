@@ -78,10 +78,10 @@ export function GridCanvas(props: GridCanvasProps) {
   const SLOT = theme.slot;
   const PAD = theme.pad;
   const Surface = theme.CanvasSurface ?? DefaultCanvasSurface;
-  // ATOMICITY (spec §4.4 STRESS-1): true while an autofit grow gesture is
-  // live on the active block. Sheet-level insert is suppressed to prevent
+  // ATOMICITY (spec §4.4 STRESS-1): true while a follow gesture is live on
+  // the active block. Sheet-level insert is suppressed to prevent
   // interleaving structural ops that would clobber the gesture base.
-  const sheetInsertLocked = activeId !== null && interaction.autofit[activeId] === 'grow';
+  const sheetInsertLocked = activeId !== null && interaction.autofit[activeId] === 'follow';
 
   return (
     <div
@@ -180,22 +180,21 @@ function BlockShell({
   // author shell choice resolves to its own Frame (M6-D3).
   const shell = shells[block.id] ?? null;
   const skin = resolveSkin(theme, block.kind, shell);
-  // Autofit: 'grow' = content drives rowSpan; 'off'/null = legacy.
-  const isAutofit = interaction.autofit[block.id] === 'grow';
-  // True when ANOTHER block is in an active autofit grow gesture (spec §4.4
+  // Autofit: 'follow' = content drives rowSpan; 'fix' = fixed manual height.
+  const isFollow = interaction.autofit[block.id] === 'follow';
+  // True when ANOTHER block is in an active follow gesture (spec §4.4
   // STRESS-1 atomicity): interleaving drag/insert/delete would mutate
   // interaction.state while useAutofitGesture holds a stale base snapshot,
   // silently clobbering the interleaved op on the next debounced reconcile.
   const autofitGestureLocked =
-    !isActive && activeId !== null && interaction.autofit[activeId] === 'grow';
+    !isActive && activeId !== null && interaction.autofit[activeId] === 'follow';
   // Content fit measurement (rows) — fed by MeasureProbe, used by gesture.
   const [fit, setFit] = useState(block.rowSpan);
   // Autofit gesture controller (C5 reconcile-from-base; gestureActive gates autosave).
   useAutofitGesture({
     interaction,
     activeId: isActive ? block.id : null,
-    enabled: isAutofit,
-    floor: interaction.minRowSpan[block.id] ?? block.rowSpan,
+    enabled: isFollow,
     fit,
   });
 
@@ -238,16 +237,17 @@ function BlockShell({
           { x: e.clientX, y: e.clientY },
           [
             { label: 'edit', onSelect: () => onActivate(block.id) },
-            // Autofit toggle: shown for any kind whose module does not
-            // declare `autofit: false` (image excluded; markdown/richtext/code
-            // in). Per-kind policy replaces the old markdown-only gate.
-            ...(blockModule(block.kind)?.autofit !== false
+            // Follow/fix toggle: shown for any kind that can follow
+            // (image is fix-only via canFollow:false; markdown/richtext/code
+            // in). Inactive-block freeze is automatic: rowSpan already holds
+            // the committed fit, so switching to fix keeps that height.
+            ...(blockModule(block.kind)?.autofit?.canFollow !== false
               ? [
                   {
-                    label: 'auto height',
-                    checked: isAutofit,
+                    label: 'follow content',
+                    checked: isFollow,
                     onSelect: () =>
-                      interaction.setAutofit(block.id, isAutofit ? 'off' : 'grow'),
+                      interaction.setAutofit(block.id, isFollow ? 'fix' : 'follow'),
                   } as MenuItem,
                 ]
               : []),
@@ -309,7 +309,7 @@ function BlockShell({
           {block.colSpan}×{block.rowSpan}
         </span>
       </div>
-      <BlockFrameCore kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} autofit={isAutofit} skin={skin}>
+      <BlockFrameCore kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} follow={isFollow} skin={skin}>
         <div
           style={{
             display: 'flex',
@@ -323,7 +323,7 @@ function BlockShell({
             color: theme.textColor,
           }}
         >
-          <div style={{ flex: 1, minHeight: 0, overflow: isAutofit ? 'hidden' : 'visible' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: isFollow ? 'hidden' : 'visible' }}>
             <BlockBody
               block={block}
               mod={mod}
@@ -334,12 +334,12 @@ function BlockShell({
           </div>
         </div>
       </BlockFrameCore>
-      {/* MeasureProbe: offscreen measurement surface for autofit blocks
+      {/* MeasureProbe: offscreen measurement surface for follow blocks
           (spec §5.3). ALWAYS offscreen/invisible — the EditView ghost
           (data-skb-ghost-preview) is the sole visible preview (spec §7).
-          Mounted ONLY for active autofit blocks whose kind permits autofit
+          Mounted ONLY for active follow blocks whose kind can follow
           (per-kind policy: image excluded). */}
-      {isActive && isAutofit && blockModule(block.kind)?.autofit !== false && (
+      {isActive && isFollow && blockModule(block.kind)?.autofit?.canFollow !== false && (
         <MeasureProbe
           kind={block.kind}
           blockId={block.id}
@@ -360,7 +360,7 @@ function BlockShell({
           block={block}
           interaction={interaction}
           slot={slot}
-          autofitCtx={{ autofit: isAutofit, currentFit: fit }}
+          canResizeVertical={!isFollow}
         />
       )}
     </div>

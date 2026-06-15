@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * Atomicity invariant (spec §4.4 STRESS-1): while an autofit grow gesture
+ * Atomicity invariant (spec §4.4 STRESS-1): while a follow gesture
  * is active on block A, INACTIVE block B must NOT receive drag handlers
  * and its context-menu delete must be disabled. Interleaving structural
  * ops (move/delete) would mutate interaction.state while
@@ -21,9 +21,9 @@ const host: HostServices = { uploadBlob: async () => ({ hash: 'h', size: 0, mime
 
 /**
  * Two blocks:
- *   A (id='a'): markdown, autofit=grow — will be the active block.
- *   B (id='b'): text, autofit=off   — the inactive bystander.
- * activeId='a' simulates an active autofit gesture on A.
+ *   A (id='a'): markdown, autofit=follow — will be the active block.
+ *   B (id='b'): text, autofit=fix       — the inactive bystander.
+ * activeId='a' simulates an active follow gesture on A.
  */
 function Harness({ activeId }: { activeId: string | null }) {
   const interaction = useGridInteraction({
@@ -34,7 +34,7 @@ function Harness({ activeId }: { activeId: string | null }) {
     initialGravity: false,
     defaultSizeFor: () => ({ colSpan: 2, rowSpan: 1 }),
     onBlockInserted: () => {},
-    initialAutofit: { a: 'grow', b: null },
+    initialAutofit: { a: 'follow', b: 'fix' },
   });
   return (
     <ThemeProvider theme={graphPaper}>
@@ -59,7 +59,7 @@ function Harness({ activeId }: { activeId: string | null }) {
 }
 
 describe('autofit gesture atomicity — STRESS-1', () => {
-  test('inactive block B has no drag handlers while A is in an active autofit gesture', () => {
+  test('inactive block B has no drag handlers while A is in an active follow gesture', () => {
     render(<Harness activeId="a" />);
     const blockB = document.querySelector('[data-block-id="b"]') as HTMLElement;
     expect(blockB).toBeTruthy();
@@ -76,7 +76,7 @@ describe('autofit gesture atomicity — STRESS-1', () => {
     expect(blockB.getAttribute('draggable')).toBe('true');
   });
 
-  test('inactive block B context-menu delete is disabled while A is in an active autofit gesture', async () => {
+  test('inactive block B context-menu delete is disabled while A is in an active follow gesture', async () => {
     render(<Harness activeId="a" />);
     const blockB = document.querySelector('[data-block-id="b"]') as HTMLElement;
     fireEvent.contextMenu(blockB);

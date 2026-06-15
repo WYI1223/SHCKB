@@ -86,7 +86,7 @@ export function MeasureProbe({ kind, blockId, colSpan, shell, content, onFit }: 
         visibility: 'hidden',
       }}
     >
-      <BlockFrameCore kind={kind} blockId={blockId} colSpan={colSpan} rowSpan={1} autofit skin={skin}>
+      <BlockFrameCore kind={kind} blockId={blockId} colSpan={colSpan} rowSpan={1} follow skin={skin}>
         {/* AREA: stretches to the frame's content box → reveals the
             available content area (and thus the frame's vertical chrome). */}
         <div ref={areaRef} data-skb-measure-area style={{ height: '100%' }}>

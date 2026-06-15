@@ -51,13 +51,11 @@ function ResizeHandle({
   block,
   interaction,
   slot,
-  autofitCtx,
 }: {
   axis: ResizeAxis;
   block: Block;
   interaction: Interaction;
   slot: number;
-  autofitCtx?: { autofit: boolean; currentFit: number };
 }) {
   const cursor =
     axis === 'right' || axis === 'left'
@@ -87,7 +85,7 @@ function ResizeHandle({
   }
   return (
     <div
-      onPointerDown={(e) => interaction.beginResize(e, block, axis, slot, autofitCtx)}
+      onPointerDown={(e) => interaction.beginResize(e, block, axis, slot)}
       onDragStart={(e) => e.preventDefault()}
       className="pu-mark"
       style={style}
@@ -100,21 +98,27 @@ export function ResizeHandles({
   block,
   interaction,
   slot,
-  autofitCtx,
+  canResizeVertical,
 }: {
   block: Block;
   interaction: Interaction;
   slot: number;
-  autofitCtx?: { autofit: boolean; currentFit: number };
+  /** follow blocks own their height (content-driven) → no vertical/corner
+   * handles; fix blocks resize on all axes. */
+  canResizeVertical: boolean;
 }) {
   return (
     <>
-      <ResizeHandle axis="top" block={block} interaction={interaction} slot={slot} autofitCtx={autofitCtx} />
-      <ResizeHandle axis="right" block={block} interaction={interaction} slot={slot} autofitCtx={autofitCtx} />
-      <ResizeHandle axis="bottom" block={block} interaction={interaction} slot={slot} autofitCtx={autofitCtx} />
-      <ResizeHandle axis="left" block={block} interaction={interaction} slot={slot} autofitCtx={autofitCtx} />
-      <ResizeHandle axis="corner" block={block} interaction={interaction} slot={slot} autofitCtx={autofitCtx} />
-      <ResizeHandle axis="top-left" block={block} interaction={interaction} slot={slot} autofitCtx={autofitCtx} />
+      <ResizeHandle axis="right" block={block} interaction={interaction} slot={slot} />
+      <ResizeHandle axis="left" block={block} interaction={interaction} slot={slot} />
+      {canResizeVertical && (
+        <>
+          <ResizeHandle axis="top" block={block} interaction={interaction} slot={slot} />
+          <ResizeHandle axis="bottom" block={block} interaction={interaction} slot={slot} />
+          <ResizeHandle axis="corner" block={block} interaction={interaction} slot={slot} />
+          <ResizeHandle axis="top-left" block={block} interaction={interaction} slot={slot} />
+        </>
+      )}
     </>
   );
 }

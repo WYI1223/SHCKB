@@ -53,11 +53,12 @@ export function ReadPage() {
   if (notFound) return message('This page does not exist.');
   if (!resp) return message('Loading…');
 
-  // Coerce string autofit ('grow' | 'off' | null) to the boolean render
-  // shape expected by PublishedDocShape / BlockFrameProps.
+  // Coerce the autofit mode ('follow' | 'fix') to the boolean `follow`
+  // render shape expected by PublishedDocShape / BlockFrameCore (follow →
+  // clip, fix → scroll).
   const renderDoc = {
     ...resp.doc,
-    blocks: resp.doc.blocks.map((b) => ({ ...b, autofit: b.autofit === 'grow' })),
+    blocks: resp.doc.blocks.map((b) => ({ ...b, follow: b.autofit === 'follow' })),
   };
 
   return (
