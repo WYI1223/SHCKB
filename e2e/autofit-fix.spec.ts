@@ -76,8 +76,11 @@ test('follow → fix freezes at the current displayed height', async ({ page }) 
     'line one is long enough to wrap inside a four-column block\n\n' +
       'line two paragraph\n\nline three paragraph\n\nline four paragraph',
   );
-  // Let the debounced follow reconcile settle, then commit (Escape).
-  await page.waitForTimeout(600);
+  // Poll the live follow height until it grows past one row (absorbs the
+  // debounced reconcile), THEN commit (Escape) — never snapshot a pre-grow frame.
+  await expect
+    .poll(async () => (await G.boundingBox())!.height, { timeout: 3_000 })
+    .toBeGreaterThan(SLOT);
   await page.keyboard.press('Escape');
   await expect(G).not.toHaveAttribute('data-pu-active', /.*/);
 

@@ -14,7 +14,7 @@ describe('MarkdownRenderView', () => {
       </ThemeProvider>,
     );
     // owner decision (frame-core slice): empty = blank everywhere, so readers
-    // never see editor jargon and an emptied autofit block measures ~0 → floor.
+    // never see editor jargon and an emptied follow block measures ~0 → its 1-row min.
     expect(container.textContent).toBe('');
     expect(container.querySelector('.skb-md')).toBeNull();
   });

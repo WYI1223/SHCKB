@@ -133,7 +133,7 @@ type OpOptions = { gravity?: boolean };  // default true (Option A)
 
 **承诺**：mutation 不就地修改 input state；返回新 state；失败时不部分 apply。
 
-> **`pushResize` 的特殊性（gravity-agnostic 原语；详 [ADR-0028]）**：与上表其余 mutation 不同，`pushResize` **从不**在内部调用 `applyGravity`，也**不**保证调用后 gravity-stable——它把 grower 设为 `newRowSpan`，对每个 AABB 碰撞块按竖直重叠深度向下推，top-down 递归。gravity-stability 的重建由 caller 负责：autofit web 控制器从 base 快照重推（净零手势 → 逐位还原）或在手势提交时跑一遍 `applyGravity`（净变高且页面 gravity-on）。这是 invariant 4 在原子编辑会话内的瞬态例外（[ADR-0028]）；`floor`（`minRowSpan`）/ `autofit` 开关不进 engine，目标 `rowSpan` 由 web 层算好传入（engine 不测量 DOM，invariant 6/7 保持）。"永不 reject" 收窄为"**永不因垂直空间不足 reject**"——grid 垂直无上界，向下永远有空间。
+> **`pushResize` 的特殊性（gravity-agnostic 原语；详 [ADR-0028]）**：与上表其余 mutation 不同，`pushResize` **从不**在内部调用 `applyGravity`，也**不**保证调用后 gravity-stable——它把 grower 设为 `newRowSpan`，对每个 AABB 碰撞块按竖直重叠深度向下推，top-down 递归。gravity-stability 的重建由 caller 负责：follow web 控制器从 base 快照重推目标 `rowSpan`（净零手势 → 逐位还原）或在手势提交时跑一遍 `applyGravity`（净变高且页面 gravity-on）。这是 invariant 4 在原子编辑会话内的瞬态例外（[ADR-0028]，仅 follow 模式；fix 静态、无手势）；mode 开关不进 engine，目标 `rowSpan` 由 web 层算好传入（follow = 实测内容，1-row min，无 floor；engine 不测量 DOM，invariant 6/7 保持）。[ADR-0030]"永不 reject" 收窄为"**永不因垂直空间不足 reject**"——grid 垂直无上界，向下永远有空间。
 
 ### Invariant query / intent inference
 
