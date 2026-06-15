@@ -8,7 +8,7 @@ for (const themeId of ['graph-paper', 'ink', 'blueprint', 'workbench', 'galley',
       title: `autofit fit · ${themeId}`,
       themeId,
       blocks: [
-        { id: 'G', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 1, autofit: 'grow', minRowSpan: 1, content: md('') },
+        { id: 'G', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 1, autofit: 'follow', content: md('') },
       ],
     });
     await page.goto(`/edit/${id}`);
