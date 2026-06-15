@@ -237,9 +237,10 @@ function BlockShell({
           { x: e.clientX, y: e.clientY },
           [
             { label: 'edit', onSelect: () => onActivate(block.id) },
-            // Follow/fix toggle: shown for any kind that can follow
-            // (image is fix-only via canFollow:false; markdown/richtext/code
-            // in). Inactive-block freeze is automatic: rowSpan already holds
+            // Height-mode toggle: an opt-in "Fixed height" checkbox (checked =
+            // fix; the default follow is unchecked), shown for any kind that can
+            // follow (image is fix-only via canFollow:false; markdown/richtext/
+            // code in). Inactive-block freeze is automatic: rowSpan already holds
             // the committed fit, so switching to fix keeps that height. (The
             // active-block freeze of spec §3.1 is moot here — this menu returns
             // early when active; a future Properties toggle would need to copy
@@ -247,8 +248,8 @@ function BlockShell({
             ...(blockModule(block.kind)?.autofit?.canFollow !== false
               ? [
                   {
-                    label: 'follow content',
-                    checked: isFollow,
+                    label: 'Fixed height',
+                    checked: !isFollow,
                     onSelect: () =>
                       interaction.setAutofit(block.id, isFollow ? 'fix' : 'follow'),
                   } as MenuItem,

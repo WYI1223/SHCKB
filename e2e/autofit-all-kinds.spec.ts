@@ -49,13 +49,13 @@ test('follow toggle: present for code, absent for image', async ({ page }) => {
 
   await page.goto(`/edit/${id}`);
 
-  // code → can follow → the "follow content" toggle is in the menu
+  // code → can follow → the "Fixed height" toggle is in the menu
   await page.locator(sel.block('C')).click({ button: 'right' });
-  await expect(page.getByRole('menuitemcheckbox', { name: /follow content/i })).toBeVisible();
+  await expect(page.getByRole('menuitemcheckbox', { name: /fixed height/i })).toBeVisible();
   await page.keyboard.press('Escape');
 
   // image → fix-only (canFollow:false) → menu opens (edit item present) but no toggle
   await page.locator(sel.block('I')).click({ button: 'right' });
   await expect(page.getByText('edit', { exact: true })).toBeVisible();
-  await expect(page.getByRole('menuitemcheckbox', { name: /follow content/i })).toHaveCount(0);
+  await expect(page.getByRole('menuitemcheckbox', { name: /fixed height/i })).toHaveCount(0);
 });

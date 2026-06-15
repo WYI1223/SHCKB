@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 /**
- * The follow/fix toggle in the block right-click menu (spec §3.2): a
- * menuitemcheckbox labelled "follow content" whose checked state reflects
- * interaction.autofit === 'follow', and which flips the mode on select
- * ('follow' ↔ 'fix'). Shown per the kind's autofit policy
- * (blockModule(kind).autofit?.canFollow !== false): markdown/richtext/code
- * in, image (canFollow:false) out.
+ * The height-mode toggle in the block right-click menu (spec §3.2): an
+ * OPT-IN menuitemcheckbox labelled "Fixed height" whose checked state is
+ * `interaction.autofit !== 'follow'` (checked = fix; the default follow is
+ * unchecked), and which flips the mode on select ('follow' ↔ 'fix'). Shown
+ * per the kind's autofit policy (blockModule(kind).autofit?.canFollow !==
+ * false): markdown/richtext/code in, image (canFollow:false) out.
  */
 import { afterEach, describe, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -51,63 +51,63 @@ function Harness({ kind, mode = 'follow' }: { kind: string; mode?: 'follow' | 'f
   );
 }
 
-describe('follow/fix toggle — per-kind policy', () => {
-  test('block menu shows a checked "follow content" menuitemcheckbox (markdown, follow mode)', async () => {
+describe('Fixed-height toggle — per-kind policy', () => {
+  test('the "Fixed height" checkbox is UNCHECKED for a follow block (the default)', async () => {
     render(<Harness kind="markdown" mode="follow" />);
     const block = document.querySelector('[data-block-id="g"]')!;
     fireEvent.contextMenu(block);
-    const toggle = await screen.findByRole('menuitemcheckbox', { name: /follow content/i });
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-  });
-
-  test('the toggle is unchecked when the block is in fix mode', async () => {
-    render(<Harness kind="markdown" mode="fix" />);
-    const block = document.querySelector('[data-block-id="g"]')!;
-    fireEvent.contextMenu(block);
-    const toggle = await screen.findByRole('menuitemcheckbox', { name: /follow content/i });
+    const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
   });
 
-  test('toggling a fix block writes follow', async () => {
+  test('the "Fixed height" checkbox is CHECKED when the block is in fix mode', async () => {
     render(<Harness kind="markdown" mode="fix" />);
     const block = document.querySelector('[data-block-id="g"]')!;
     fireEvent.contextMenu(block);
-    const toggle = await screen.findByRole('menuitemcheckbox', { name: /follow content/i });
-    fireEvent.click(toggle);
-    // re-open the menu; the checkbox should now reflect follow.
-    fireEvent.contextMenu(block);
-    const after = await screen.findByRole('menuitemcheckbox', { name: /follow content/i });
-    expect(after.getAttribute('aria-checked')).toBe('true');
+    const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
   });
 
-  test('toggling a follow block writes fix', async () => {
+  test('checking "Fixed height" on a follow block writes fix', async () => {
     render(<Harness kind="markdown" mode="follow" />);
     const block = document.querySelector('[data-block-id="g"]')!;
     fireEvent.contextMenu(block);
-    const toggle = await screen.findByRole('menuitemcheckbox', { name: /follow content/i });
+    const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
+    fireEvent.click(toggle);
+    // re-open the menu; the checkbox should now reflect fix (checked).
+    fireEvent.contextMenu(block);
+    const after = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
+    expect(after.getAttribute('aria-checked')).toBe('true');
+  });
+
+  test('unchecking "Fixed height" on a fix block writes follow', async () => {
+    render(<Harness kind="markdown" mode="fix" />);
+    const block = document.querySelector('[data-block-id="g"]')!;
+    fireEvent.contextMenu(block);
+    const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
     fireEvent.click(toggle);
     fireEvent.contextMenu(block);
-    const after = await screen.findByRole('menuitemcheckbox', { name: /follow content/i });
+    const after = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
     expect(after.getAttribute('aria-checked')).toBe('false');
   });
 
   test.each(['markdown', 'richtext', 'code'])(
-    'follow toggle is present for follow-eligible kind "%s"',
+    'the "Fixed height" toggle is present for follow-eligible kind "%s"',
     async (kind) => {
       render(<Harness kind={kind} />);
       const block = document.querySelector('[data-block-id="g"]')!;
       fireEvent.contextMenu(block);
-      const toggle = await screen.findByRole('menuitemcheckbox', { name: /follow content/i });
+      const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
       expect(toggle).toBeTruthy();
     },
   );
 
-  test('follow toggle is ABSENT for image (canFollow: false)', async () => {
+  test('the "Fixed height" toggle is ABSENT for image (canFollow: false)', async () => {
     render(<Harness kind="image" mode="fix" />);
     const block = document.querySelector('[data-block-id="g"]')!;
     fireEvent.contextMenu(block);
-    // wait for the menu itself, then assert no follow-content checkbox is in it.
+    // wait for the menu itself, then assert no Fixed-height checkbox is in it.
     await screen.findByRole('menuitem', { name: /edit/i });
-    expect(screen.queryByRole('menuitemcheckbox', { name: /follow content/i })).toBeNull();
+    expect(screen.queryByRole('menuitemcheckbox', { name: /fixed height/i })).toBeNull();
   });
 });

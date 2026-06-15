@@ -12,7 +12,7 @@ const SLOT = 60; // theme.slot for graph-paper (verified in packages/theme/src)
  * owning `.skb-content-box`), overlays.tsx (`ResizeHandle` renders one
  * `[aria-label="Resize <axis>"]` div per axis, vertical/corner axes only
  * when `canResizeVertical` i.e. fix), and chrome/overlays.tsx (the
- * `menuitemcheckbox` named "follow content").
+ * `menuitemcheckbox` named "Fixed height").
  */
 
 test('fix block overflow scrolls inside the frame (published + editor)', async ({ page }) => {
@@ -88,13 +88,14 @@ test('follow → fix freezes at the current displayed height', async ({ page }) 
   const grownHeight = (await G.boundingBox())!.height;
   expect(grownHeight).toBeGreaterThan(SLOT); // it grew past one row while following
 
-  // Toggle follow → fix via the inactive context menu. The toggle is
-  // checked (follow); clicking it switches to fix and must FREEZE the
-  // rowSpan at the displayed height (no shrink-to-default, no re-measure).
+  // Toggle follow → fix via the inactive context menu. "Fixed height" is the
+  // opt-in checkbox, so a following block shows it UNCHECKED; clicking it
+  // switches to fix and must FREEZE the rowSpan at the displayed height
+  // (no shrink-to-default, no re-measure).
   await G.click({ button: 'right' });
-  const toggle = page.getByRole('menuitemcheckbox', { name: /follow content/i });
+  const toggle = page.getByRole('menuitemcheckbox', { name: /fixed height/i });
   await expect(toggle).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
   await toggle.click();
 
   // rowSpan unchanged: the frozen fix height equals the followed height.
@@ -103,11 +104,11 @@ test('follow → fix freezes at the current displayed height', async ({ page }) 
     .poll(async () => (await G.boundingBox())!.height, { timeout: 3_000 })
     .toBe(grownHeight);
 
-  // Confirm the mode actually flipped: reopen the menu, toggle now unchecked.
+  // Confirm the mode actually flipped: reopen the menu, "Fixed height" now checked.
   await G.click({ button: 'right' });
-  const after = page.getByRole('menuitemcheckbox', { name: /follow content/i });
+  const after = page.getByRole('menuitemcheckbox', { name: /fixed height/i });
   await expect(after).toBeVisible();
-  await expect(after).toHaveAttribute('aria-checked', 'false');
+  await expect(after).toHaveAttribute('aria-checked', 'true');
 });
 
 test('fix exposes a bottom resize handle; follow does not', async ({ page }) => {
