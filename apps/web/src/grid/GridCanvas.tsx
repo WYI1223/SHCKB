@@ -240,7 +240,10 @@ function BlockShell({
             // Follow/fix toggle: shown for any kind that can follow
             // (image is fix-only via canFollow:false; markdown/richtext/code
             // in). Inactive-block freeze is automatic: rowSpan already holds
-            // the committed fit, so switching to fix keeps that height.
+            // the committed fit, so switching to fix keeps that height. (The
+            // active-block freeze of spec §3.1 is moot here — this menu returns
+            // early when active; a future Properties toggle would need to copy
+            // the live fit → rowSpan before switching follow→fix.)
             ...(blockModule(block.kind)?.autofit?.canFollow !== false
               ? [
                   {

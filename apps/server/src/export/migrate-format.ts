@@ -283,7 +283,10 @@ export const FORMAT_TRANSFORMS: FormatTransform[] = [
         const mode = b.autofit;
         // follow→grow keeps the "grows with content" behavior; fix→off is a
         // BEHAVIORAL collapse (v5 has no fixed-height mode), and the floor
-        // comes back as null (the follow/fix model deleted it).
+        // comes back as null (the follow/fix model deleted it). A v5
+        // 'grow+shrink' folded into 'follow' on the way up and returns as
+        // 'grow' here with no loss line — 'grow+shrink' was vestigial (never
+        // wired to behavior; spec/ADR-0030), so no behavior is lost.
         if (mode === 'fix') {
           losses.push(
             `${path}: ${where}block "${String(b.id)}" autofit 'fix'→'off' and floor reset (follow/fix collapsed for v5)`,

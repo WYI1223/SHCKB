@@ -53,6 +53,11 @@ function parsePage(path: string, value: unknown, errors: string[]): ExportPage |
   if (typeof p.sortKey !== 'number') return e('missing sortKey');
   if (typeof p.createdAt !== 'number' || typeof p.updatedAt !== 'number') return e('missing timestamps');
   if (p.published !== null) {
+    // Published-snapshot blocks are validated structurally only (not per-block
+    // like working blocks below): a genuine bundle's published.blocks arrive
+    // already-normalized via the format up-migration, and the render path
+    // (publish-html / ReadPage) coerces any unknown autofit → fix/scroll and
+    // never crashes — so published blocks are trusted-by-construction here.
     const d = p.published as Record<string, unknown> | null;
     if (
       typeof d !== 'object' ||

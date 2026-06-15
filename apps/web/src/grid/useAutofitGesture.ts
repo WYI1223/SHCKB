@@ -13,9 +13,10 @@
  *    applies the COMMIT RULE: one applyGravity iff net delta && gravity-on.
  *
  * ATOMICITY (spec §4.4 / §10 R9): no gravity-running op may interleave a
- * gesture. We expose `gestureActive` so the host suspends the debounced
- * autosave commit while a gesture is live (single-user debounced-PUT
- * makes this an invariant, not a convention).
+ * gesture. Autosave is suspended while a block is active — the gate lives in
+ * EditorPage.save() (it returns early when activeId !== null), which subsumes
+ * the follow gesture (it only runs on the active block). `gestureActive`
+ * exposes that liveness for callers; it is not itself the autosave gate today.
  *
  * `fit` is fed by MeasureProbe (already ceil(outerHeight/slot)). The
  * follow target is the fit itself (1-row min in measureFit). We never

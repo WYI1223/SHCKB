@@ -103,15 +103,21 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     initialBlocks: useMemo(() => detail.blocks.map(({ content: _c, ...geom }) => geom), [detail.blocks]),
     initialGravity: detail.page.gravityEnabled,
     defaultSizeFor,
-    // Seed the follow/fix mode from the server. The DB is not yet migrated
-    // (a later phase), so coerce the legacy enum ROBUSTLY: any growing value
-    // → follow; off/null/already-fix → fix (the safe fixed-height fallback).
+    // Seed the follow/fix mode from the server. The DB may not be migrated
+    // yet, so coerce legacy enums; a null/unknown value resolves to the KIND
+    // DEFAULT (spec §2 / plan) — NOT blindly to fix (fix is only the published
+    // fallback). 'grow'/'grow+shrink' → follow; an explicit follow/fix passes
+    // through; anything else (null/'off'/garbage) → the kind's default mode.
     initialAutofit: useMemo(() => {
-      // `af` is widened to string because the wire value may still be a
-      // legacy enum ('grow'/'grow+shrink'/'off') until the DB migration.
-      const toMode = (af: string | null | undefined): 'follow' | 'fix' =>
-        af === 'grow' || af === 'grow+shrink' || af === 'follow' ? 'follow' : 'fix';
-      return Object.fromEntries(detail.blocks.map((b) => [b.id, toMode(b.autofit as string | null | undefined)]));
+      const toMode = (af: string | null | undefined, kind: string): 'follow' | 'fix' =>
+        af === 'grow' || af === 'grow+shrink' || af === 'follow'
+          ? 'follow'
+          : af === 'fix'
+            ? 'fix'
+            : (blockModule(kind)?.autofit?.default ?? 'fix');
+      return Object.fromEntries(
+        detail.blocks.map((b) => [b.id, toMode(b.autofit as string | null | undefined, b.kind)]),
+      );
     }, [detail.blocks]),
     onBlockInserted: (block: Block) => {
       const mod = blockModule(block.kind);
