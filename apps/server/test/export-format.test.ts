@@ -21,8 +21,8 @@ describe('collectHashLikeStrings', () => {
 import { canonicalJson, sanitizeDirName, FORMAT_VERSION } from '../src/export/format';
 
 describe('canonical format helpers', () => {
-  test('FORMAT_VERSION is 5', () => {
-    expect(FORMAT_VERSION).toBe(5);
+  test('FORMAT_VERSION is 6', () => {
+    expect(FORMAT_VERSION).toBe(6);
   });
 
   test('canonicalJson: 2-space pretty print, trailing LF, no CR', () => {
@@ -133,13 +133,13 @@ function productionV1Files(): JsonFiles {
   ]);
 }
 
-// ----- v5: block autofit + minRowSpan (block-autofit-height) -----
+// ----- v6: autofit enum → follow/fix two-mode (follow/fix redesign) -----
 
-/** A v4 bundle whose single block has rowSpan 4 — i.e. content has
- * already grown the block past any author floor. Used to prove the
- * down→up floor-reset rule. */
-function productionV4Files(): JsonFiles {
-  return upgradeToVersion(
+/** A v5 bundle whose single block carries the legacy floor model
+ * (autofit:'grow', minRowSpan:2) on BOTH working + published blocks.
+ * Used to prove the v6 enum→mode migration and floor deletion. */
+function productionV5GrowFiles(): JsonFiles {
+  const up = upgradeToVersion(
     new Map<string, unknown>([
       ['manifest.json', { formatVersion: 1, blobs: [] }],
       [
@@ -156,71 +156,75 @@ function productionV4Files(): JsonFiles {
         },
       ],
     ]),
-    4,
+    5,
   );
+  // v5 up() seeds autofit/minRowSpan null — set the legacy floor model
+  // explicitly on both working + published blocks.
+  const page = up.get('tree/a.page.json') as {
+    blocks: Array<{ autofit: unknown; minRowSpan: unknown }>;
+    published: { blocks: Array<{ autofit: unknown; minRowSpan: unknown }> };
+  };
+  page.blocks[0]!.autofit = 'grow';
+  page.blocks[0]!.minRowSpan = 2;
+  page.published.blocks[0]!.autofit = 'grow';
+  page.published.blocks[0]!.minRowSpan = 2;
+  return up;
 }
 
-describe('production format registry v5 (block autofit)', () => {
-  test('v4→v5 adds autofit=null + minRowSpan=null to working AND published blocks', () => {
-    const up = upgradeToVersion(productionV4Files(), 5);
+describe('production format registry v6 (autofit follow/fix)', () => {
+  test("v5→v6 maps 'grow'→'follow' and drops minRowSpan on working AND published blocks", () => {
+    const up = upgradeToVersion(productionV5GrowFiles(), 6);
+    expect((up.get('manifest.json') as { formatVersion: number }).formatVersion).toBe(6);
     const page = up.get('tree/a.page.json') as {
-      blocks: Array<{ autofit: unknown; minRowSpan: unknown; rowSpan: number }>;
-      published: { blocks: Array<{ autofit: unknown; minRowSpan: unknown }> };
+      blocks: Array<Record<string, unknown>>;
+      published: { blocks: Array<Record<string, unknown>> };
     };
-    expect(page.blocks[0]!.autofit).toBeNull();
-    expect(page.blocks[0]!.minRowSpan).toBeNull(); // floor = engine minimum, NOT rowSpan(4)
-    expect(page.published.blocks[0]!.autofit).toBeNull();
-    expect(page.published.blocks[0]!.minRowSpan).toBeNull();
+    expect(page.blocks[0]!.autofit).toBe('follow');
+    expect('minRowSpan' in page.blocks[0]!).toBe(false);
+    expect(page.published.blocks[0]!.autofit).toBe('follow');
+    expect('minRowSpan' in page.published.blocks[0]!).toBe(false);
   });
 
-  test('v4→v5→v4 round trip is lossless when autofit is off (null)', () => {
-    const v4 = productionV4Files();
-    const up = upgradeToVersion(v4, 5);
-    const { files, losses } = downgradeToVersion(up, 4);
-    expect(losses).toEqual([]); // null autofit / null floor are not behavioral losses
-    expect(files.get('tree/a.page.json')).toEqual(v4.get('tree/a.page.json'));
-  });
+  test("v5→v6 maps 'off'/null → 'fix' (the fixed-height fallback)", () => {
+    const v5off = productionV5GrowFiles();
+    const page0 = v5off.get('tree/a.page.json') as {
+      blocks: Array<{ autofit: unknown }>;
+      published: { blocks: Array<{ autofit: unknown }> };
+    };
+    page0.blocks[0]!.autofit = 'off';
+    page0.published.blocks[0]!.autofit = null;
 
-  test('v5→v4 drops autofit + emits BEHAVIORAL minRowSpan loss when floor is set', () => {
-    const up = upgradeToVersion(productionV4Files(), 5);
+    const up = upgradeToVersion(v5off, 6);
     const page = up.get('tree/a.page.json') as {
-      blocks: Array<{ autofit: unknown; minRowSpan: unknown }>;
-      published: { blocks: Array<{ autofit: unknown; minRowSpan: unknown }> };
+      blocks: Array<{ autofit: unknown }>;
+      published: { blocks: Array<{ autofit: unknown }> };
     };
-    page.blocks[0]!.autofit = 'grow';
-    page.blocks[0]!.minRowSpan = 2;
-    page.published.blocks[0]!.autofit = 'grow';
-    page.published.blocks[0]!.minRowSpan = 2;
-
-    const { files, losses } = downgradeToVersion(up, 4);
-    expect((files.get('manifest.json') as { formatVersion: number }).formatVersion).toBe(4);
-    // behavioral loss wording for the floor, on both working + published block
-    expect(losses.filter((l) => l.includes('min height resets, can no longer shrink below current')).length).toBe(2);
-    expect(losses.filter((l) => l.includes('autofit "grow" dropped')).length).toBe(2);
-    // the v4 block carries neither axis
-    const v4page = files.get('tree/a.page.json') as { blocks: Array<Record<string, unknown>> };
-    expect('autofit' in v4page.blocks[0]!).toBe(false);
-    expect('minRowSpan' in v4page.blocks[0]!).toBe(false);
+    expect(page.blocks[0]!.autofit).toBe('fix');
+    expect(page.published.blocks[0]!.autofit).toBe('fix');
   });
 
-  test('v5→v4→v5 does NOT raise the floor (the load-bearing assertion)', () => {
-    // start at v5 with a SET floor of 1 on a block already grown to rowSpan 4
-    const up = upgradeToVersion(productionV4Files(), 5);
-    const page0 = up.get('tree/a.page.json') as { blocks: Array<{ minRowSpan: unknown }> };
-    page0.blocks[0]!.minRowSpan = 1; // author floor = 1, well below content-grown rowSpan 4
-
-    // round-trip through v4 (which cannot express the floor) and back to v5
-    const { files: v4 } = downgradeToVersion(up, 4);
-    const reUp = upgradeToVersion(v4, 5);
-    const page1 = reUp.get('tree/a.page.json') as {
-      blocks: Array<{ minRowSpan: unknown; rowSpan: number }>;
+  test("v6→v5 (lossy) collapses 'follow'→'grow', 'fix'→'off', reintroduces null floor", () => {
+    const up = upgradeToVersion(productionV5GrowFiles(), 6); // both blocks now 'follow'
+    const page = up.get('tree/a.page.json') as {
+      blocks: Array<{ autofit: unknown }>;
+      published: { blocks: Array<{ autofit: unknown }> };
     };
-    // floor came back as the engine minimum (null), NOT raised to the
-    // current rowSpan (4). Raising it would permanently destroy the
-    // author's "floor below current content" intent.
-    expect(page1.blocks[0]!.minRowSpan).toBeNull();
-    expect(page1.blocks[0]!.minRowSpan).not.toBe(4);
-    expect(page1.blocks[0]!.rowSpan).toBe(4); // rowSpan itself is preserved across the trip
+    // make the published block 'fix' so the down-loss note fires there
+    page.published.blocks[0]!.autofit = 'fix';
+
+    const { files, losses } = downgradeToVersion(up, 5);
+    expect((files.get('manifest.json') as { formatVersion: number }).formatVersion).toBe(5);
+    const v5page = files.get('tree/a.page.json') as {
+      blocks: Array<Record<string, unknown>>;
+      published: { blocks: Array<Record<string, unknown>> };
+    };
+    // follow→grow, fix→off; floor reintroduced as null
+    expect(v5page.blocks[0]!.autofit).toBe('grow');
+    expect(v5page.blocks[0]!.minRowSpan).toBeNull();
+    expect(v5page.published.blocks[0]!.autofit).toBe('off');
+    expect(v5page.published.blocks[0]!.minRowSpan).toBeNull();
+    // the 'fix'→'off' collapse is a behavioral loss; 'follow'→'grow' is not
+    expect(losses.filter((l) => l.includes("autofit 'fix'→'off' and floor reset")).length).toBe(1);
   });
 });
 

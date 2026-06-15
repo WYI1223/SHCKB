@@ -64,6 +64,13 @@
       "when": 1781366784238,
       "tag": "0008_autofit",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1781539584238,
+      "tag": "0009_autofit_follow_fix",
+      "breakpoints": true
     }
   ]
 }

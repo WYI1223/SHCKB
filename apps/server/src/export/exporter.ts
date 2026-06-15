@@ -116,8 +116,7 @@ export function buildExport(
           colSpan: b.colSpan,
           rowSpan: b.rowSpan,
           shell: b.shell,
-          autofit: b.autofit,
-          minRowSpan: b.minRowSpan,
+          autofit: b.autofit as 'follow' | 'fix' | null,
           content: safeParse<unknown>(b.content, null),
         })),
     };
