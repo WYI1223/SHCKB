@@ -6,7 +6,7 @@
  * and cross-links stay as crisp, selectable, searchable text.
  *
  *   块系统 · 抽象逻辑    — ① 一个块的解剖（缩进即包含）② 组合而非继承
- *                          ③ autofit（floor/fit/effective）
+ *                          ③ autofit（follow / fix 两模）
  *   块系统 · 实现与权衡  — ④ 类型即护栏 ⑤ 测量管线 ⑥ 前→后，配真实代码
  *
  * Figures are authored at the 12-col content-box width (712px) so they
