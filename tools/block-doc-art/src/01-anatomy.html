@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .head { display: flex; flex-direction: column; gap: 10px; }
+    .head .legend { justify-content: flex-start; }
+
+    /* concentric cross-section: each ring's padding is the gap, its
+       border is the wall, its tab names it. Inset = "wrapped by". */
+    .xs { margin: 26px 6px 6px; }
+    .ring { position: relative; border-radius: 13px; }
+    .tab {
+      position: absolute; top: -13px; left: 20px;
+      background: var(--paper); padding: 2px 11px; border-radius: 8px;
+      font-family: var(--mono); font-size: 12.5px; font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .ring.canvas {
+      border: 2px dashed var(--canv);
+      background: rgba(81, 96, 122, 0.05);
+      padding: 32px 30px 30px;
+      box-shadow: 0 0 0 4px rgba(81, 96, 122, 0.07);
+    }
+    .ring.canvas > .tab { border: 1.5px solid var(--canv); color: var(--canv); }
+    .handle { position: absolute; width: 9px; height: 9px; background: var(--host); border: 1.5px solid #fff; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+    .handle.tl { top: -5px; left: -5px; } .handle.tr { top: -5px; right: -5px; }
+    .handle.bl { bottom: -5px; left: -5px; } .handle.br { bottom: -5px; right: -5px; }
+
+    .ring.root {
+      border: 2px solid var(--host);
+      background: rgba(255, 255, 255, 0.66);
+      padding: 36px 26px 26px;
+    }
+    .ring.root > .tab { border: 1.5px solid var(--host); color: var(--host); }
+    .washi {
+      position: absolute; top: -11px; right: 30px; transform: rotate(7deg);
+      background: rgba(168, 38, 106, 0.16); border: 1px dashed var(--theme);
+      color: var(--theme); font-family: var(--mono); font-size: 11px; font-weight: 600;
+      padding: 4px 14px; border-radius: 3px;
+    }
+    .edge-tag {
+      position: absolute; font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+      color: var(--theme); background: var(--theme-soft); border: 1px dashed var(--theme);
+      padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    }
+    .edge-tag.skinroot { top: 9px; right: 26px; }
+    .behind-strip {
+      margin: 6px 0 12px; padding: 5px 12px;
+      border: 1px dashed var(--theme); border-radius: 8px;
+      background: var(--theme-soft); color: var(--theme);
+      font-family: var(--mono); font-size: 11px; font-weight: 600; text-align: center;
+    }
+
+    .ring.box {
+      border: 3px solid var(--host);
+      background: linear-gradient(180deg, rgba(211,233,229,0.9), rgba(211,233,229,0.45));
+      box-shadow: 0 0 0 5px var(--host-soft), 0 14px 30px -16px rgba(15, 118, 110, 0.6);
+      padding: 34px 24px 0;
+    }
+    .ring.box > .tab { background: var(--host); color: #fff; border: 1.5px solid var(--host); }
+    .edge-tag.skinbox { top: 9px; right: 16px; }
+
+    .ring.content {
+      border: 2px solid var(--kind);
+      background: var(--kind-soft);
+      padding: 26px 20px; text-align: center;
+    }
+    .ring.content > .tab { background: var(--kind); color: #fff; border: 1.5px solid var(--kind); }
+    .content-label { font-size: 16px; font-weight: 700; color: #7a3a06; line-height: 1.4; }
+    .content-label .mono { display: block; margin-top: 5px; font-size: 12.5px; font-weight: 600; color: var(--kind); }
+
+    .host-stamp {
+      margin: 16px -24px 0; padding: 10px 24px;
+      background: var(--host); color: #fff;
+      font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+      letter-spacing: 0.01em; text-align: center;
+      border-bottom-left-radius: 11px; border-bottom-right-radius: 11px;
+    }
+
+    .notes { grid-template-columns: repeat(2, 1fr); gap: 14px 22px; margin-top: 24px; }
+    .note .num.n1 { background: var(--canv); } .note .num.n2 { background: var(--host); }
+    .note .num.n3 { background: var(--host); } .note .num.n4 { background: var(--kind); }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="head">
+      <div>
+        <div class="eyebrow">Block anatomy · ADR-0029</div>
+        <h1 class="t">一个块的解剖 — 从外到内，缩进即包含</h1>
+        <p class="lede"><b>功能归 host；kind / theme / UI 是薄插件，在同一个 host 盒上组合 — 无基类。</b>
+          每一圈被外圈包住；星标那圈 <span class="mono">.skb-content-box</span> 是 host 拥有的可测量内核。</p>
+      </div>
+      <div class="legend">
+        <span class="lg"><span class="sw host"></span> host 拥有</span>
+        <span class="lg"><span class="sw theme"></span> theme · skin（材质）</span>
+        <span class="lg"><span class="sw kind"></span> kind · 内容</span>
+        <span class="lg"><span class="sw canv"></span> canvas · 几何</span>
+        <span class="lg"><span class="sw defer"></span> UI-plugin（延后）</span>
+      </div>
+    </div>
+
+    <div class="xs">
+      <div class="ring canvas">
+        <span class="tab">① canvas · 几何定位</span>
+        <span class="handle tl"></span><span class="handle tr"></span>
+        <span class="handle bl"></span><span class="handle br"></span>
+
+        <div class="ring root">
+          <span class="tab">② .skb-frame-root</span>
+          <span class="washi">front(ctx) · 和纸胶带</span>
+          <span class="edge-tag skinroot">skin.root · tilt / filter</span>
+          <div class="behind-strip">behind(ctx) · 盒后装饰层（在内容盒之前绘制）</div>
+
+          <div class="ring box">
+            <span class="tab">③ .skb-content-box ★ host 拥有</span>
+            <span class="edge-tag skinbox">skin.box · 仅视觉 Pick&lt;&gt;</span>
+
+            <div class="ring content">
+              <span class="tab">④ RenderView</span>
+              <div class="content-label">kind 的内容
+                <span class="mono">markdown · richtext · image · code</span>
+              </div>
+            </div>
+
+            <div class="host-stamp">host 最后落 · position · width · height · overflow ✓ — skin 永远赢不了</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="notes">
+      <div class="note">
+        <span class="num n1">①</span>
+        <div class="body"><span class="hd">canvas · 几何</span>host 给 <b>left / top / width / height</b>，外加拖拽 / 缩放手柄与选中光环。编辑器拥有外层定位。</div>
+      </div>
+      <div class="note">
+        <span class="num n2">②</span>
+        <div class="body"><span class="hd">.skb-frame-root</span>host 渲染的元素。skin 只供 <b>root.style</b>（tilt / filter 等纯视觉）与 <b>behind / front</b> 装饰，碰不到结构。</div>
+      </div>
+      <div class="note">
+        <span class="num n3">③</span>
+        <div class="body"><span class="hd">.skb-content-box ★</span>host 拥有：<b>in-flow · 撑出自然高 · 持 overflow</b>。skin.box 视觉先铺，host 把 position/size/overflow <b>最后落</b>。</div>
+      </div>
+      <div class="note">
+        <span class="num n4">④</span>
+        <div class="body"><span class="hd">RenderView</span>kind 只供内容（md / rich / image / code），<b>碰不到盒</b>。第三方 kind 同此一条路。</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

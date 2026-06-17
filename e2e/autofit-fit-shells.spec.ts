@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { createMarkdownPage, loginViaApi, md, sel } from './fixtures/login';
 
-for (const themeId of ['galley', 'stationery'] as const) {
+for (const themeId of ['graph-paper', 'ink', 'blueprint', 'workbench', 'galley', 'stationery', 'marginalia'] as const) {
   test(`fit matches live row count on ${themeId} shell (content fits, no clip)`, async ({ page }) => {
     await loginViaApi(page);
     const { id } = await createMarkdownPage(page.request, {
@@ -30,12 +30,11 @@ for (const themeId of ['galley', 'stationery'] as const) {
     await expect(G).not.toHaveAttribute('data-pu-active', /.*/);
 
     // Inactive block shows the measured RenderView inside the real Frame.
-    // fit == live row count => the content fits the committed geometry:
-    // its CLIP CONTAINER (the box that owns overflow — `.skb-md`'s parent:
-    // `.skb-block` for galley, `.skb-paper` for stationery, NOT the
-    // decorated outer slip which carries washi/curl/torn-edge overflow of
-    // its own) does not scroll: scrollHeight <= clientHeight.
-    const clip = page.locator(`[data-block-id="G"] .skb-md`).locator('xpath=..');
+    // fit == live row count => the content fits the committed geometry.
+    // After the frame-core refactor every block renders as:
+    //   .skb-frame-root > .skb-content-box (the overflow/clip owner)
+    // The clip container is .skb-content-box, theme-agnostic.
+    const clip = page.locator('[data-block-id="G"] .skb-content-box');
     await expect(clip).toBeVisible();
     const fits = await clip.evaluate((el) => el.scrollHeight <= el.clientHeight + 1);
     expect(fits).toBe(true);

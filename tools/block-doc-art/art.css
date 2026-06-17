@@ -1,0 +1,145 @@
+/*
+ * Shared visual language for the block-system developer-doc diagrams.
+ * Rendered HTML -> PNG (tools/block-doc-art/render.mjs) -> uploaded as
+ * image-block blobs. ONE palette across every diagram so the reader
+ * learns the colour code once: teal = host owns it, amber = kind
+ * (content), rose = theme (skin/material), graphite = vanilla canvas,
+ * violet (ghosted) = deferred UI-plugin layer.
+ *
+ * Body is transparent so the page's paper shows through the letterbox
+ * around each card (image blocks use object-fit: contain).
+ */
+:root {
+  --paper: #FBF7EE;
+  --paper-2: #F4ECDC;
+  --edge: #E7DCC6;
+  --ink: #221F18;
+  --ink-soft: #6B6356;
+  --ink-faint: #9C927E;
+  --hair: #D8CDB8;
+
+  --host: #0F766E;        /* teal — load-bearing host */
+  --host-soft: #D3E9E5;
+  --kind: #B45309;        /* amber — content / kind */
+  --kind-soft: #F4E1C6;
+  --theme: #A8266A;       /* rose — material / skin */
+  --theme-soft: #F2D4E3;
+  --canv: #51607A;        /* graphite — vanilla canvas */
+  --canv-soft: #DEE3EC;
+  --defer: #7C5CCB;       /* violet — deferred / future */
+  --defer-soft: #E3D9F5;
+
+  --ok: #2F7D32;
+  --no: #BE3A2B;
+
+  --r: 14px;
+  --shadow: 0 18px 40px -22px rgba(40, 32, 18, 0.55), 0 2px 6px -2px rgba(40, 32, 18, 0.18);
+  --sans: 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, 'PingFang SC', sans-serif;
+  --mono: 'Cascadia Code', 'Consolas', ui-monospace, 'SFMono-Regular', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: var(--sans);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* the screenshot target — a floating paper card */
+.card {
+  position: relative;
+  background:
+    radial-gradient(120% 140% at 12% -10%, var(--paper) 0%, var(--paper-2) 100%);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 34px 38px 30px;
+  overflow: hidden;
+}
+/* faint engineering-grid wash, a nod to graph-paper */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--hair) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hair) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.16;
+  pointer-events: none;
+}
+.card > * { position: relative; }
+
+/* ---- titles ---- */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--host);
+  font-weight: 600;
+}
+h1.t {
+  margin: 4px 0 6px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.lede {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 70ch;
+}
+.lede b { color: var(--ink); }
+.rule {
+  height: 1px;
+  background: linear-gradient(90deg, var(--hair), transparent);
+  margin: 18px 0;
+}
+
+/* ---- legend ---- */
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.lg { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); }
+.sw { width: 13px; height: 13px; border-radius: 4px; flex: none; }
+.sw.host { background: var(--host); }
+.sw.kind { background: var(--kind); }
+.sw.theme { background: var(--theme); }
+.sw.canv { background: var(--canv); }
+.sw.defer { background: var(--defer); border: 1.5px dashed #fff; outline: 1px dashed var(--defer); }
+
+/* ---- chips & mono ---- */
+.mono { font-family: var(--mono); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px;
+  border: 1.5px solid var(--edge); background: #fff;
+}
+.chip.host { color: var(--host); border-color: var(--host); background: var(--host-soft); }
+.chip.kind { color: var(--kind); border-color: var(--kind); background: var(--kind-soft); }
+.chip.theme { color: var(--theme); border-color: var(--theme); background: var(--theme-soft); }
+.chip.canv { color: var(--canv); border-color: var(--canv); background: var(--canv-soft); }
+.chip.defer { color: var(--defer); border-color: var(--defer); background: var(--defer-soft); border-style: dashed; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+
+/* ---- ok / no marks ---- */
+.ok { color: var(--ok); font-weight: 700; }
+.no { color: var(--no); font-weight: 700; }
+
+/* ---- annotation footer (numbered) ---- */
+.notes { display: grid; gap: 14px; }
+.note { display: flex; gap: 10px; align-items: flex-start; }
+.num {
+  flex: none; width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 13px; font-weight: 700; color: #fff;
+}
+.note .body { font-size: 13px; line-height: 1.45; color: var(--ink-soft); }
+.note .body b { color: var(--ink); }
+.note .hd { font-weight: 700; color: var(--ink); font-size: 13.5px; }

@@ -6,8 +6,10 @@
 | Date | 2026-06-13 |
 | Authors | W_YI (owner), Claude |
 | Supersedes | —（收窄 [grid-engine CONTRACT.md] invariant 4 的 "每个 mutating op 之后 gravity-stable" 表述：增设手势瞬态窗例外）|
-| Superseded by | — |
+| Superseded by | — （本 ADR 完整保留；被 [ADR-0029](./ADR-0029-host-frame-core-blockskin.md) 扩展：autofit 从"markdown autofit"泛化为 block-base capability + 逐 kind `BlockKindModule.autofit` 策略） |
 | Source | [2026-06-13-block-autofit-height-design.md](../../superpowers/specs/2026-06-13-block-autofit-height-design.md) §4.4/§9（owner ratified 2026-06-13；PRD-informed：[blocks.md] / [notepage-editing.md] 承接"块高度可由内容在作者约束内自增长"）|
+
+> **Extension (2026-06-14) — [ADR-0029]**：本 ADR 决策的 `pushResize` 引擎原语与 gravity carve-out 不变量**完整保留**。[ADR-0029](./ADR-0029-host-frame-core-blockskin.md) 在此之上扩展：把"markdown autofit"升为 block-base capability（host `BlockFrameCore` 持有可测量盒 + MeasureProbe）；逐 kind 策略通过 `BlockKindModule.autofit` 字段声明（markdown/richtext/code = `grow`，image = `false`，省略 = 可用默认 `off`）；移除两个 `kind === 'markdown'` 闸门，使 toggle 与 probe 对任意可用 kind 生效。
 
 ## Context
 

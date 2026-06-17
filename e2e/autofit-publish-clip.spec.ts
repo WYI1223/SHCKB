@@ -15,10 +15,12 @@ test('published autofit block clips (overflow:hidden); non-autofit scrolls (auto
   // The clean public share route (standalone, no shell).
   await page.goto(`/notes/${slug}`);
 
-  // Published markup is read-only: blocks render as `.skb-block` with NO
-  // editor-only data-block-id, so target by their rendered content.
-  const autofitFrame = page.locator('.skb-block').filter({ hasText: 'clipped' });
-  const plainFrame = page.locator('.skb-block').filter({ hasText: 'scrolls' });
+  // Published markup is read-only (no editor-only data-block-id). The host
+  // BlockFrameCore renders the overflow-owning content box as
+  // `.skb-content-box` (graph-paper's default skin adds no extra class), so
+  // target by rendered content.
+  const autofitFrame = page.locator('.skb-content-box').filter({ hasText: 'clipped' });
+  const plainFrame = page.locator('.skb-content-box').filter({ hasText: 'scrolls' });
   await expect(autofitFrame).toBeVisible();
   await expect(plainFrame).toBeVisible();
 

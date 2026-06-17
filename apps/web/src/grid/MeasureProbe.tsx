@@ -21,8 +21,8 @@
  * visible preview is the EditView ghost (data-skb-ghost-preview, spec §7).
  */
 import { useLayoutEffect, useRef } from 'react';
-import { blockModule, DefaultBlockFrame } from '@skb/block-kinds';
-import { resolveBlockFrame, useTheme } from '@skb/theme';
+import { blockModule, BlockFrameCore } from '@skb/block-kinds';
+import { resolveSkin, useTheme } from '@skb/theme';
 import { fitFromContent, measuredWidthPx } from './measureFit';
 
 /** Definite cell height for the probe: tall enough that any realistic
@@ -43,7 +43,7 @@ export type MeasureProbeProps = {
 export function MeasureProbe({ kind, blockId, colSpan, shell, content, onFit }: MeasureProbeProps) {
   const theme = useTheme();
   const mod = blockModule(kind);
-  const Frame = resolveBlockFrame(theme, kind, shell) ?? theme.BlockFrame ?? DefaultBlockFrame;
+  const skin = resolveSkin(theme, kind, shell);
   const areaRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const onFitRef = useRef(onFit);
@@ -86,7 +86,7 @@ export function MeasureProbe({ kind, blockId, colSpan, shell, content, onFit }: 
         visibility: 'hidden',
       }}
     >
-      <Frame kind={kind} blockId={blockId} colSpan={colSpan} rowSpan={1} shell={shell}>
+      <BlockFrameCore kind={kind} blockId={blockId} colSpan={colSpan} rowSpan={1} autofit skin={skin}>
         {/* AREA: stretches to the frame's content box → reveals the
             available content area (and thus the frame's vertical chrome). */}
         <div ref={areaRef} data-skb-measure-area style={{ height: '100%' }}>
@@ -95,7 +95,7 @@ export function MeasureProbe({ kind, blockId, colSpan, shell, content, onFit }: 
             <Render content={safe} />
           </div>
         </div>
-      </Frame>
+      </BlockFrameCore>
     </div>
   );
 }

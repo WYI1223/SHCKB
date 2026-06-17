@@ -11,23 +11,12 @@ import type { MarkdownContent } from './markdown';
 export function MarkdownRenderView({ content }: { content: MarkdownContent }) {
   const theme = useTheme();
   if (content.markdown.trim() === '') {
-    // Single line: this is an empty-state affordance, not content — it must
-    // never wrap into extra rows, or an emptied autofit block could not
-    // shrink back to its floor (autofit measures the rendered height).
-    return (
-      <div
-        style={{
-          color: theme.mutedColor,
-          fontSize: '13px',
-          fontStyle: 'italic',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        Empty markdown block
-      </div>
-    );
+    // Empty = blank (owner decision, frame-core slice): readers never see
+    // editor jargon, and an emptied autofit block measures ~0 → shrinks to its
+    // floor cleanly. The author affordance for an empty block is the block's
+    // own frame (a visible card) + the EditView "Write markdown…" textarea on
+    // click — no placeholder text leaks into the rendered/published output.
+    return null;
   }
   return (
     // overflow-wrap: anywhere — prose (incl. long inline code / URLs)

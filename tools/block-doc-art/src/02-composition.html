@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .head { display: flex; flex-direction: column; gap: 10px; }
+    .head .legend { justify-content: flex-start; }
+
+    .feeders { display: grid; grid-template-columns: 1fr 1.18fr 1fr; gap: 18px; margin-top: 24px; align-items: stretch; }
+    .src { border-radius: 13px; padding: 15px 17px; border: 2px solid; background: #fff; }
+    .src .h { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; margin-bottom: 8px; }
+    .src .h .star { font-size: 18px; }
+    .src ul { margin: 0; padding-left: 17px; font-size: 13px; line-height: 1.55; color: var(--ink-soft); }
+    .src ul b { color: var(--ink); }
+    .src .con { margin-top: 9px; font-family: var(--mono); font-size: 11.5px; padding: 4px 9px; border-radius: 7px; display: inline-block; }
+    .src.kind { border-color: var(--kind); } .src.kind .h { color: var(--kind); } .src.kind .con { background: var(--kind-soft); color: #7a3a06; }
+    .src.host { border-color: var(--host); box-shadow: 0 0 0 5px var(--host-soft), 0 14px 30px -18px rgba(15,118,110,.5); }
+    .src.host .h { color: var(--host); } .src.host .con { background: var(--host-soft); color: #0c5650; }
+    .src.theme { border-color: var(--theme); } .src.theme .h { color: var(--theme); } .src.theme .con { background: var(--theme-soft); color: #7e1d4e; }
+
+    .merge { display: grid; grid-template-columns: 1fr 1.18fr 1fr; margin: 2px 0 -2px; }
+    .merge .v { text-align: center; color: var(--ink-soft); font-size: 22px; line-height: 1; }
+    .merge .v.k { color: var(--kind); } .merge .v.h { color: var(--host); } .merge .v.t { color: var(--theme); }
+
+    .assembled {
+      margin-top: 8px; border: 3px solid var(--host); border-radius: 13px;
+      background: linear-gradient(180deg, rgba(211,233,229,.85), rgba(211,233,229,.4));
+      box-shadow: 0 0 0 5px var(--host-soft); padding: 14px 18px 0; position: relative;
+    }
+    .assembled .cap { position: absolute; top: -12px; left: 22px; background: var(--host); color: #fff; font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 2px 11px; border-radius: 8px; }
+    .assembled .skintag { position: absolute; top: 10px; right: 16px; font-family: var(--mono); font-size: 10.5px; font-weight: 600; color: var(--theme); background: var(--theme-soft); border: 1px dashed var(--theme); padding: 2px 8px; border-radius: 999px; }
+    .assembled .inner { border: 2px solid var(--kind); background: var(--kind-soft); border-radius: 9px; padding: 13px; text-align: center; font-weight: 700; color: #7a3a06; font-size: 14px; }
+    .assembled .stamp { margin: 12px -18px 0; padding: 8px; background: var(--host); color: #fff; font-family: var(--mono); font-size: 12px; font-weight: 600; text-align: center; border-radius: 0 0 11px 11px; }
+
+    .vs { display: grid; grid-template-columns: 1fr; gap: 13px; margin-top: 20px; }
+    .codecard { border-radius: 12px; padding: 13px 16px; border: 1.5px solid var(--edge); background: var(--paper-2); }
+    .codecard .lbl { font-size: 13px; font-weight: 800; margin-bottom: 7px; }
+    .codecard.no .lbl { color: var(--no); } .codecard.ok .lbl { color: var(--ok); }
+    .codecard pre { margin: 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; }
+    .codecard.no pre { text-decoration: line-through; text-decoration-color: rgba(190,58,43,.6); color: var(--ink-soft); }
+    .codecard .why { margin-top: 8px; font-size: 12px; color: var(--ink-soft); }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="head">
+      <div>
+        <div class="eyebrow">Composition, not inheritance</div>
+        <h1 class="t">组合，不是继承 — 三个供应者，一个盒</h1>
+        <p class="lede">三种插件各供其专长，<b>向下汇入同一个 host 盒</b>。没有共同基类——能力靠组合，不靠继承。</p>
+      </div>
+      <div class="legend">
+        <span class="lg"><span class="sw kind"></span> kind · 内容</span>
+        <span class="lg"><span class="sw host"></span> host · 盒与能力</span>
+        <span class="lg"><span class="sw theme"></span> theme · 材质</span>
+      </div>
+    </div>
+
+    <div class="feeders">
+      <div class="src kind">
+        <div class="h"><span class="dot" style="background:var(--kind)"></span> kind</div>
+        <ul><li><b>RenderView</b> / EditView</li><li>extractText（搜索/导出）</li><li><b>autofit 策略</b>（声明）</li></ul>
+        <span class="con">只供内容 · 碰不到盒</span>
+      </div>
+      <div class="src host">
+        <div class="h"><span class="star">★</span> host · frame-core</div>
+        <ul><li>持<b>可测量内容盒</b> + overflow</li><li>几何 · autofit 测量与手势</li><li>编辑 / 发布 / 测量 <b>三处同源</b></li></ul>
+        <span class="con">一切在这里组合</span>
+      </div>
+      <div class="src theme">
+        <div class="h"><span class="dot" style="background:var(--theme)"></span> theme</div>
+        <ul><li>供一个 <b>BlockSkin</b></li><li>root / box / behind / front</li><li>类型受限 · 纯视觉</li></ul>
+        <span class="con">只供材质 · 碰不到盒</span>
+      </div>
+    </div>
+
+    <div class="merge"><div class="v k">▼</div><div class="v h">▼</div><div class="v t">▼</div></div>
+
+    <div class="assembled">
+      <span class="cap">组装好的块</span>
+      <span class="skintag">theme：skin.root / box / behind / front</span>
+      <div class="inner">kind 的 RenderView（内容）</div>
+      <div class="stamp">host 盒 ∘ kind 内容 ∘ theme 材质 — 在 .skb-content-box 上一处汇合</div>
+    </div>
+
+    <div class="vs">
+      <div class="codecard no">
+        <div class="lbl">✗ 不是继承</div>
+        <pre>abstract class BlockBase {
+  abstract render(): Node;
+  measureHeight() { /* 共享、难改写 */ }
+}
+class Markdown extends BlockBase { … }</pre>
+        <div class="why">基类把能力焊死在层级里——改一处牵动所有 kind，第三方难安全扩展。</div>
+      </div>
+      <div class="codecard ok">
+        <div class="lbl">✓ 是组合（接口 + registry）</div>
+        <pre>const markdown: BlockKindModule = {
+  kind: 'markdown', RenderView, EditView,
+  extractText, autofit: { default: 'grow' },
+};  // host 负责盒，theme 负责皮</pre>
+        <div class="why">Open/Closed：整体替换 / 加法扩展，<b>永不局部改写</b>。host/theme/kind 各自演化。</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

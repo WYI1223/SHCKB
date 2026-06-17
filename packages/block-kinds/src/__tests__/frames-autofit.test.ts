@@ -16,15 +16,25 @@ function docWith(autofit: boolean | undefined) {
   return { title: 't', blocks: [{ ...base, autofit }] };
 }
 
-describe('DefaultBlockFrame autofit overflow', () => {
-  test('autofit block clips (overflow:hidden)', () => {
+describe('BlockFrameCore autofit overflow (published path)', () => {
+  // Published path now routes through BlockFrameCore + resolveSkin.
+  // Overflow is set on .skb-content-box (not .skb-block — that class no
+  // longer appears in the default-skin output). String assertions on
+  // overflow:hidden / overflow:auto remain semantically identical.
+  test('autofit block clips (overflow:hidden on .skb-content-box)', () => {
     const html = renderStaticPage(docWith(true), 's', graphPaper);
+    expect(html).toContain('class="skb-frame-root"');
+    expect(html).toContain('class="skb-content-box"');
+    expect(html).not.toContain('class="skb-block"');
     expect(html).toContain('overflow:hidden');
     expect(html).not.toContain('overflow:auto');
   });
 
-  test('non-autofit block scrolls (overflow:auto)', () => {
+  test('non-autofit block scrolls (overflow:auto on .skb-content-box)', () => {
     const html = renderStaticPage(docWith(false), 's', graphPaper);
+    expect(html).toContain('class="skb-frame-root"');
+    expect(html).toContain('class="skb-content-box"');
+    expect(html).not.toContain('class="skb-block"');
     expect(html).toContain('overflow:auto');
   });
 

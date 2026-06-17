@@ -12,6 +12,7 @@ export const markdownModule: BlockKindModule<MarkdownContent> = {
   EditView: MarkdownEditView,
   RenderView: MarkdownRenderView,
   extractText,
+  autofit: { default: 'grow' },
 };
 
 export { coerceContent, type MarkdownContent };

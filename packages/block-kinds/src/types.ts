@@ -41,6 +41,10 @@ export type BlockKindModule<C = unknown> = {
   /** Tools for the active block, rendered in the host's tool panel.
    *  Editing-surface only — never reachable from RenderView. */
   tools?: Array<BlockTool<C>>;
+  /** Autofit policy (spec 2026-06-14 §6): `false` = autofit unavailable for
+   * this kind (no toggle, no probe); `{ default }` = available, new blocks
+   * seed to that mode; omitted = available, default off. */
+  autofit?: false | { default: 'off' | 'grow' | 'grow+shrink' };
 };
 
 /** Menu vocabulary a module may hand to the host (M9-D3 finding #3):

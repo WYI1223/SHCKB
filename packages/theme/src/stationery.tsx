@@ -13,9 +13,9 @@
  * (the kraft variant deliberately avoids retuning paper-surface
  * colors that the CSS hardcodes).
  */
-import type { ReactNode } from 'react';
 import { useTheme } from './context';
-import { blockOverflow, type BlockFrameProps, type CanvasSurfaceProps, type PageTitleProps, type Theme, type ThemeTokens } from './themes';
+import type { CanvasSurfaceProps, PageTitleProps, Theme, ThemeTokens } from './themes';
+import type { BlockSkin, SkinCtx } from './skin';
 
 /** Code slips pasted into a journal: warm, low-saturation ink tones
  * that hold WCAG AA on the off-white paper slip (blockBg L 98%). */
@@ -87,210 +87,213 @@ function curlSideOf(id: string): 'left' | 'right' {
   return (Math.abs(h) & 1) === 0 ? 'right' : 'left';
 }
 
-/** Per-kind shell variation (the BlockFrame contract carries `kind`
- * precisely for this): images become Polaroid prints — stiff card,
- * clean edges (no tear), thick white border with the classic deep
- * bottom margin. Content stays kind-owned; only the shell changes. */
-function PolaroidFrame({ kind, blockId, colSpan, tape, autofit, children }: { kind: string; blockId: string; colSpan: number; tape: string; autofit?: boolean; children: ReactNode }) {
-  const tilt = (tiltOf(blockId, colSpan) * 1.4).toFixed(3);
+/** Washi-tape strip pinning a paper slip — the `front` overlay shared
+ * by the paper-slip and card skins (the tape is the pinning, not the
+ * paper). Kept as a helper so the literal geometry (top/left/width/
+ * height/opacity/shadow/z) stays in one place; the polaroid uses its
+ * own washi geometry (narrower tape, gentler counter-rotation). */
+function washiStrip(tape: string, tiltStr: string): JSX.Element {
   return (
     <div
-      className="skb-block skb-paper-slip skb-polaroid"
-      data-kind={kind}
-      style={{ position: 'relative', width: '100%', height: '100%', transform: `rotate(${tilt}deg)` }}
-    >
-      <div
-        aria-hidden
-        className="skb-washi"
-        style={{
-          position: 'absolute',
-          top: '-7px',
-          left: '50%',
-          width: '58px',
-          height: '14px',
-          transform: `translateX(-50%) rotate(${(-Number(tilt) * 1.2).toFixed(3)}deg)`,
-          background: tape,
-          opacity: 0.78,
-          boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
-          zIndex: 3,
-        }}
-      />
-      <div
-        className="skb-polaroid-card"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          // card stock: faint top-light gradient + inner hairline emboss
-          background: 'linear-gradient(178deg, oklch(98% 0.004 95), oklch(97% 0.005 95))',
-          boxShadow:
-            'inset 0 0 0 1px oklch(93% 0.008 95), 0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
-          padding: '10px 10px 30px',
-        }}
-      >
-        <div
-          className="skb-paper"
-          style={{
-            // the photo window: dark slate behind the print, recessed
-            // (edge inset shadow only — printed photos have no corner
-            // vignette, owner correction)
-            position: 'relative',
-            zIndex: 1,
-            width: '100%',
-            height: '100%',
-            background: 'oklch(30% 0.01 80)',
-            overflow: blockOverflow(autofit),
-            fontSize: '14px',
-            lineHeight: 1.55,
-            color: 'oklch(90% 0.01 80)',
-            boxShadow: 'inset 0 1px 3px oklch(0% 0 0 / 45%), inset 0 0 1px oklch(0% 0 0 / 55%)',
-          }}
-        >
-          {children}
-        </div>
-        {/* film sheen over the photo: FAINT (the colored print absorbs
-            light; the white card reflects far more — that stronger
-            band lives on the card layer beneath the window). Sibling
-            overlay: anything inside the scroll container scrolls away. */}
-        <div aria-hidden className="skb-polaroid-gloss" style={{ position: 'absolute', inset: '10px 10px 30px', pointerEvents: 'none', zIndex: 2 }} />
-      </div>
-    </div>
-  );
-}
-
-/** 'card' shell: clean white card stock — no torn edge, no curl; the
- * washi tape stays (it is the pinning, not the paper). */
-function CardFrame({ kind, blockId, colSpan, autofit, children }: BlockFrameProps) {
-  const t = useTheme();
-  const tape = t.kindHues[kind] ?? t.kindHueFallback;
-  const tilt = tiltOf(blockId, colSpan).toFixed(3);
-  return (
-    <div
-      className="skb-block skb-paper-slip"
-      data-kind={kind}
-      style={{ position: 'relative', width: '100%', height: '100%', transform: `rotate(${tilt}deg)` }}
-    >
-      <div
-        aria-hidden
-        className="skb-washi"
-        style={{
-          position: 'absolute',
-          top: '-7px',
-          left: '50%',
-          width: '64px',
-          height: '15px',
-          transform: `translateX(-50%) rotate(${(-Number(tilt) * 1.7).toFixed(3)}deg)`,
-          background: tape,
-          opacity: 0.78,
-          boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
-          zIndex: 3,
-        }}
-      />
-      <div
-        className="skb-paper"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          padding: '10px 8px 8px',
-          overflow: blockOverflow(autofit),
-          fontSize: '14px',
-          lineHeight: 1.55,
-          borderRadius: '3px',
-          boxShadow:
-            'inset 0 0 0 1px oklch(93% 0.008 95), 0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/** 'bare' shell: no paper at all — the content itself lies on the
- * desk with a slight tilt and shadow (for image: just the photo). */
-function BareFrame({ kind, blockId, colSpan, autofit, children }: BlockFrameProps) {
-  const tilt = tiltOf(blockId, colSpan).toFixed(3);
-  return (
-    <div
-      className="skb-block skb-bare"
-      data-kind={kind}
+      aria-hidden
+      className="skb-washi"
       style={{
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        transform: `rotate(${tilt}deg)`,
-        overflow: blockOverflow(autofit),
-        fontSize: '14px',
-        lineHeight: 1.55,
-        filter: 'drop-shadow(0 3px 7px oklch(38% 0.04 60 / 30%))',
-        scrollbarWidth: 'none',
+        position: 'absolute',
+        top: '-7px',
+        left: '50%',
+        width: '64px',
+        height: '15px',
+        transform: `translateX(-50%) rotate(${(-Number(tiltStr) * 1.7).toFixed(3)}deg)`,
+        background: tape,
+        opacity: 0.78,
+        boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
+        zIndex: 3,
       }}
-    >
-      {children}
-    </div>
+    />
   );
 }
 
-function StationeryBlockFrame({ kind, blockId, colSpan, rowSpan, autofit, children }: BlockFrameProps) {
-  const t = useTheme();
-  const tilt = tiltOf(blockId, colSpan).toFixed(3);
-  const tape = t.kindHues[kind] ?? t.kindHueFallback;
-  const curl = curlSideOf(blockId);
-  // Default shell only — author shell choices resolve to their own
-  // Frames via theme.shells (declaration IS implementation, M6-D3).
-  if (kind === 'image') {
-    return (
-      <PolaroidFrame kind={kind} blockId={blockId} colSpan={colSpan} tape={tape} autofit={autofit}>
-        {children}
-      </PolaroidFrame>
-    );
-  }
-  void rowSpan;
-  return (
-    <div
-      className="skb-block skb-paper-slip"
-      data-kind={kind}
-      style={{ position: 'relative', width: '100%', height: '100%', transform: `rotate(${tilt}deg)` }}
-    >
-      <div
-        aria-hidden
-        className="skb-washi"
-        style={{
-          position: 'absolute',
-          top: '-7px',
-          left: '50%',
-          width: '64px',
-          height: '15px',
-          transform: `translateX(-50%) rotate(${(-Number(tilt) * 1.7).toFixed(3)}deg)`,
-          background: tape,
-          opacity: 0.78,
-          boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
-          zIndex: 3,
-        }}
-      />
-      {/* lifted-corner shadow: spills past the torn edge onto the desk */}
-      <div aria-hidden className={`skb-curl skb-curl-${curl}`} />
-      {/* torn silhouette: turbulence-displaced backing layer; content
-          never passes through the filter, so text stays crisp */}
+/** Default skin (markdown / non-image): the tilted, torn-edge paper
+ * slip pinned by washi tape. Reproduces the former `StationeryBlockFrame`
+ * non-image branch, layer-for-layer:
+ *  - tilt `rotate(f(id,colSpan))`           → root.rootStyleOf.transform
+ *  - `.skb-paper-slip` class                → root.className
+ *  - 3px torn rim (was `.skb-paper` inset:3px) → root.style.padding:3px,
+ *    so the in-flow content box insets 3px and the absolute
+ *    `.skb-paper-edge` (behind, inset:0) shows through the rim
+ *  - curl shadow `.skb-curl` + torn silhouette `.skb-paper-edge` → behind
+ *  - washi tape `.skb-washi`                → front
+ *  - paper surface (scroll-curl bg + hidden scrollbar, in globalCss keyed
+ *    on `.skb-paper`) + padding 10/8/8      → box (className 'skb-paper') */
+const paperSlipSkin: BlockSkin = {
+  // NOT DEFAULT_SKIN_ID: that sentinel makes BlockFrameCore inject the
+  // framework graph-paper card chrome (background/dashed border/borderTop/
+  // radius) into the box, which would (a) draw a border the slip never had
+  // and (b) override the globalCss `.skb-paper` scroll-curl gradient with an
+  // inline background. This is a real, fully-specified theme default skin, so
+  // it carries its own id. (The default skin's id is the "no pick" state and
+  // is never persisted/looked-up — see resolveSkin.)
+  id: 'paper-slip',
+  name: 'Paper slip',
+  root: { className: 'skb-paper-slip', style: { padding: '3px' } },
+  rootStyleOf: ({ blockId, colSpan }: SkinCtx) => ({
+    transform: `rotate(${tiltOf(blockId, colSpan).toFixed(3)}deg)`,
+  }),
+  box: {
+    className: 'skb-paper',
+    style: { padding: '10px 8px 8px', fontSize: '14px', lineHeight: 1.55 },
+  },
+  // lifted-corner shadow (spills past the torn edge) + the turbulence-
+  // displaced torn silhouette; content never passes through the filter,
+  // so text stays crisp. Both aria-hidden, copied verbatim.
+  behind: ({ blockId }: SkinCtx) => (
+    <>
+      <div aria-hidden className={`skb-curl skb-curl-${curlSideOf(blockId)}`} />
       <div aria-hidden className="skb-paper-edge" />
-      <div
-        className="skb-paper"
-        style={{
-          // background lives in globalCss (scroll-aware curl shadows
-          // need the layered background-attachment trick); inset leaves
-          // a rim where the torn silhouette shows through.
-          position: 'absolute',
-          inset: '3px',
-          padding: '10px 8px 8px',
-          overflow: blockOverflow(autofit),
-          fontSize: '14px',
-          lineHeight: 1.55,
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
+    </>
+  ),
+  front: ({ blockId, colSpan, kind, tokens }: SkinCtx) => {
+    const tilt = tiltOf(blockId, colSpan).toFixed(3);
+    const tape = tokens.kindHues[kind] ?? tokens.kindHueFallback;
+    return washiStrip(tape, tilt);
+  },
+};
+
+/** Per-kind variation (the skin contract carries `kind` precisely for
+ * this): images become Polaroid prints — stiff card, clean edges (no
+ * tear), thick white border with the classic deep bottom margin.
+ * Content stays kind-owned; only the skin changes. Reproduces the former
+ * `PolaroidFrame`:
+ *  - tilt * 1.4                              → rootStyleOf.transform
+ *  - the white frame margin (10/10/30, was the card's padding nesting the
+ *    photo window inside it) → root.style.padding, so the in-flow photo
+ *    window insets by the frame and the `.skb-polaroid-card` (behind,
+ *    inset:0) shows the white border + deep bottom margin in that rim
+ *  - dark photo-window (was inner `.skb-paper`) → box (className
+ *    'skb-paper'; background dark slate, padding 0, inset shadows, color)
+ *  - white card stock `.skb-polaroid-card`   → behind
+ *  - washi tape (58×14, counter-rotate *1.2) + film sheen `.skb-polaroid-gloss` → front */
+const polaroidSkin: BlockSkin = {
+  id: 'polaroid',
+  name: 'Polaroid',
+  kinds: ['image'],
+  // `skb-paper-slip` drives the mount drop-in on the `.skb-paper` window;
+  // `skb-polaroid` drives the hover gloss-drift (card::before + gloss) — both
+  // were on the old PolaroidFrame root. The white frame (10 sides / 30 bottom):
+  // in the old PolaroidFrame the photo window was a CHILD inside the card's
+  // padding; here the window is a sibling of the card, so the frame margin
+  // moves to root padding to inset the window by the same amount.
+  root: { className: 'skb-paper-slip skb-polaroid', style: { padding: '10px 10px 30px' } },
+  rootStyleOf: ({ blockId, colSpan }: SkinCtx) => ({
+    transform: `rotate(${(tiltOf(blockId, colSpan) * 1.4).toFixed(3)}deg)`,
+  }),
+  box: {
+    className: 'skb-paper',
+    style: {
+      // the photo window: dark slate behind the print, recessed (edge
+      // inset shadow only — printed photos have no corner vignette).
+      background: 'oklch(30% 0.01 80)',
+      padding: 0,
+      fontSize: '14px',
+      lineHeight: 1.55,
+      color: 'oklch(90% 0.01 80)',
+      boxShadow: 'inset 0 1px 3px oklch(0% 0 0 / 45%), inset 0 0 1px oklch(0% 0 0 / 55%)',
+    },
+  },
+  // card stock: faint top-light gradient + inner hairline emboss. Absolute
+  // inset:0 behind the in-flow photo window. The card padding (10/10/30)
+  // matches the former layout; the window sits inside it because the host
+  // box is in normal flow over this absolute backing.
+  behind: () => (
+    <div
+      aria-hidden
+      className="skb-polaroid-card"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(178deg, oklch(98% 0.004 95), oklch(97% 0.005 95))',
+        boxShadow:
+          'inset 0 0 0 1px oklch(93% 0.008 95), 0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
+        padding: '10px 10px 30px',
+      }}
+    />
+  ),
+  front: ({ blockId, colSpan, kind, tokens }: SkinCtx) => {
+    const tilt = (tiltOf(blockId, colSpan) * 1.4).toFixed(3);
+    const tape = tokens.kindHues[kind] ?? tokens.kindHueFallback;
+    return (
+      <>
+        <div
+          aria-hidden
+          className="skb-washi"
+          style={{
+            position: 'absolute',
+            top: '-7px',
+            left: '50%',
+            width: '58px',
+            height: '14px',
+            transform: `translateX(-50%) rotate(${(-Number(tilt) * 1.2).toFixed(3)}deg)`,
+            background: tape,
+            opacity: 0.78,
+            boxShadow: '0 1px 2px oklch(40% 0.04 60 / 25%)',
+            zIndex: 3,
+          }}
+        />
+        {/* film sheen over the photo: FAINT (the colored print absorbs
+            light; the white card reflects far more — that stronger band
+            lives on the card layer beneath the window). */}
+        <div aria-hidden className="skb-polaroid-gloss" style={{ position: 'absolute', inset: '10px 10px 30px', pointerEvents: 'none', zIndex: 2 }} />
+      </>
+    );
+  },
+};
+
+/** 'card' skin: clean white card stock — no torn edge, no curl; the
+ * washi tape stays (it is the pinning, not the paper). Reproduces the
+ * former `CardFrame`: `skb-paper-slip` root class (drives the `.skb-paper`
+ * mount drop-in, as the old CardFrame root carried it), tilt on the root,
+ * paper box padding 10/8/8 + borderRadius 3px + the emboss boxShadow,
+ * washi front. (No torn edge/curl, so `skb-paper-slip` only animates the
+ * box here — same as the old CardFrame.) */
+const cardSkin: BlockSkin = {
+  id: 'card',
+  name: 'Card',
+  root: { className: 'skb-paper-slip' },
+  rootStyleOf: ({ blockId, colSpan }: SkinCtx) => ({
+    transform: `rotate(${tiltOf(blockId, colSpan).toFixed(3)}deg)`,
+  }),
+  box: {
+    className: 'skb-paper',
+    style: {
+      padding: '10px 8px 8px',
+      fontSize: '14px',
+      lineHeight: 1.55,
+      borderRadius: '3px',
+      boxShadow:
+        'inset 0 0 0 1px oklch(93% 0.008 95), 0 3px 8px oklch(38% 0.04 60 / 26%), 0 1px 2px oklch(38% 0.04 60 / 14%)',
+    },
+  },
+  front: ({ blockId, colSpan, kind, tokens }: SkinCtx) => {
+    const tilt = tiltOf(blockId, colSpan).toFixed(3);
+    const tape = tokens.kindHues[kind] ?? tokens.kindHueFallback;
+    return washiStrip(tape, tilt);
+  },
+};
+
+/** 'bare' skin: no paper at all — the content itself lies on the desk
+ * with a slight tilt and shadow (for image: just the photo). Reproduces
+ * the former `BareFrame`: tilt + drop-shadow filter on the root, no
+ * paper background; box carries only the text metrics + hidden scrollbar. */
+const bareSkin: BlockSkin = {
+  id: 'bare',
+  name: 'Bare',
+  root: { className: 'skb-bare' },
+  rootStyleOf: ({ blockId, colSpan }: SkinCtx) => ({
+    transform: `rotate(${tiltOf(blockId, colSpan).toFixed(3)}deg)`,
+    filter: 'drop-shadow(0 3px 7px oklch(38% 0.04 60 / 30%))',
+  }),
+  box: { style: { fontSize: '14px', lineHeight: 1.55, scrollbarWidth: 'none' } },
+};
 
 function StationeryCanvasSurface({ widthPx, heightPx, children }: CanvasSurfaceProps) {
   const t = useTheme();
@@ -448,17 +451,19 @@ const STATIONERY_GLOBAL_CSS = `
 
 export const stationery: Theme = {
   ...TOKENS,
-  BlockFrame: StationeryBlockFrame,
   CanvasSurface: StationeryCanvasSurface,
   PageTitle: StationeryPageTitle,
   globalCss: STATIONERY_GLOBAL_CSS,
 
-  // Curated shells (M6-D3): each declaration carries its own Frame —
-  // there is no second list to forget (the bug class the owner caught).
-  shells: {
-    card: { name: 'Card', Frame: CardFrame },
-    bare: { name: 'Bare', Frame: BareFrame },
-  },
+  // Block material via BlockSkin (replaces BlockFrame + shells; ADR-0025
+  // amendment / unified-block-capability slice). The host BlockFrameCore
+  // owns the measurable content box; these skins only dress it. Default
+  // is per-kind — images become Polaroid prints; everything else a torn
+  // paper slip. `card`/`bare` are author-pickable (formerly `shells`),
+  // keyed by the persisted id (the field stays `block.shell`, read as the
+  // skin id — no data migration).
+  defaultSkin: (kind: string) => (kind === 'image' ? polaroidSkin : paperSlipSkin),
+  skins: { card: cardSkin, bare: bareSkin },
 
   // Unlocked by the render-time-token refactor (MVP-6 M6-D6). Curation
   // rule for THIS theme: never retune paper-surface colors (blockBg

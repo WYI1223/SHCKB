@@ -49,6 +49,12 @@ describe('autofit publish overflow', () => {
       ],
     };
     const html = renderStaticPage(doc, 's', graphPaper);
+    // Published path now uses BlockFrameCore: .skb-frame-root wraps .skb-content-box;
+    // .skb-block no longer appears in default-skin output.
+    expect(html).toContain('class="skb-frame-root"');
+    expect(html).toContain('class="skb-content-box"');
+    expect(html).not.toContain('class="skb-block"');
+    // overflow is set on .skb-content-box (the host-invariant overflow owner).
     expect(html).toContain('overflow:hidden');
     expect(html).toContain('overflow:auto');
   });

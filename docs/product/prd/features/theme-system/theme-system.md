@@ -258,6 +258,18 @@ Theme system 跟其他 feature 协同：
 - Auto dark/light mode
 - Third-party theme certification suite（含 a11y / cascade compliance / performance budget）
 
+### Phase 2+ — Deferred: theme 简化 / skin 统一 / asset pipeline（unified-block-capability 北极星；durably 记录）
+
+以下条目来自架构设计 spec §9 deferred 清单，已被三处 durable 归宿锁住（spec + 本 PRD + [ADR-0029]），不会随时间消失。当前 slice 只移 block frame 盒（`shells → skins`）；以下是留给未来 UI-plugin pass 的 theme 侧工作。
+
+| Deferred item | 含义 | Spec ref |
+|---|---|---|
+| **Theme full simplification** | 把 `CanvasSurface` / `PageTitle` 移出 theme → theme = 纯 material（tokens + `globalCss` + `skins` + palettes）；当前 slice 后 theme 仍含这两个结构槽，完整简化随 UI-plugin pass | [spec §8](../../../../superpowers/specs/2026-06-14-unified-block-capability-architecture-design.md) |
+| **Skin unification** | `papers`（页面表面）+ `palettes`（配色变体）+ block `skins` 并入单一 skin 概念；可能独立 skin pack；当前 slice 只统一 block skin（原 `shells`） | [spec §5](../../../../superpowers/specs/2026-06-14-unified-block-capability-architecture-design.md) |
+| **Theme asset pipeline** | theme 打包字体 / 图片*文件*（`paper.png` 等）；今天仅 inline / data-URI；需要独立 asset 投递基建 | [spec §5](../../../../superpowers/specs/2026-06-14-unified-block-capability-architecture-design.md) |
+
+完整北极星上下文见 spec + [ADR-0029](../../../../engineering/decisions/ADR-0029-host-frame-core-blockskin.md) "Deferred / north-star" 节。
+
 ## Dependencies
 
 PRD 层 upstream 依赖（ADR 是 downstream，归 References 段）：

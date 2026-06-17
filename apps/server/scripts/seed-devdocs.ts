@@ -192,8 +192,8 @@ async function seedMap(folderId: string) {
         'property-based 测试压阵。**谁都不许绕过它改布局。**\n\n' + see('网格引擎与画布'),
       'keyline'),
     b('map-theme', 3, 7, 3, 3,
-      '### @skb/theme\n\ntokens + slots + palettes + shells；7 个内置主题即参考实现。' +
-        '三层外观分权的载体。\n\n' + see('主题引擎'),
+      '### @skb/theme\n\ntokens + globalCss + palettes + **skins**（原 shells，已被 ADR-0029 重命名）；7 个内置主题即参考实现。' +
+        '三层外观分权的载体。block 内容盒归 host BlockFrameCore（ADR-0029），theme 只供视觉 skin。\n\n' + see('主题引擎'),
       'keyline'),
     b('map-blocks', 6, 7, 3, 3,
       '### @skb/block-kinds\n\n**块即插件**：markdown / image / code 是恰好住在仓库里的插件，' +
@@ -427,12 +427,13 @@ async function seedThemeEngine(folderId: string) {
       ),
       b('th-anatomy', 0, 2, 5, 6,
         '## 解剖\n\n' +
-          '`Theme = ThemeTokens & ThemeSlots`\n\n' +
+          '`Theme = tokens + globalCss + CanvasSurface + PageTitle + palettes + skins`\n\n' +
+          '**（ADR-0029 架构归位：`BlockFrame` 槽位已移到 host `BlockFrameCore`；`shells` 已重命名为 `skins`，类型受限为纯视觉子集。以下条目反映当前 API。）**\n\n' +
           '- **tokens**：颜色 / 字体 / 几何（slot、pad、blockRadius…）——纯数据\n' +
-          '- **slots**：`BlockFrame` / `CanvasSurface` / `PageTitle` / `globalCss`——组件级覆写，缺省即默认渲染\n' +
+          '- **CanvasSurface / PageTitle / globalCss**：页面级结构槽（保留在 theme；block 盒已归 host）\n' +
           '- **palettes**：主题策展的官方配色变体（类型级排除几何 token）\n' +
           '- **customizableTokens**：运营者可直接覆写的白名单（缺省全锁）\n' +
-          '- **shells**：作者可选的块壳，**声明即实现**（每个壳自带 Frame 组件）\n\n' +
+          '- **skins**：作者可选的块皮（原 shells），**声明即实现**；类型受限，物理上无法破坏 host 内容盒不变量\n\n' +
           '**registry.ts 是唯一 import 具体主题的模块**——槽位组件经 `useTheme()` 渲染时读 token，' +
           '这让上层覆盖能穿透到主题最深处（也是当年 Bun TDZ 循环导入的解法）。',
       ),
@@ -677,23 +678,23 @@ async function seedNewTheme(folderId: string) {
           '**组合**自有 tokens + 复用通用壳；**从零**实现完整 Theme。引擎机制见 ' + see('主题引擎') + '。',
       ),
       cb('nt-code', 0, 2, 7, 7, 'typescript',
-        "// packages/theme/src/<your-theme>.tsx（示意）\n" +
+        "// packages/theme/src/<your-theme>.tsx（示意；ADR-0029 架构后）\n" +
           "import { useTheme } from './context';\n" +
           '\n' +
           'export const myTheme: Theme = {\n' +
           "  id: 'my-theme',            // 进 DB / 导出格式，永不改名\n" +
           "  name: 'My Theme',\n" +
           '  ...tokens,                 // canvasBg / blockBg / accent / fontFamily…\n' +
-          '  // 槽位组件（可选，缺省即默认渲染）：\n' +
-          '  BlockFrame, CanvasSurface, PageTitle, globalCss,\n' +
+          '  // 页面级槽位（可选，缺省即默认渲染）：BlockFrame 已移到 host BlockFrameCore\n' +
+          '  CanvasSurface, PageTitle, globalCss,\n' +
           '  // 官方配色变体：运营者只能从这里挑\n' +
           "  palettes: [{ id: 'dusk', name: 'Dusk', tokens: { accent: '…' } }],\n" +
           '  // 覆写白名单：缺省全锁\n' +
           "  customizableTokens: ['fontFamily'],\n" +
-          '  // 作者可选壳：声明即实现\n' +
-          '  shells: {\n' +
-          "    flat: { name: 'Flat', Frame: FlatShellFrame },\n" +
-          "    photo: { name: 'Photo', kinds: ['image'], Frame: PhotoFrame },\n" +
+          '  // 作者可选 skin（原 shells）：类型受限为纯视觉，物理上无法破坏 host 内容盒\n' +
+          '  skins: {\n' +
+          "    flat: { id: 'flat', name: 'Flat', box: { style: { borderRadius: '4px' } } },\n" +
+          "    photo: { id: 'photo', name: 'Photo', kinds: ['image'], behind: (ctx) => null },\n" +
           '  },\n' +
           '};\n' +
           "// 注册：src/registry.ts（唯一 import 具体主题的模块）+ index.ts 导出",
