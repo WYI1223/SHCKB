@@ -3,6 +3,10 @@ import type { APIRequestContext, Page } from '@playwright/test';
 export const ADMIN_EMAIL = 'admin@local.dev';
 export const ADMIN_PASSWORD = 'dev-admin-password';
 
+/** The e2e server origin (PORT 3210; mirrors playwright.config.ts). Exported
+ * so specs that issue raw API calls share one source of truth for the port. */
+export const BASE = 'http://localhost:3210';
+
 /** Stable DOM hooks (grounded in GridCanvas.tsx / MarkdownEditView.tsx / frames.tsx). */
 export const sel = {
   block: (id: string) => `[data-block-id="${id}"]`,
@@ -14,7 +18,7 @@ export const sel = {
  * cookie to the browser context so /edit/:id loads authenticated.
  * page.request shares the context cookie jar with page navigations. */
 export async function loginViaApi(page: Page) {
-  const res = await page.request.post('http://localhost:3210/api/auth/sign-in/email', {
+  const res = await page.request.post(`${BASE}/api/auth/sign-in/email`, {
     data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
   });
   if (!res.ok()) throw new Error(`sign-in failed: ${res.status()} ${await res.text()}`);
@@ -40,9 +44,8 @@ export async function createMarkdownPage(
   request: APIRequestContext,
   opts: { title: string; themeId: string; blocks: E2EBlock[]; gravityEnabled?: boolean },
 ): Promise<{ id: string; slug: string }> {
-  const base = 'http://localhost:3210';
   const j = async (method: 'POST' | 'PUT', path: string, body?: unknown) => {
-    const r = await request.fetch(`${base}${path}`, {
+    const r = await request.fetch(`${BASE}${path}`, {
       method,
       headers: { 'content-type': 'application/json' },
       data: body === undefined ? undefined : JSON.stringify(body),

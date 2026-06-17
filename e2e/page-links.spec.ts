@@ -20,7 +20,7 @@
  * links produce the same `data-skb-page` attribute that the editor handler keys off).
  */
 import { expect, test } from '@playwright/test';
-import { createMarkdownPage, loginViaApi, md, sel } from './fixtures/login';
+import { BASE, createMarkdownPage, loginViaApi, md, sel } from './fixtures/login';
 
 // ---------------------------------------------------------------------------
 // Test 1 — Editor stays in editor, no full document reload
@@ -92,17 +92,20 @@ test('editor: cross-page link with block id lands on /edit/:B and scrolls block 
 }) => {
   await loginViaApi(page);
 
-  // Page B: two blocks. The link targets the SECOND block (B2), which is far
-  // enough down that it requires scrolling (3 rows of 60px SLOT each = ~180px+
-  // padding below the fold of an 80px-tall editor header). Use rowSpan: 4 and
-  // place B2 at row 5 to guarantee it starts off-screen on a typical viewport.
+  // Page B: two blocks. The link targets the SECOND block (B_jump). At
+  // 1280x720 (Desktop Chrome) minus the ~80px editor header the visible grid is
+  // ~640px, so a target near the top would already be on screen on load — a
+  // vacuous toBeInViewport. B_jump sits at row 16 (top = 16*SLOT(60)+pad ≈
+  // 960px), WELL below the fold, with a tall (15-row) top block above so the
+  // page genuinely scrolls. "In viewport AFTER click" is then a real scroll
+  // signal, not the initial render state.
   const B = await createMarkdownPage(page.request, {
     title: 'page-links block-jump target',
     themeId: 'graph-paper',
     gravityEnabled: false,
     blocks: [
-      { id: 'B_top', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 4, content: md('## Top block\n\n' + 'filler line\n\n'.repeat(10)) },
-      { id: 'B_jump', kind: 'markdown', col: 0, row: 5, colSpan: 6, rowSpan: 2, content: md('## Jump target block') },
+      { id: 'B_top', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 15, content: md('## Top block\n\n' + 'filler line\n\n'.repeat(30)) },
+      { id: 'B_jump', kind: 'markdown', col: 0, row: 16, colSpan: 6, rowSpan: 2, content: md('## Jump target block') },
     ],
   });
 
@@ -133,10 +136,14 @@ test('editor: cross-page link with block id lands on /edit/:B and scrolls block 
 
   await link.click();
 
-  // URL = /edit/:B (no fragment needed in the URL; scrollToBlock is called imperatively)
-  await expect(page).toHaveURL(new RegExp(`^/edit/${B.id}`));
+  // URL = /edit/:B#B_jump. Asserting the FRAGMENT (not just the page id) confirms
+  // the hash mechanism actually fired: resolveTarget → navigate('/edit/:B#B_jump')
+  // → ReadPage/EditorPage scrollToHashTarget consumes the hash. A regression that
+  // dropped the fragment would still reach page B but fail this.
+  await expect(page).toHaveURL(new RegExp(`/edit/${B.id}#B_jump`));
 
-  // The jump-target block must scroll into the visible viewport.
+  // The jump-target block must scroll into the visible viewport (it starts at
+  // row 16 ≈ 960px, off-screen on load — so this is a genuine scroll signal).
   const jumpBlock = page.locator(sel.block('B_jump'));
   await expect(jumpBlock).toBeVisible();
   await expect(jumpBlock).toBeInViewport();
@@ -152,9 +159,8 @@ test('editor: same-page block link scrolls without navigation', async ({ page })
   // createMarkdownPage. Strategy: create the page with a placeholder, then issue a
   // second PUT working-state + publish to inject the real self-link. This keeps the
   // fixture helper backward-compatible and avoids any extra abstraction.
-  const base = 'http://localhost:3210';
   const jsonFetch = async (method: 'PUT' | 'POST', path: string, body: unknown) => {
-    const r = await page.request.fetch(`${base}${path}`, {
+    const r = await page.request.fetch(`${BASE}${path}`, {
       method,
       headers: { 'content-type': 'application/json' },
       data: JSON.stringify(body),
@@ -163,19 +169,22 @@ test('editor: same-page block link scrolls without navigation', async ({ page })
     return r.json() as Promise<unknown>;
   };
 
-  // Initial creation with a placeholder link.
+  // Initial creation with a placeholder link. A_far sits at row 16 (top ≈ 960px)
+  // — WELL below the ~640px visible grid at 1280x720, so it starts off-screen. A
+  // tall (15-row) source block above keeps the page scrollable. Only then is
+  // "A_far in viewport after click" a real scroll signal, not its initial position.
   const A2 = await createMarkdownPage(page.request, {
     title: 'page-links same-page scroll',
     themeId: 'graph-paper',
     gravityEnabled: false,
     blocks: [
-      { id: 'A_src2', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 2, content: md('placeholder') },
-      // A_far at row 8: well below a typical viewport, guaranteeing a real scroll.
-      { id: 'A_far', kind: 'markdown', col: 0, row: 8, colSpan: 6, rowSpan: 2, content: md('## Far block') },
+      { id: 'A_src2', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 15, content: md('placeholder') },
+      { id: 'A_far', kind: 'markdown', col: 0, row: 16, colSpan: 6, rowSpan: 2, content: md('## Far block') },
     ],
   });
 
-  // Patch working-state to inject the self-referencing link now that A2.id is known.
+  // Patch working-state to inject the self-referencing link now that A2.id is known
+  // (same geometry; only A_src2's content gains the /p/:A2.id#A_far link).
   await jsonFetch('PUT', `/api/notepages/${A2.id}/working-state`, {
     title: 'page-links same-page scroll',
     gravityEnabled: false,
@@ -183,10 +192,10 @@ test('editor: same-page block link scrolls without navigation', async ({ page })
       {
         id: 'A_src2',
         kind: 'markdown',
-        col: 0, row: 0, colSpan: 6, rowSpan: 2,
-        content: md(`[scroll to far block](/p/${A2.id}#A_far)`),
+        col: 0, row: 0, colSpan: 6, rowSpan: 15,
+        content: md(`[scroll to far block](/p/${A2.id}#A_far)\n\n` + 'filler line\n\n'.repeat(30)),
       },
-      { id: 'A_far', kind: 'markdown', col: 0, row: 8, colSpan: 6, rowSpan: 2, content: md('## Far block') },
+      { id: 'A_far', kind: 'markdown', col: 0, row: 16, colSpan: 6, rowSpan: 2, content: md('## Far block') },
     ],
   });
   // Re-publish so the editor's preview reflects the updated working state.
@@ -199,16 +208,25 @@ test('editor: same-page block link scrolls without navigation', async ({ page })
   const link = page.locator(`a[data-skb-page="${A2.id}"][data-skb-block="A_far"]`).first();
   await expect(link).toBeVisible();
 
-  // Capture URL before click to assert it doesn't change.
-  const urlBefore = page.url();
+  // A_far must START off-screen — otherwise the post-click viewport check is vacuous.
+  await expect(page.locator(sel.block('A_far'))).not.toBeInViewport();
 
   await link.click();
 
-  // Same-page block link resolves to kind:'scroll' in resolveTarget, never a navigate().
-  // The URL must not change.
-  expect(page.url()).toBe(urlBefore);
+  // Let any router commit settle (a broken NAVIGATE path would push the route
+  // asynchronously; a synchronous url read could miss it).
+  await page.waitForTimeout(400);
 
-  // A_far must be scrolled into the visible viewport.
+  // The TRUE discriminator between scroll and navigate is the URL FRAGMENT:
+  // same-page block link → resolveTarget returns kind:'scroll' → scrollToBlock
+  // only, the URL is NEVER touched (pathname stays /edit/:A2, NO #A_far hash).
+  // A regression that fell through to the navigate branch would instead produce
+  // /edit/:A2#A_far. So assert both: exact pathname AND an EMPTY hash.
+  const url = new URL(page.url());
+  expect(url.pathname).toBe(`/edit/${A2.id}`);
+  expect(url.hash).toBe('');
+
+  // And the scroll actually happened: A_far is now in the viewport.
   await expect(page.locator(sel.block('A_far'))).toBeInViewport();
 });
 
