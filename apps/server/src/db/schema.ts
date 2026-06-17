@@ -66,6 +66,11 @@ export const blocks = sqliteTable(
     rowSpan: integer('row_span').notNull(),
     /** Author-picked theme shell option id (M6-D3); null = default shell. */
     shell: text('shell'),
+    /** Block-level autofit mode (follow/fix redesign): 'follow' | 'fix';
+     * null = unset (resolves to the kind default on read). The legacy
+     * floor model ('off'/'grow'/'grow+shrink' + min_row_span) is dropped —
+     * see drizzle/0009. TEXT keeps mode interpretation DDL-free. */
+    autofit: text('autofit'),
     content: text('content').notNull(),
   },
   (t) => [primaryKey({ columns: [t.notepageId, t.id] }), index('idx_blocks_notepage').on(t.notepageId)],
@@ -108,6 +113,9 @@ export type PublishedDoc = {
     rowSpan: number;
     /** Author-picked theme shell option id (M6-D3). */
     shell?: string | null;
+    /** Block-level autofit mode (follow/fix redesign): 'follow' | 'fix';
+     * null/absent = unset (resolves to the kind default on read). */
+    autofit?: string | null;
     content: unknown;
   }>;
   publishedAt: number;

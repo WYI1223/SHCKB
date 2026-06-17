@@ -5,8 +5,9 @@
  * (positioned wrappers); the theme's render slots (or the defaults)
  * own every visual shell.
  */
-import { publicBlobUrl, resolveBlockFrame, useTheme, type PageBackground } from '@skb/theme';
-import { DefaultBlockFrame, DefaultCanvasSurface, DefaultPageTitle } from './frames';
+import { publicBlobUrl, resolveSkin, useTheme, type PageBackground } from '@skb/theme';
+import { DefaultCanvasSurface, DefaultPageTitle } from './frames';
+import { BlockFrameCore } from './BlockFrameCore';
 import { blockModule } from './registry';
 
 export type PublishedDocShape = {
@@ -22,6 +23,9 @@ export type PublishedDocShape = {
     rowSpan: number;
     /** Author-picked theme shell option id (M6-D3). */
     shell?: string | null;
+    /** Follow flag threaded from working state — clipping (follow) vs
+     * scrolling (fix) in the published view (see blockOverflow in @skb/theme). */
+    follow?: boolean;
     content: unknown;
   }>;
 };
@@ -52,7 +56,6 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
   const rows = Math.max(1, ...doc.blocks.map((b) => b.row + b.rowSpan));
   const SLOT = theme.slot;
   const PAD = theme.pad;
-  const Frame = theme.BlockFrame ?? DefaultBlockFrame;
   const Surface = theme.CanvasSurface ?? DefaultCanvasSurface;
   const Title = theme.PageTitle ?? DefaultPageTitle;
 
@@ -69,7 +72,8 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
         <Surface widthPx={COLS * SLOT} heightPx={rows * SLOT} background={doc.background}>
           {doc.blocks.map((b) => {
             const mod = blockModule(b.kind);
-            const BlockFrame = resolveBlockFrame(theme, b.kind, b.shell) ?? Frame;
+            // b.shell is the persisted skin id (data field rename to skinId is deferred/north-star).
+            const skin = resolveSkin(theme, b.kind, b.shell);
             return (
               <div
                 key={b.id}
@@ -81,7 +85,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
                   height: `${b.rowSpan * SLOT - 2 * PAD}px`,
                 }}
               >
-                <BlockFrame kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan} shell={b.shell}>
+                <BlockFrameCore kind={b.kind} blockId={b.id} colSpan={b.colSpan} rowSpan={b.rowSpan} follow={b.follow} skin={skin}>
                   {mod ? (
                     <mod.RenderView content={(b.content ?? mod.createContent()) as never} />
                   ) : (
@@ -89,7 +93,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
                       Unsupported content
                     </div>
                   )}
-                </BlockFrame>
+                </BlockFrameCore>
               </div>
             );
           })}

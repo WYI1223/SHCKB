@@ -17,7 +17,7 @@ import {
 import type { Db } from './db/client';
 import { notepages, settings, type NotepageRow, type PublishedDoc } from './db/schema';
 import { safeParse } from './json';
-import { renderStaticPage } from './render/publish-html';
+import { renderStaticPage, toRenderDoc } from './render/publish-html';
 
 export function getSetting(db: Db, key: string): string | null {
   return db.select().from(settings).where(eq(settings.key, key)).get()?.value ?? null;
@@ -73,7 +73,7 @@ export function rerenderAllPublished(db: Db): number {
     const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
     if (doc === null) continue;
     db.update(notepages)
-      .set({ publishedHtml: renderStaticPage(doc, page.slug, effectiveTheme(db, page)) })
+      .set({ publishedHtml: renderStaticPage(toRenderDoc(doc), page.slug, effectiveTheme(db, page)) })
       .where(eq(notepages.id, page.id))
       .run();
     n++;

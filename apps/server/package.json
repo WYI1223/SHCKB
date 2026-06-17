@@ -7,7 +7,8 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "seed:bridge": "bun scripts/seed-bridge.ts --base http://localhost:3210 --email admin@local.dev --password dev-admin-password"
   },
   "dependencies": {
     "@skb/block-kinds": "workspace:*",

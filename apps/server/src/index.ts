@@ -47,7 +47,7 @@ Bun.serve({
   maxRequestBodySize: 256 * 1024 * 1024,
   async fetch(req) {
     const url = new URL(req.url);
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/notes/')) {
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/notes/') || url.pathname.startsWith('/p/')) {
       return app.fetch(req);
     }
     if (webDist) {

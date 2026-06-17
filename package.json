@@ -9,6 +9,12 @@
   "scripts": {
     "dev:server": "bun run --filter @skb/shckb-server dev",
     "dev:web": "bun run --filter @skb/shckb-web dev",
-    "test": "bun run --filter '*' test"
+    "test": "bun run --filter '*' test",
+    "test:e2e": "playwright test",
+    "seed:bridge": "bun apps/server/scripts/seed-bridge.ts --base http://localhost:3210 --email admin@local.dev --password dev-admin-password"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1",
+    "playwright": "1.49.1"
   }
 }

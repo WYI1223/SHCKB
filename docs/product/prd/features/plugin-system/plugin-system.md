@@ -117,6 +117,19 @@ Day-1 cover 一类 extension（block）；theme 作为 horizontal subsystem 见 
 - 第三方 plugin discovery / install
 - Plugin marketplace
 
+### Phase 2+ — Deferred: UI-plugin pass（unified-block-capability 北极星；durably 记录）
+
+以下条目来自架构设计 spec §9 deferred 清单，已被三处 durable 归宿锁住（spec + 本 PRD + [ADR-0029]），不会随时间消失。
+
+| Deferred item | 含义 | Spec ref |
+|---|---|---|
+| **UI-plugin extension type** | L1 正式契约：UI plugin 如何注册；可整体替换 / 加法扩展 frame-core；不允许局部改写 | [spec §9](../../../../superpowers/specs/2026-06-14-unified-block-capability-architecture-design.md#9-北极星--deferred-ui-plugin-pass) |
+| **Frame-core replace/extend model（Open/Closed）** | 整体替换（全有或全无）+ 加法扩展（在稳定 core 周围加新层）；替换者必须满足可测量盒能力约束（见 [ADR-0029]）；共享不变量测试为地板 | [spec §7](../../../../superpowers/specs/2026-06-14-unified-block-capability-architecture-design.md) |
+| **Published-asset safety gate** | theme/UI 成不受信第三方时，公开页 theme 供给的 SVG / `url()` 是 XSS / 外链隐私向量；需安全闸门 | [spec §5](../../../../superpowers/specs/2026-06-14-unified-block-capability-architecture-design.md) |
+| **Additive block capabilities** | autofit 之外的新 block 级能力，经 frame-core 扩展槽加入；不改 core 盒逻辑 | [spec §7](../../../../superpowers/specs/2026-06-14-unified-block-capability-architecture-design.md) |
+
+完整北极星上下文见 spec + [ADR-0029](../../../../engineering/decisions/ADR-0029-host-frame-core-blockskin.md) "Deferred / north-star" 节。
+
 ## Edge cases（cross-cutting）
 
 | 场景 | 期望行为 |

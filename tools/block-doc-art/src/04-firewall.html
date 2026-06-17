@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .barrier {
+      margin-top: 24px; border: 2px solid var(--host); border-radius: 14px;
+      background: rgba(255,255,255,.55); overflow: hidden;
+    }
+    .barrier .bar {
+      background: var(--host); color: #fff; padding: 11px 18px;
+      font-family: var(--mono); font-size: 15px; font-weight: 700; letter-spacing: .01em;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .barrier .bar .sub { font-size: 12px; font-weight: 500; opacity: .85; }
+    .bins { display: grid; grid-template-columns: 1fr 1fr; }
+    .bin { padding: 16px 20px 18px; }
+    .bin.pass { background: rgba(47,125,50,.06); border-right: 1px dashed var(--hair); }
+    .bin.block { background: rgba(190,58,43,.06); }
+    .bin .bh { font-size: 14px; font-weight: 800; margin-bottom: 11px; display: flex; align-items: center; gap: 8px; }
+    .bin.pass .bh { color: var(--ok); } .bin.block .bh { color: var(--no); }
+    .props { display: flex; flex-wrap: wrap; gap: 8px; }
+    .prop { font-family: var(--mono); font-size: 12.5px; padding: 4px 10px; border-radius: 7px; border: 1.5px solid; background: #fff; }
+    .bin.pass .prop { border-color: rgba(47,125,50,.4); color: #245c27; }
+    .bin.block .prop { border-color: rgba(190,58,43,.35); color: var(--ink-faint); text-decoration: line-through; text-decoration-color: rgba(190,58,43,.7); }
+
+    .stamp { margin-top: 18px; background: var(--host); color: #fff; border-radius: 11px; padding: 12px 18px; font-family: var(--mono); font-size: 13.5px; font-weight: 600; text-align: center; }
+    .stamp .seq { opacity: .8; font-weight: 500; }
+    .kick { margin-top: 16px; font-size: 14px; line-height: 1.55; color: var(--ink-soft); }
+    .kick b { color: var(--ink); }
+    .kick .hl { color: var(--host); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="eyebrow">Type is the guardrail · 实现</div>
+    <h1 class="t">类型即护栏 — 写不出的属性，就破坏不了布局</h1>
+    <p class="lede">skin 的 <span class="mono">box.style</span> 不是任意 <span class="mono">CSSProperties</span>，是一个<b>只含视觉属性的 Pick&lt;&gt; 子集</b>。结构属性在类型里<b>根本不存在</b> → 编译期就拦住，不靠约定、不靠 review。</p>
+
+    <div class="barrier">
+      <div class="bar">SkinBoxStyle = Pick&lt;CSSProperties, …&gt; <span class="sub">— skin / 第三方插件能写的全部</span></div>
+      <div class="bins">
+        <div class="bin pass">
+          <div class="bh">✓ 可表达（纯视觉，skin 自由发挥）</div>
+          <div class="props">
+            <span class="prop">background</span><span class="prop">backgroundImage</span><span class="prop">backgroundSize</span>
+            <span class="prop">border</span><span class="prop">borderLeft</span><span class="prop">borderRadius</span><span class="prop">borderImage</span>
+            <span class="prop">padding</span><span class="prop">color</span><span class="prop">boxShadow</span>
+            <span class="prop">fontSize</span><span class="prop">lineHeight</span><span class="prop">scrollbarWidth</span>
+          </div>
+        </div>
+        <div class="bin block">
+          <div class="bh">✗ 类型里没有（写出来通不过编译）</div>
+          <div class="props">
+            <span class="prop">position</span><span class="prop">inset</span><span class="prop">top</span><span class="prop">left</span>
+            <span class="prop">width</span><span class="prop">height</span><span class="prop">overflow</span>
+            <span class="prop">display</span><span class="prop">flex</span><span class="prop">zIndex</span><span class="prop">transform</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stamp">→ 结构归 host：<b>position · width · height · overflow</b> 由 BlockFrameCore <b>最后落</b> <span class="seq">（skin 视觉先铺，host 结构后盖，skin 赢不了）</span></div>
+
+    <p class="kick"><b>不可表达 = 不可破坏。</b> 插件作者物理上写不出破坏布局的属性 → <span class="hl">stationery 那种「绝对定位塌成 0 高」的塌缩，构造上不可能再发生</span>——对第三方 skin 也一样。逐 theme × kind × skin 的不变量测试只是兜底；真正的护栏是类型本身。</p>
+  </div>
+</body>
+</html>

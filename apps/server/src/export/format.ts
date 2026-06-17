@@ -13,7 +13,7 @@
 import type { PageBackground, ThemeCustomization } from '@skb/theme';
 import type { PublishedDoc } from '../db/schema';
 
-export const FORMAT_VERSION = 4;
+export const FORMAT_VERSION = 6;
 
 export type ExportManifest = {
   formatVersion: number;
@@ -44,6 +44,11 @@ export type ExportBlock = {
   rowSpan: number;
   /** Author-picked theme shell option id (v4+); null = default shell. */
   shell: string | null;
+  /** Block-level autofit mode (v6+, follow/fix redesign): 'follow' | 'fix';
+   * null = unset (resolves to the kind default on read). The v5 floor model
+   * ('off'/'grow'/'grow+shrink' + minRowSpan) is dropped — see migrate-format
+   * v6 up/down. Block-level metadata, not kind content. */
+  autofit: 'follow' | 'fix' | null;
   content: unknown; // kind-owned, verbatim
 };
 

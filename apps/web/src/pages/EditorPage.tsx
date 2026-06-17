@@ -13,9 +13,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
-import { blockModule, defaultSizeFor, HostContext } from '@skb/block-kinds';
+import { blockModule, defaultSizeFor, HostContext, type HostServices } from '@skb/block-kinds';
 import { THEMES, ThemeProvider, applyCustomization, graphPaper, type PageBackground } from '@skb/theme';
 import { BENCH, labelStyle, pressButtonStyle, stampStyle } from '../chrome/bench';
+import { useOverlays } from '../chrome/overlays';
 import { GridCanvas } from '../grid/GridCanvas';
 import { Palette } from '../grid/Palette';
 import { Properties, type Selection } from '../grid/Properties';
@@ -48,6 +49,25 @@ export function EditorPage() {
 function Editor({ detail }: { detail: NotepageDetail }) {
   const pageId = detail.page.id;
   const shell = useShell();
+  const overlays = useOverlays();
+
+  // Host capability surface for block kinds (plugin seam). listPages +
+  // promptText are the M9 stress-test additions — kinds reach the page
+  // directory and host dialogs only through here, never via chrome.
+  const hostServices = useMemo<HostServices>(
+    () => ({
+      uploadBlob,
+      listPages: async () => {
+        const { notepages } = await api.getTree();
+        return notepages.filter((p) => p.id !== pageId).map((p) => ({ id: p.id, title: p.title }));
+      },
+      promptText: (opts) => overlays.prompt(opts),
+      // the universal menu face on loan (M9-D3): HostMenuItem mirrors
+      // the chrome MenuItem shape, so this is a pass-through
+      menu: (anchor, items, opts) => overlays.menu(anchor, items, opts),
+    }),
+    [pageId, overlays],
+  );
   const [title, setTitle] = useState(detail.page.title);
   const [themeId, setThemeId] = useState(detail.page.themeId);
   const [visibility, setVisibility] = useState(detail.page.visibility);
@@ -83,18 +103,49 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     initialBlocks: useMemo(() => detail.blocks.map(({ content: _c, ...geom }) => geom), [detail.blocks]),
     initialGravity: detail.page.gravityEnabled,
     defaultSizeFor,
+    // Seed the follow/fix mode from the server. The DB may not be migrated
+    // yet, so coerce legacy enums; a null/unknown value resolves to the KIND
+    // DEFAULT (spec §2 / plan) — NOT blindly to fix (fix is only the published
+    // fallback). 'grow'/'grow+shrink' → follow; an explicit follow/fix passes
+    // through; anything else (null/'off'/garbage) → the kind's default mode.
+    initialAutofit: useMemo(() => {
+      const toMode = (af: string | null | undefined, kind: string): 'follow' | 'fix' =>
+        af === 'grow' || af === 'grow+shrink' || af === 'follow'
+          ? 'follow'
+          : af === 'fix'
+            ? 'fix'
+            : (blockModule(kind)?.autofit?.default ?? 'fix');
+      return Object.fromEntries(
+        detail.blocks.map((b) => [b.id, toMode(b.autofit as string | null | undefined, b.kind)]),
+      );
+    }, [detail.blocks]),
     onBlockInserted: (block: Block) => {
       const mod = blockModule(block.kind);
       setContents((c) => ({ ...c, [block.id]: mod ? mod.createContent() : null }));
+      const af = mod?.autofit;
+      if (af) interaction.setAutofit(block.id, af.default);
     },
   });
 
   // ----- autosave (debounced) -----
   const save = useCallback(async (): Promise<boolean> => {
+    // ATOMICITY / CORRECTNESS (spec §4.4 手势边界): the grown interim is
+    // non-gravity-stable (a neighbor was pushed down with gravity suspended),
+    // and the server PUT runs validateState({ gravity: true }) which REJECTS
+    // a non-stable layout on gravity-on pages (422). So we NEVER PUT the
+    // grown interim. While a block is active its autofit gesture owns the
+    // layout; the gesture commits on deactivation (Escape/blur) or typing-idle
+    // debounce — the controller runs the commit-recompact applyGravity once
+    // (gravity-on pages) and ONLY that gravity-stable committed state is PUT.
+    // Reversibility is therefore scoped to one active editing session / burst.
+    if (activeId !== null) return true; // treat as a no-op success; re-armed on next change
     setStatus({ kind: 'saving' });
     const blocks: WorkingBlock[] = interaction.state.blocks.map((b) => ({
       ...b,
       shell: shellsRef.current[b.id] ?? null,
+      // mode string ('follow'|'fix'); every block resolves to a mode, but
+      // fall back to 'fix' (the safe fixed-height value) if somehow unseeded.
+      autofit: interaction.autofit[b.id] === 'follow' ? 'follow' : 'fix',
       content: contentsRef.current[b.id] ?? null,
     }));
     try {
@@ -114,7 +165,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
       }
       return false;
     }
-  }, [pageId, title, interaction.state, interaction.gravityEnabled]);
+  }, [pageId, title, interaction.state, interaction.gravityEnabled, interaction.autofit, activeId]);
 
   useAutosave({
     save,
@@ -364,7 +415,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         )}
 
         {/* ---- bench row: tray · light table · spec sheet ---- */}
-        <HostContext.Provider value={{ uploadBlob }}>
+        <HostContext.Provider value={hostServices}>
           <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
             <Palette interaction={interaction} />
             <div className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }}>

@@ -129,8 +129,11 @@ type OpOptions = { gravity?: boolean };  // default true (Option A)
 | `resizeBlock` | `(state, id, newColSpan, newRowSpan, opts?) → OpResult` | true | id not found / invalid span / out of bounds / overlap |
 | `transformBlock` | `(state, id, changes, opts?) → OpResult` | true | atomic move + resize；任一 invariant break → reject |
 | `deleteBlock` | `(state, id, opts?) → GridState` | true | 无 failure mode（不存在的 id 静默 no-op） |
+| `pushResize` | `(state, id, newRowSpan, opts?) → OpResult` | **n/a — 从不调 applyGravity** | id not found / invalid span / out of bounds |
 
 **承诺**：mutation 不就地修改 input state；返回新 state；失败时不部分 apply。
+
+> **`pushResize` 的特殊性（gravity-agnostic 原语；详 [ADR-0028]）**：与上表其余 mutation 不同，`pushResize` **从不**在内部调用 `applyGravity`，也**不**保证调用后 gravity-stable——它把 grower 设为 `newRowSpan`，对每个 AABB 碰撞块按竖直重叠深度向下推，top-down 递归。gravity-stability 的重建由 caller 负责：follow web 控制器从 base 快照重推目标 `rowSpan`（净零手势 → 逐位还原）或在手势提交时跑一遍 `applyGravity`（净变高且页面 gravity-on）。这是 invariant 4 在原子编辑会话内的瞬态例外（[ADR-0028]，仅 follow 模式；fix 静态、无手势）；mode 开关不进 engine，目标 `rowSpan` 由 web 层算好传入（follow = 实测内容，1-row min，无 floor；engine 不测量 DOM，invariant 6/7 保持）。[ADR-0030]"永不 reject" 收窄为"**永不因垂直空间不足 reject**"——grid 垂直无上界，向下永远有空间。
 
 ### Invariant query / intent inference
 
@@ -301,9 +304,47 @@ canRise(state, blockId):
 | `move` | ✓ | 同上 |
 | `insert` | ✓ | **Option A 关键** —— 保证 state 永远 gravity-stable，no surprise leap |
 
+### Downward push (`pushResize`)
+
+`pushResize` 与现有 ops 不同：现有 resize 遇碰撞 **reject**，`pushResize` **推**。它是 grow 与 shrink 的同一引擎——caller 传 base 快照 + 目标 `newRowSpan`，shrink 即从 base 重推到更小目标、自然回收空间（从不上拉、从不填洞、从不跨列）。
+
+```
+pushResize(state, id, newRowSpan, opts?):
+  grower = find(state.blocks, id)
+  if grower is null:               return { ok: false, error: 'id not found: ...' }
+  resized = { ...grower, rowSpan: newRowSpan }
+  // 复用 isRegionInBounds：rowSpan integer ≥ 1 + col/colSpan 合法，否则 reject
+  if not isRegionInBounds(state, resized):
+    return { ok: false, error: 'invalid span / out of bounds: ...' }
+
+  blocks = state.blocks.map(b => b.id === id ? resized : b)
+
+  // top-down 递归下推消重叠（victim 选择 = 所有 AABB 碰撞 grower 新 footprint 的块）
+  // worklist 按 row 升序处理，保证 top-down
+  changed = true
+  while changed:
+    changed = false
+    for pusher in blocks sorted by (row asc):
+      for victim in findCollidingBlocks({...state, blocks}, pusher, pusher.id):
+        if victim.row >= pusher.row:                 // 只向下推、不上拉
+          overlapDepth = (pusher.row + pusher.rowSpan) - victim.row   // 竖直重叠深度
+          if overlapDepth > 0:
+            victim.row += overlapDepth                // 恰好按重叠深度下推
+            changed = true
+  return { ok: true, state: { ...state, blocks } }    // 注意：不调 withGravity / applyGravity
+```
+
+- **victim 选择**：所有与 pusher 当前 footprint AABB 碰撞且 `row ≥ pusher.row` 的块（同列或跨列重叠均算）。
+- **每碰撞体推距**：恰好竖直重叠深度 `(pusher.row + pusher.rowSpan) − victim.row`，消除重叠且不过推。
+- **链式传递**：被推下的块成为新 pusher，继续推它新触碰的块（worklist / 迭代到无 change）。
+- **终止性**：每次推都**严格增大** victim 的 `row`；grid 垂直无上界（invariant 2：`row ≥ 0` 无上界），故无 victim 能阻塞，迭代必收敛。
+- **不变量**：完成后 invariant 1（无重叠）/ 2（在界）/ 3（离散 span）/ 5/6/7 成立；invariant 4（gravity-stable）**不**由本 op 保证——是 caller 经 base-重推或提交时一遍 `applyGravity` 重建（[ADR-0028] carve-out）。
+- shrink（`newRowSpan < base.rowSpan`）从 base 快照重推：被推下的块从未被新（更小）footprint 触碰 → 留在 base 位置，空间回收，**可逆性结构成立**（无逆向日志、无 clamp）。
+
 ### Worst-case performance
 
 - `applyGravity`: O(B² × R) worst case（B = block count, R = total rows）；典型 O(B × log B)。Property-based test 包括 1000-op 序列 + 50k stress；large-N benchmark Phase 2+
+- `pushResize`: grow **典型 O(B²)**（单趟 B² 配对扫描；实测 20k 随机布局 ≤ 2 趟收敛，一般 1 趟）；shrink **O(B)**（从 base 重推、被推块归位，无级联放大）。松上界 O(B²·R)（R = 总行数；仅在极少数需多趟的布局下成立，不作 worst-case 断言）。无内部 `applyGravity` 调用，故不叠加 gravity 的迭代成本。
 - `findCollidingBlocks` / `maxEmptyRectContaining`: O(B) and O(C × R) respectively
 
 ---
@@ -354,6 +395,8 @@ Internal package；semver 但 contract surface 演化规则：
 
 简言：**架构承诺（kind-opaque / pure / leaf / gravity 语义）变更走 ADR；surface（types / op set）演化走本文件 + PR review**。
 
+> **已落地的 gravity-语义变更**：[ADR-0028]（2026-06-13）按本表"架构承诺修改（gravity 语义重定义）= major + 新 PRD-informed ADR"行新增 `pushResize`（gravity-agnostic 下推原语）并把 invariant 4 收窄为"含 autofit 原子编辑会话内的瞬态挂起例外"。surface 上 `pushResize` 是"新 op"（minor），但其挂起 gravity 的语义触发了 ADR 要求——故按更强者归类、走 ADR。
+
 ---
 
 ## References
@@ -382,3 +425,8 @@ Internal package；semver 但 contract surface 演化规则：
   - Invariant 4 条件化：gravity stability 以 notepage 的 author-facing gravity toggle 为条件（owner ratified 2026-06-11）
   - 清除 ProseMirror / editor-shell / "future ADR-0019-grid-engine" 残留；deprecated ADR 引用全部降级为 historical trace
   - 测试 44/44 green（carryover 42 + 签名适配 + gravity validate 新增）
+- 2026-06-13 autofit gravity carve-out（[ADR-0028]；source = autofit spec §4.4/§9）:
+  - 新增 `pushResize(state, id, newRowSpan, opts?) → OpResult` 进 State-mutation 表——gravity-agnostic 下推原语（grow O(B²·R) / shrink O(B)），失败模式 `id not found` / `invalid span` / `out of bounds`，"永不因垂直空间不足 reject"
+  - Algorithm details 增 "Downward push (`pushResize`)" 小节：push 伪代码 + victim 选择 / 每碰撞体推距（竖直重叠深度）/ 链式传递 / 终止性（每次推严格增 row）
+  - invariant 4 收窄：增设 autofit 原子编辑会话内的 gravity 瞬态挂起例外（静止态仍 Option-A）；gravity-stability 由 web 控制器从 base 重推或提交时一遍 `applyGravity` 重建（PROBE-2 "提交即压实" invariant）
+  - 注：可选批量原语 `reconcileRowSpans` 在 spec 中列为 perf 增项，本轮按单 grower `reconcile(base, target) = pushResize(base, growerId, target)` 落地，批量 op 留后续 minor 增项

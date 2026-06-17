@@ -15,7 +15,7 @@ import type { Db } from '../db/client';
 import { blobs as blobsTable, blocks, notepages, type PublishedDoc } from '../db/schema';
 import { THEMES, isSafeCssColor } from '@skb/theme';
 import { safeParse } from '../json';
-import { NOT_FOUND_HTML, renderStaticPage } from '../render/publish-html';
+import { NOT_FOUND_HTML, renderStaticPage, toRenderDoc } from '../render/publish-html';
 import { effectiveTheme, themeCustomizations } from '../settings';
 
 type WorkingBlock = {
@@ -27,6 +27,9 @@ type WorkingBlock = {
   rowSpan: number;
   /** Author-picked theme shell option id (M6-D3); null = default. */
   shell: string | null;
+  /** Block-level autofit mode (follow/fix redesign): 'follow' | 'fix';
+   * null = unset (resolves to the kind default on read). */
+  autofit: string | null;
   content: unknown;
 };
 
@@ -78,7 +81,8 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
       typeof r.colSpan !== 'number' ||
       typeof r.rowSpan !== 'number' ||
       !('content' in r) ||
-      (r.shell !== undefined && r.shell !== null && typeof r.shell !== 'string')
+      (r.shell !== undefined && r.shell !== null && typeof r.shell !== 'string') ||
+      (r.autofit !== undefined && r.autofit !== null && typeof r.autofit !== 'string')
     ) {
       return null;
     }
@@ -90,6 +94,9 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
       colSpan: r.colSpan,
       rowSpan: r.rowSpan,
       shell: typeof r.shell === 'string' ? r.shell : null,
+      // follow/fix only; any other value (legacy enum, garbage) → null,
+      // which resolves to the kind default on read (spec §4.4).
+      autofit: r.autofit === 'follow' || r.autofit === 'fix' ? r.autofit : null,
       content: r.content,
     });
   }
@@ -110,6 +117,7 @@ function loadWorkingBlocks(db: Db, notepageId: string): WorkingBlock[] {
       colSpan: row.colSpan,
       rowSpan: row.rowSpan,
       shell: row.shell,
+      autofit: row.autofit,
       // corrupt content degrades to null — the rest of the page loads
       content: safeParse<unknown>(row.content, null),
     }));
@@ -173,9 +181,12 @@ export function notepageRoutes(db: Db) {
 
     // Server-side re-validation with the same engine the client ran
     // (notepage-editing algorithm contract: invalid mutation must not land).
+    // autofit is block metadata, NOT engine geometry — strip it (and content)
+    // so the engine validates pure geometry (spec §4.3). The follow/fix mode
+    // never enters the engine and carries no separate invariant.
     const state: GridState = {
       totalCols: TOTAL_COLS,
-      blocks: body.blocks.map(({ content: _content, ...geom }) => geom),
+      blocks: body.blocks.map(({ content: _content, autofit: _autofit, ...geom }) => geom),
     };
     const v = validateState(state, { gravity: body.gravityEnabled });
     if (!v.ok) return c.json({ error: 'layout invariant violation', details: v.errors }, 422);
@@ -197,6 +208,7 @@ export function notepageRoutes(db: Db) {
             colSpan: b.colSpan,
             rowSpan: b.rowSpan,
             shell: b.shell,
+            autofit: b.autofit,
             content: JSON.stringify(b.content ?? null),
           })
           .run();
@@ -228,7 +240,7 @@ export function notepageRoutes(db: Db) {
       .set({
         slug,
         publishedDoc: JSON.stringify(doc),
-        publishedHtml: renderStaticPage(doc, slug, effectiveTheme(db, page)),
+        publishedHtml: renderStaticPage(toRenderDoc(doc), slug, effectiveTheme(db, page)),
         updatedAt: new Date(),
       })
       .where(eq(notepages.id, page.id))
@@ -267,7 +279,7 @@ export function notepageRoutes(db: Db) {
       const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
       if (doc !== null) {
         db.update(notepages)
-          .set({ publishedHtml: renderStaticPage(doc, page.slug, effectiveTheme(db, { themeId })) })
+          .set({ publishedHtml: renderStaticPage(toRenderDoc(doc), page.slug, effectiveTheme(db, { themeId })) })
           .where(eq(notepages.id, page.id))
           .run();
       }
@@ -383,6 +395,18 @@ export function publicHtmlRoutes(db: Db) {
       return c.html(NOT_FOUND_HTML, 404);
     }
     return c.html(page.publishedHtml);
+  });
+
+  // First-class page permalink (M9-D1): pagelink marks store only the
+  // pageId and render /p/:id — this 302 resolves to the CURRENT slug,
+  // so renames never break inter-page links. Same no-leak 404 as the
+  // slug route (private/unpublished/missing are indistinguishable).
+  r.get('/p/:id', (c) => {
+    const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
+    if (!page || page.visibility !== 'public' || page.publishedHtml === null) {
+      return c.html(NOT_FOUND_HTML, 404);
+    }
+    return c.redirect(`/notes/${encodeURIComponent(page.slug)}`, 302);
   });
   return r;
 }

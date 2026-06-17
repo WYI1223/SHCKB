@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .split { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 22px; align-items: stretch; }
+    .pane { border-radius: 14px; padding: 16px 18px; border: 2px solid; }
+    .pane .ph { font-size: 14.5px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .pane.before { border-color: rgba(190,58,43,.45); background: rgba(190,58,43,.05); }
+    .pane.before .ph { color: var(--no); }
+    .pane.after { border-color: var(--host); background: rgba(15,118,110,.05); }
+    .pane.after .ph { color: var(--host); }
+
+    /* before: outer frame measured at 0 */
+    .frame0 { border: 2px dashed var(--ink-faint); border-radius: 9px; padding: 12px; background: #fff; position: relative; }
+    .paper-abs { border: 1.5px solid var(--theme); background: var(--theme-soft); border-radius: 6px; padding: 8px 10px; font-family: var(--mono); font-size: 11.5px; color: #7e1d4e; }
+    .measure0 { margin-top: 10px; font-family: var(--mono); font-size: 12px; color: var(--no); line-height: 1.5; }
+    .measure0 b { font-weight: 700; }
+    .crush { margin-top: 10px; height: 22px; border: 1.5px solid var(--no); border-radius: 5px; background: repeating-linear-gradient(45deg, rgba(190,58,43,.1) 0 6px, transparent 6px 12px); display: flex; align-items: center; padding-left: 8px; font-size: 10.5px; color: var(--no); overflow: hidden; }
+
+    /* after: offscreen probe with AREA + CONTENT */
+    .probe { display: grid; grid-template-columns: 30px 1fr; gap: 10px; }
+    .cellbrace { position: relative; border-left: 3px solid var(--host); border-radius: 3px; }
+    .cellbrace .cl { position: absolute; left: 7px; top: 50%; transform: translateY(-50%) rotate(0); font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--host); white-space: nowrap; }
+    .probebox { border: 2px solid var(--host); border-radius: 9px; background: #fff; overflow: hidden; }
+    .area { background: var(--host-soft); padding: 7px 11px; font-family: var(--mono); font-size: 11.5px; color: #0c5650; border-bottom: 1px dashed var(--host); }
+    .content { padding: 9px 11px; font-family: var(--mono); font-size: 11.5px; color: #7a3a06; background: var(--kind-soft); }
+    .arith { margin-top: 12px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--ink); background: var(--paper-2); border: 1px solid var(--edge); border-radius: 9px; padding: 11px 14px; }
+    .arith .k { color: var(--host); font-weight: 700; }
+    .arith .c { color: var(--kind); font-weight: 700; }
+    .tagline { margin-top: 12px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; }
+    .tagline b { color: var(--host); }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="eyebrow">Measurement · MeasureProbe</div>
+    <h1 class="t">测量管线 — 量内容，不量壳</h1>
+    <p class="lede">autofit 要知道内容到底多高。<b>关键是测量必须与壳无关（frame-agnostic）</b>——否则一个绝对定位的主题就能把它骗成 0。</p>
+
+    <div class="split">
+      <div class="pane before">
+        <div class="ph">✗ 前 · 量 frame 外层 auto 高</div>
+        <div class="frame0">
+          <div class="paper-abs">.skb-paper { position: absolute; inset: 3px }</div>
+          <div class="measure0">外层 offsetHeight → <b>塌成 0</b><br>（绝对定位脱离了正常流）</div>
+        </div>
+        <div class="crush">fit = 1 ← 6 行内容压进 1 行</div>
+        <p class="tagline" style="margin-top:14px">壳一变，测量就崩。stationery 量到 0，galley 量到 6——同样内容，两种结果。</p>
+      </div>
+
+      <div class="pane after">
+        <div class="ph">✓ 后 · 离屏定高探针 · 量 AREA / CONTENT</div>
+        <div class="probe">
+          <div class="cellbrace"><span class="cl" style="writing-mode:vertical-rl">MEASURE_CELL_PX（定高）</span></div>
+          <div class="probebox">
+            <div class="area">AREA：height: 100% → 得「chrome + area」</div>
+            <div class="content">CONTENT：height: auto → 得内容自然高</div>
+          </div>
+        </div>
+        <div class="arith">
+          <span class="k">chrome</span> = MEASURE_CELL_PX − area<br>
+          fit = ⌈( <span class="c">content</span> + <span class="k">chrome</span> + 2·pad ) / slot ⌉
+        </div>
+        <p class="tagline">定高离屏 + 两次相对测量 → 反推出 chrome 与内容高，<b>与任何壳无关</b>。stationery / galley 现在量出同一个数。</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

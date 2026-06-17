@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; align-items: stretch; }
+    .mode { border-radius: 13px; border: 2px solid; padding: 14px 16px; display: flex; flex-direction: column; }
+    .mode.follow { border-color: var(--host); background: rgba(15,118,110,.05); }
+    .mode.fix { border-color: var(--canv); background: rgba(81,96,122,.05); }
+    .mh { display: flex; align-items: baseline; gap: 8px; font-weight: 800; font-size: 16px; margin-bottom: 3px; }
+    .mode.follow .mh { color: var(--host); } .mode.fix .mh { color: var(--canv); }
+    .mh .tag { font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .mode.follow .tag { background: var(--host); color: #fff; } .mode.fix .tag { background: var(--canv); color: #fff; }
+    .msub { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 10px; }
+
+    /* schematic block: follow hugs content; fix is a fixed window that scrolls */
+    .demo { border-radius: 8px; padding: 8px; background: #fff; margin-bottom: 11px; position: relative; }
+    .mode.follow .demo { border: 1.5px solid var(--host); }
+    .mode.fix .demo { border: 1.5px solid var(--canv); height: 56px; overflow: hidden; }
+    .ln { height: 7px; border-radius: 2px; margin: 4px 0; }
+    .mode.follow .ln { background: var(--host-soft); }
+    .mode.fix .ln { background: var(--canv-soft); }
+    .demo .badge { position: absolute; top: -9px; right: 10px; font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .mode.follow .badge { background: var(--host); color: #fff; }
+    .mode.fix .badge { background: var(--canv); color: #fff; }
+    .mode.fix .demo .scroll { position: absolute; top: 6px; right: 4px; bottom: 6px; width: 4px; border-radius: 3px; background: var(--canv); opacity: .5; }
+    .mode.fix .demo .clip { position: absolute; left: 8px; right: 14px; bottom: 0; height: 13px; background: linear-gradient(to top, #fff, transparent); }
+
+    ul.feat { margin: 0; padding-left: 17px; font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); flex: 1; }
+    ul.feat b { color: var(--ink); }
+    ul.feat .mono { font-family: var(--mono); font-size: 11.5px; }
+
+    .strip { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; }
+    .kinds { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .kinds .h { font-size: 12.5px; font-weight: 700; margin-right: 2px; }
+    .formula { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--edge); border-radius: 9px; padding: 9px 12px; text-align: center; }
+    .toggle { margin-top: 14px; display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ink-soft); }
+    .toggle .box { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--canv); border: 1.5px solid var(--canv); background: var(--canv-soft); border-radius: 7px; padding: 3px 10px; }
+    .toggle b { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="eyebrow">Autofit · follow / fix</div>
+    <h1 class="t">autofit — 跟随内容，还是固定高度</h1>
+    <p class="lede"><b>block 顶端能力，逐 kind 默认。</b> 两个模式，二选一：<b>follow</b>（默认）高度跟随内容；<b>fix</b> 固定高度、内容滚动。<b>无 floor、无 minRowSpan</b> —— 跟随就是跟随，固定就是固定。</p>
+
+    <div class="modes">
+      <div class="mode follow">
+        <div class="mh">follow <span class="tag">默认</span></div>
+        <div class="msub">文本 kind（markdown / richtext / code）的默认</div>
+        <div class="demo">
+          <span class="badge">高 = 内容</span>
+          <div class="ln" style="width:90%"></div>
+          <div class="ln" style="width:75%"></div>
+          <div class="ln" style="width:84%"></div>
+        </div>
+        <ul class="feat">
+          <li>高度 = 实测内容 <span class="mono">fit</span>（<b>1 行下限</b>，在 measureFit）</li>
+          <li>打字撑高 · 删回缩回，都跟随内容</li>
+          <li>overflow <b>裁剪</b>（rowSpan == fit，刚好填满）</li>
+          <li>无竖向 resize 手柄（高度归内容）</li>
+          <li><b>可逆 C5</b>：从不可变 base 快照重算 → 精确归位</li>
+        </ul>
+      </div>
+
+      <div class="mode fix">
+        <div class="mh">fix <span class="tag">opt-in</span></div>
+        <div class="msub">image 的唯一模式（fix-only · canFollow:false）</div>
+        <div class="demo">
+          <span class="badge">高 = 你设定</span>
+          <span class="scroll"></span>
+          <div class="ln" style="width:88%"></div>
+          <div class="ln" style="width:80%"></div>
+          <div class="ln" style="width:86%"></div>
+          <span class="clip"></span>
+        </div>
+        <ul class="feat">
+          <li>固定手动 <span class="mono">rowSpan</span>（<b>可拖拽改</b>）</li>
+          <li>内容超出 → <b>滚动</b>（overflow: auto）</li>
+          <li>切入时<b>冻结</b>当前显示高（follow→fix 不跳变）</li>
+          <li>暴露竖向 resize 手柄</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="toggle">
+      <span class="box">☑ Fixed height</span>
+      <span>右键菜单的 opt-in 勾选框 —— <b>勾选 = fix</b>，默认 follow 不勾。</span>
+    </div>
+
+    <div class="strip">
+      <div class="kinds">
+        <span class="h">逐 kind 默认：</span>
+        <span class="chip kind">markdown → follow</span>
+        <span class="chip kind">richtext → follow</span>
+        <span class="chip kind">code → follow</span>
+        <span class="chip canv">image → fix-only</span>
+      </div>
+      <div class="formula">fit = ⌈(内容高 + chrome + 2·pad) / slot⌉<br>1 行下限 · 仅编辑时测 · 不写库</div>
+    </div>
+  </div>
+</body>
+</html>

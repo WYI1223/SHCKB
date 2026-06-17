@@ -46,7 +46,7 @@ describe('buildExport', () => {
     expect([...bundle.blobs.keys()]).toEqual([seeded.hash]);
 
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(4);
+    expect(manifest.formatVersion).toBe(6);
     expect(manifest.counts).toEqual({ folders: 1, pages: 2, blocks: 2, blobs: 1 });
     expect(manifest.pages).toEqual(['tree/A/page-one.page.json', 'tree/page-two.page.json']);
 
@@ -271,7 +271,7 @@ describe('format v2 (theme data)', () => {
 
     const bundle = buildExport(src.db, src.blobStore, OPTS);
     const manifest = JSON.parse(bundle.files.get('manifest.json')!);
-    expect(manifest.formatVersion).toBe(4);
+    expect(manifest.formatVersion).toBe(6);
     expect(manifest.settings).toEqual({ theme: 'ink' });
     const p2 = JSON.parse(bundle.files.get('tree/page-two.page.json')!);
     expect(p2.themeId).toBe('graph-paper');
@@ -464,6 +464,123 @@ describe('format v4 (author appearance, MVP-6)', () => {
     if (!result.ok) {
       expect(result.status).toBe(422);
       expect(result.details!.some((d) => d.includes('background.blobHash'))).toBe(true);
+    }
+  });
+});
+
+describe('format v6 (autofit follow/fix)', () => {
+  test("autofit 'follow' survives export → import round trip (no minRowSpan)", async () => {
+    // Seed an instance with a follow block (the floor model is gone).
+    const src = await freshContext();
+    const p = await json(await src.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Autofit Page' }) }));
+    await src.authed(`/api/notepages/${p.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: 'Autofit Page',
+        gravityEnabled: false,
+        blocks: [
+          { id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 4, autofit: 'follow', content: { markdown: '# hi' } },
+        ],
+      }),
+    });
+
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    // Verify the export carries the mode and no longer carries the floor
+    const pageJson = JSON.parse(bundle.files.get('tree/autofit-page.page.json')!);
+    expect(pageJson.blocks[0].autofit).toBe('follow');
+    expect('minRowSpan' in pageJson.blocks[0]).toBe(false);
+
+    // Import into a fresh instance
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(true);
+
+    // Re-export to verify the mode survived the DB round trip
+    const again = buildExport(dst.db, dst.blobStore, OPTS);
+    const againPage = JSON.parse(again.files.get('tree/autofit-page.page.json')!);
+    expect(againPage.blocks[0].autofit).toBe('follow'); // CRITICAL: must not be null
+    expect('minRowSpan' in againPage.blocks[0]).toBe(false);
+  });
+
+  test("autofit 'fix' survives export → import round trip", async () => {
+    const src = await freshContext();
+    const p = await json(await src.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Fix Page' }) }));
+    await src.authed(`/api/notepages/${p.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: 'Fix Page',
+        gravityEnabled: false,
+        blocks: [
+          { id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 4, autofit: 'fix', content: { markdown: '# hi' } },
+        ],
+      }),
+    });
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    expect(JSON.parse(bundle.files.get('tree/fix-page.page.json')!).blocks[0].autofit).toBe('fix');
+    const dst = await freshContext();
+    expect(importBundle(dst.db, dst.blobStore, bundle).ok).toBe(true);
+    const again = buildExport(dst.db, dst.blobStore, OPTS);
+    expect(JSON.parse(again.files.get('tree/fix-page.page.json')!).blocks[0].autofit).toBe('fix');
+  });
+
+  test('parsePage rejects autofit with wrong type (type guard)', async () => {
+    const src = await freshContext();
+    const p = await json(await src.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Guard Test' }) }));
+    await src.authed(`/api/notepages/${p.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: 'Guard Test',
+        gravityEnabled: false,
+        blocks: [
+          { id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 1, content: { markdown: 'x' } },
+        ],
+      }),
+    });
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const pageJson = JSON.parse(bundle.files.get('tree/guard-test.page.json')!);
+
+    // Inject autofit: 5 (number, not 'follow'|'fix'|null) — must be rejected
+    pageJson.blocks[0].autofit = 5;
+    bundle.files.set('tree/guard-test.page.json', JSON.stringify(pageJson));
+
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+      expect(result.details!.some((d) => d.includes('malformed block'))).toBe(true);
+    }
+  });
+
+  test("parsePage rejects an unknown autofit mode (legacy 'grow' is not a v6 value)", async () => {
+    const src = await freshContext();
+    const p = await json(await src.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Guard Test 2' }) }));
+    await src.authed(`/api/notepages/${p.id}/working-state`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: 'Guard Test 2',
+        gravityEnabled: false,
+        blocks: [
+          { id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 12, rowSpan: 1, content: { markdown: 'x' } },
+        ],
+      }),
+    });
+    const bundle = buildExport(src.db, src.blobStore, OPTS);
+    const pageJson = JSON.parse(bundle.files.get('tree/guard-test-2.page.json')!);
+
+    // Inject the legacy enum 'grow' directly — the v6 importer guard is
+    // tight (only 'follow'|'fix'|null). A genuine v5 bundle would arrive
+    // via the up-migration; a hand-edited v6 bundle with a stale value is
+    // rejected.
+    pageJson.blocks[0].autofit = 'grow';
+    bundle.files.set('tree/guard-test-2.page.json', JSON.stringify(pageJson));
+
+    const dst = await freshContext();
+    const result = importBundle(dst.db, dst.blobStore, bundle);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+      expect(result.details!.some((d) => d.includes('malformed block'))).toBe(true);
     }
   });
 });

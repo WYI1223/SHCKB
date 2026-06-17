@@ -14,6 +14,7 @@ export const imageModule: BlockKindModule<ImageContent> = {
   RenderView: ImageRenderView,
   extractText,
   tools: [{ id: 'alt', label: 'Alt', View: AltTextTool }],
+  autofit: { default: 'fix', canFollow: false },
 };
 
 export { coerceContent, type ImageContent };

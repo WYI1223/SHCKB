@@ -29,7 +29,10 @@ describe('author appearance', () => {
     const note = await json(await ctx.app.request('http://localhost/api/public/notes/s'));
     expect(note.doc.blocks.find((b: { id: string }) => b.id === 'b1').shell).toBe('flat');
     const html = await (await ctx.app.request('http://localhost/notes/s')).text();
-    expect(html).toContain('data-shell="flat"');
+    // Published HTML renders via BlockFrameCore + resolveSkin (legacy data-shell
+    // attribute is gone; the skin is applied visually — workbench 'flat' adds
+    // skb-block class to the content box, which is the stable CSS hook).
+    expect(html).toContain('skb-content-box skb-block');
 
     // malformed shell rejected
     const bad = await ctx.authed(`/api/notepages/${p.id}/working-state`, {

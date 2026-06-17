@@ -6,13 +6,16 @@
  * blocks render the module RenderView (preview), only the active block
  * mounts its EditView (block-markdown.md performance boundary).
  */
+import { useState } from 'react';
 import { totalRows, type Block } from '@skb/grid-engine';
-import { BLOCK_KINDS, blockModule, DefaultBlockFrame, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
-import { resolveBlockFrame, shellOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
+import { BLOCK_KINDS, blockModule, BlockFrameCore, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
+import { resolveSkin, skinOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
 import { BENCH } from '../chrome/bench';
 import { useOverlays, type MenuItem } from '../chrome/overlays';
 import { DeleteButton, DropGhost, ResizeHandles, ResizePreview } from './overlays';
 import type { Interaction } from './useGridInteraction';
+import { MeasureProbe } from './MeasureProbe';
+import { useAutofitGesture } from './useAutofitGesture';
 
 const MIN_ROWS_PADDING = 4;
 /** Sheet margin around the grid — the board's edge belongs to the sheet. */
@@ -75,6 +78,10 @@ export function GridCanvas(props: GridCanvasProps) {
   const SLOT = theme.slot;
   const PAD = theme.pad;
   const Surface = theme.CanvasSurface ?? DefaultCanvasSurface;
+  // ATOMICITY (spec §4.4 STRESS-1): true while a follow gesture is live on
+  // the active block. Sheet-level insert is suppressed to prevent
+  // interleaving structural ops that would clobber the gesture base.
+  const sheetInsertLocked = activeId !== null && interaction.autofit[activeId] === 'follow';
 
   return (
     <div
@@ -111,7 +118,11 @@ export function GridCanvas(props: GridCanvasProps) {
               ...(papers.length > 0 ? [{ kind: 'label', label: 'insert block' } as MenuItem] : []),
               ...Object.values(BLOCK_KINDS).map<MenuItem>((mod) => ({
                 label: `${mod.glyph} ${mod.label}`,
-                onSelect: () => interaction.ops.insertAt(col, row, mod.kind),
+                // ATOMICITY: suppress insert while an autofit gesture is live.
+                disabled: sheetInsertLocked,
+                onSelect: sheetInsertLocked
+                  ? () => {}
+                  : () => interaction.ops.insertAt(col, row, mod.kind),
               })),
             ],
             { header: papers.length > 0 ? 'sheet' : 'insert block' },
@@ -168,7 +179,24 @@ function BlockShell({
   // (editor-owned); the theme's BlockFrame owns the visual shell. An
   // author shell choice resolves to its own Frame (M6-D3).
   const shell = shells[block.id] ?? null;
-  const Frame = resolveBlockFrame(theme, block.kind, shell) ?? theme.BlockFrame ?? DefaultBlockFrame;
+  const skin = resolveSkin(theme, block.kind, shell);
+  // Autofit: 'follow' = content drives rowSpan; 'fix' = fixed manual height.
+  const isFollow = interaction.autofit[block.id] === 'follow';
+  // True when ANOTHER block is in an active follow gesture (spec §4.4
+  // STRESS-1 atomicity): interleaving drag/insert/delete would mutate
+  // interaction.state while useAutofitGesture holds a stale base snapshot,
+  // silently clobbering the interleaved op on the next debounced reconcile.
+  const autofitGestureLocked =
+    !isActive && activeId !== null && interaction.autofit[activeId] === 'follow';
+  // Content fit measurement (rows) — fed by MeasureProbe, used by gesture.
+  const [fit, setFit] = useState(block.rowSpan);
+  // Autofit gesture controller (C5 reconcile-from-base; gestureActive gates autosave).
+  useAutofitGesture({
+    interaction,
+    activeId: isActive ? block.id : null,
+    enabled: isFollow,
+    fit,
+  });
 
   return (
     <div
@@ -176,7 +204,7 @@ function BlockShell({
       data-block-kind={block.kind}
       data-pu-active={isActive || undefined}
       className="pu-block"
-      {...(isActive ? {} : interaction.blockDragProps(block))}
+      {...(isActive || autofitGestureLocked ? {} : interaction.blockDragProps(block))}
       onClick={(e) => {
         e.stopPropagation();
         if (!isActive) onActivate(block.id);
@@ -189,7 +217,7 @@ function BlockShell({
         e.preventDefault();
         // theme-curated shells (M8-D4) — same data Properties feeds on;
         // pill choices because shells have no single swatch color.
-        const shellOpts = shellOptionsFor(theme, block.kind);
+        const shellOpts = skinOptionsFor(theme, block.kind);
         const shellSection: MenuItem[] =
           shellOpts.length > 0
             ? [
@@ -209,15 +237,39 @@ function BlockShell({
           { x: e.clientX, y: e.clientY },
           [
             { label: 'edit', onSelect: () => onActivate(block.id) },
+            // Height-mode toggle: an opt-in "Fixed height" checkbox (checked =
+            // fix; the default follow is unchecked), shown for any kind that can
+            // follow (image is fix-only via canFollow:false; markdown/richtext/
+            // code in). Inactive-block freeze is automatic: rowSpan already holds
+            // the committed fit, so switching to fix keeps that height. (The
+            // active-block freeze of spec §3.1 is moot here — this menu returns
+            // early when active; a future Properties toggle would need to copy
+            // the live fit → rowSpan before switching follow→fix.)
+            ...(blockModule(block.kind)?.autofit?.canFollow !== false
+              ? [
+                  {
+                    label: 'Fixed height',
+                    checked: !isFollow,
+                    onSelect: () =>
+                      interaction.setAutofit(block.id, isFollow ? 'fix' : 'follow'),
+                  } as MenuItem,
+                ]
+              : []),
             ...shellSection,
             { kind: 'separator' },
             {
               label: 'delete',
               danger: true,
-              onSelect: () => {
-                interaction.ops.remove(block.id);
-                onBlockDeleted(block.id);
-              },
+              // ATOMICITY (spec §4.4 STRESS-1): suppress structural delete
+              // while an autofit gesture is live on another block. The base
+              // snapshot is stale after a delete; next reconcile would clobber.
+              disabled: autofitGestureLocked,
+              onSelect: autofitGestureLocked
+                ? () => {}
+                : () => {
+                    interaction.ops.remove(block.id);
+                    onBlockDeleted(block.id);
+                  },
             },
           ],
           { header: `${mod ? mod.label : block.kind} · ${block.colSpan}×${block.rowSpan}` },
@@ -261,7 +313,7 @@ function BlockShell({
           {block.colSpan}×{block.rowSpan}
         </span>
       </div>
-      <Frame kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} shell={shell}>
+      <BlockFrameCore kind={block.kind} blockId={block.id} colSpan={block.colSpan} rowSpan={block.rowSpan} follow={isFollow} skin={skin}>
         <div
           style={{
             display: 'flex',
@@ -275,7 +327,7 @@ function BlockShell({
             color: theme.textColor,
           }}
         >
-          <div style={{ flex: 1, minHeight: 0, overflow: 'visible' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: isFollow ? 'hidden' : 'visible' }}>
             <BlockBody
               block={block}
               mod={mod}
@@ -285,14 +337,36 @@ function BlockShell({
             />
           </div>
         </div>
-      </Frame>
+      </BlockFrameCore>
+      {/* MeasureProbe: offscreen measurement surface for follow blocks
+          (spec §5.3). ALWAYS offscreen/invisible — the EditView ghost
+          (data-skb-ghost-preview) is the sole visible preview (spec §7).
+          Mounted ONLY for active follow blocks whose kind can follow
+          (per-kind policy: image excluded). */}
+      {isActive && isFollow && blockModule(block.kind)?.autofit?.canFollow !== false && (
+        <MeasureProbe
+          kind={block.kind}
+          blockId={block.id}
+          colSpan={block.colSpan}
+          shell={shell}
+          content={contents[block.id]}
+          onFit={setFit}
+        />
+      )}
       <DeleteButton
         onClick={() => {
           interaction.ops.remove(block.id);
           onBlockDeleted(block.id);
         }}
       />
-      {!isActive && <ResizeHandles block={block} interaction={interaction} slot={slot} />}
+      {!isActive && (
+        <ResizeHandles
+          block={block}
+          interaction={interaction}
+          slot={slot}
+          canResizeVertical={!isFollow}
+        />
+      )}
     </div>
   );
 }

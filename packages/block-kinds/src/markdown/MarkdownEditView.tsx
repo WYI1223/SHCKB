@@ -1,7 +1,15 @@
 /**
- * Active-block editing surface: lightweight source-plus-preview per
- * block-markdown.md M2 shape. Mounted only on the single active block;
- * parsing/preview stay inside the block module.
+ * Active-block editing surface (autofit design §7): a SINGLE textarea
+ * filling the block — canonical content is the markdown source — plus a
+ * VISIBLE right-aligned floating ghost preview. The ghost is the SAME
+ * MarkdownRenderView the reader/publish path uses (and the §5.3
+ * measurement loop wraps in the real Frame), so "edit-time render" and
+ * "published render" can never drift. The dual editing pane is gone:
+ * one source of truth for measurement (RenderView), one for authoring
+ * (the source textarea). The measurement-loop subsystem owns the
+ * offscreen Frame-wrapped instance + fit derivation; this surface owns
+ * the author-facing ghost so the render feedback loop survives without
+ * re-activating the block (block-markdown.md "keep the feedback loop").
  */
 import { useEffect, useRef } from 'react';
 import { useTheme } from '@skb/theme';
@@ -18,7 +26,7 @@ export function MarkdownEditView({ content, onChange }: BlockViewProps<MarkdownC
   }, []);
 
   return (
-    <div style={{ display: 'flex', gap: '8px', height: '100%', minHeight: 0 }}>
+    <div style={{ position: 'relative', height: '100%', minHeight: 0 }}>
       <textarea
         ref={taRef}
         value={content.markdown}
@@ -26,8 +34,7 @@ export function MarkdownEditView({ content, onChange }: BlockViewProps<MarkdownC
         placeholder="Write markdown…"
         aria-label="Markdown source"
         style={{
-          flex: 1,
-          minWidth: 0,
+          width: '100%',
           height: '100%',
           resize: 'none',
           border: `1px solid ${theme.accent}`,
@@ -41,15 +48,29 @@ export function MarkdownEditView({ content, onChange }: BlockViewProps<MarkdownC
           outline: 'none',
         }}
       />
+      {/* Visible right-aligned floating ghost preview — the SAME
+       * RenderView the reader sees. Floats over the textarea's top-right
+       * so it never steals authoring width; pointer-events none so it is
+       * a window, not a control. The measurement-loop subsystem finds it
+       * via [data-skb-ghost-preview] to reuse this exact RenderView for
+       * fit (no second render). */}
       <div
-        aria-hidden
+        data-skb-ghost-preview
         style={{
-          flex: 1,
-          minWidth: 0,
-          height: '100%',
-          overflow: 'auto',
-          padding: '0 4px',
-          borderLeft: `1px dashed ${theme.hairline}`,
+          position: 'absolute',
+          top: '4px',
+          right: '4px',
+          maxWidth: '45%',
+          maxHeight: 'calc(100% - 8px)',
+          overflow: 'hidden',
+          padding: '6px 8px',
+          borderRadius: '4px',
+          border: `1px dashed ${theme.hairline}`,
+          background: theme.blockBg,
+          boxShadow: '0 2px 6px oklch(40% 0.02 80 / 14%)',
+          pointerEvents: 'none',
+          opacity: 0.96,
+          zIndex: 2,
         }}
       >
         <MarkdownRenderView content={content} />

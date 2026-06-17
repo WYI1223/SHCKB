@@ -16,10 +16,12 @@ import {
   type DropIntent,
   type GridState,
   TOTAL_COLS,
+  applyGravity,
   deleteBlock as engineDelete,
   inferDropIntent,
   insertBlock,
   moveBlock,
+  pushResize,
   transformBlock,
 } from '@skb/grid-engine';
 
@@ -66,6 +68,13 @@ export type GridOps = {
   /** Pointer-free insert (context menu, M8-D3) — same clamp/reject path
    * as a palette drop at that cell. */
   insertAt: (col: number, row: number, kind: string) => void;
+  /** Autofit reconcile (spec §4.4 C5): pushResize(base, id, target) with
+   * gravity SUSPENDED — re-derived from the gesture BASE every time. */
+  reconcileTo: (base: GridState, id: string, targetRowSpan: number) => void;
+  /** COMMIT RULE (PROBE-2 invariant): on gesture commit, if net rowSpan
+   * delta != 0 && gravity is ON, run applyGravity ONCE; gravity-off
+   * commits the pushed layout as-is. */
+  commitGesture: (id: string, baseRowSpan: number) => void;
 };
 
 export type Interaction = {
@@ -75,6 +84,11 @@ export type Interaction = {
   resize: ResizeState;
   gravityEnabled: boolean;
   setGravityEnabled: (v: boolean) => void;
+  /** BLOCK METADATA (web-owned): autofit mode per block id. Values are
+   * 'follow' (height tracks content) | 'fix' (fixed manual height). null
+   * is transient until a mode is seeded; resolves to the kind default. */
+  autofit: Record<string, string | null>;
+  setAutofit: (id: string, mode: string | null) => void;
   blockDragProps: (block: Block) => {
     draggable: boolean;
     onDragStart: (e: React.DragEvent) => void;
@@ -90,7 +104,12 @@ export type Interaction = {
     onDragLeave: () => void;
     onDrop: (e: React.DragEvent) => void;
   };
-  beginResize: (e: React.PointerEvent, block: Block, axis: ResizeAxis, slotSize: number) => void;
+  beginResize: (
+    e: React.PointerEvent,
+    block: Block,
+    axis: ResizeAxis,
+    slotSize: number,
+  ) => void;
 };
 
 export type GridInteractionConfig = {
@@ -99,6 +118,8 @@ export type GridInteractionConfig = {
   defaultSizeFor: (kind: string) => BlockSize;
   /** Notepage host hook: create content for a block born via palette drop. */
   onBlockInserted: (block: Block) => void;
+  /** Seed block metadata from the server detail (web/server-owned). */
+  initialAutofit?: Record<string, string | null>;
 };
 
 let insertSeq = 0;
@@ -149,6 +170,11 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     previewH: 0,
   });
   const [gravityEnabled, setGravityEnabled] = useState(config.initialGravity);
+  const [autofit, setAutofitState] = useState<Record<string, string | null>>(
+    () => config.initialAutofit ?? {},
+  );
+  const setAutofit = (id: string, mode: string | null) =>
+    setAutofitState((m) => ({ ...m, [id]: mode }));
 
   const stateRef = useRef(state);
   const dragRef = useRef(drag);
@@ -200,7 +226,26 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     setState(engineDelete(stateRef.current, id, opts()));
   }
 
-  const ops: GridOps = { move, transform, remove, insertAt };
+  function reconcileTo(base: GridState, id: string, targetRowSpan: number): void {
+    // C5: ALWAYS re-derive from the immutable gesture base (no journal,
+    // no clamp). pushResize never calls gravity — gravity stays suspended
+    // within the edit gesture (spec §4.4 atomicity).
+    const r = pushResize(base, id, targetRowSpan);
+    if (r.ok) setState(r.state);
+  }
+
+  function commitGesture(id: string, baseRowSpan: number): void {
+    setState((s) => {
+      const block = s.blocks.find((b) => b.id === id);
+      const netDelta = block ? block.rowSpan - baseRowSpan : 0;
+      // COMMIT RULE / PROBE-2: only compact when the block truly changed
+      // height AND the page runs gravity. gravity-off commits as-is.
+      if (netDelta !== 0 && gravityRef.current) return applyGravity(s).state;
+      return s;
+    });
+  }
+
+  const ops: GridOps = { move, transform, remove, insertAt, reconcileTo, commitGesture };
 
   function blockDragProps(block: Block) {
     return {
@@ -362,6 +407,9 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
       window.removeEventListener('pointerup', onUp);
       setResize((r) => {
         if (r.blockId !== null) {
+          // follow blocks expose no vertical handle (GridCanvas gates it),
+          // so every resize that reaches here is a fix-mode resize → the
+          // plain transform() path on all axes.
           transform(r.blockId, {
             col: r.previewCol,
             row: r.previewRow,
@@ -392,6 +440,8 @@ export function useGridInteraction(config: GridInteractionConfig): Interaction {
     resize,
     gravityEnabled,
     setGravityEnabled,
+    autofit,
+    setAutofit,
     blockDragProps,
     paletteDragProps,
     canvasDropProps,

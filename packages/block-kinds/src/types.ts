@@ -41,12 +41,59 @@ export type BlockKindModule<C = unknown> = {
   /** Tools for the active block, rendered in the host's tool panel.
    *  Editing-surface only — never reachable from RenderView. */
   tools?: Array<BlockTool<C>>;
+  /**
+   * Per-kind autofit policy (follow/fix, 2026-06-15 redesign).
+   * - `default`: the mode a freshly-inserted block of this kind starts in.
+   * - `canFollow`: whether this kind can use follow mode at all. `false` =
+   *   fix-only (e.g. image — no measurable text content; the follow toggle is
+   *   hidden). Defaults to `true` when omitted.
+   * follow = height tracks measured content (1-row min, no floor);
+   * fix = fixed manual height, drag-resizable, content scrolls.
+   */
+  autofit?: { default: 'follow' | 'fix'; canFollow?: boolean };
 };
 
+/** Menu vocabulary a module may hand to the host (M9-D3 finding #3):
+ * the universal panel face is the HOST's visual sovereignty — plugins
+ * describe items, the host draws them. Mirrors the chrome overlay menu
+ * shape (item / separator / label / choices) without importing it. */
+export type HostMenuItem =
+  | {
+      kind?: 'item';
+      label: string;
+      onSelect: () => void;
+      danger?: boolean;
+      disabled?: boolean;
+      checked?: boolean;
+    }
+  | { kind: 'separator' }
+  | { kind: 'label'; label: string }
+  | {
+      kind: 'choices';
+      label: string;
+      options: Array<{ id: string; name: string; swatch?: string; selected?: boolean }>;
+      onPick: (id: string) => void;
+    };
+
 /** Host capabilities injected by the embedding app — the seed of the
- * plugin host API. EditViews must reach the host ONLY through this. */
+ * plugin host API. EditViews must reach the host ONLY through this.
+ *
+ * The optional members are findings from the M9 plugin stress test
+ * (richtext): capabilities a real plugin needed that the contract
+ * lacked. Optional so older/leaner hosts stay valid — modules must
+ * degrade (hide the affordance) when one is absent. */
 export type HostServices = {
   uploadBlob: (file: File) => Promise<{ hash: string; size: number; mimeType: string }>;
+  /** Author-side page directory — link pickers (M9 finding: plugins
+   * cannot reach the host's tree state). */
+  listPages?: () => Promise<Array<{ id: string; title: string }>>;
+  /** Host-rendered modal text prompt (M9 finding: plugins must never
+   * own window.* dialogs, and chrome overlays are host-private). */
+  promptText?: (opts: { title: string; message?: string; initial?: string }) => Promise<string | null>;
+  /** Host-rendered universal menu (M9-D3 finding: in-content menus must
+   * wear the SAME panel face as the chrome context menus — owner
+   * ruling). Anchor is a viewport point. */
+  menu?: (anchor: { x: number; y: number }, items: HostMenuItem[], opts?: { header?: string }) => void;
 };
 
 export const HostContext = createContext<HostServices | null>(null);

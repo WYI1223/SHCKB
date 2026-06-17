@@ -11,7 +11,7 @@ import type { BlobStore } from '../blobstore';
 import type { Db } from '../db/client';
 import { blobs, blocks, folders, notepages, type PublishedDoc } from '../db/schema';
 import { DEFAULT_THEME_ID, THEMES, applyCustomization, isSafeCssColor, sanitizeCustomization, type Theme, type ThemeCustomization } from '@skb/theme';
-import { renderStaticPage } from '../render/publish-html';
+import { renderStaticPage, toRenderDoc } from '../render/publish-html';
 import { settings as settingsTable } from '../db/schema';
 import { FORMAT_VERSION, type ExportManifest, type ExportPage } from './format';
 import { upgradeToVersion, type JsonFiles } from './migrate-format';
@@ -53,6 +53,11 @@ function parsePage(path: string, value: unknown, errors: string[]): ExportPage |
   if (typeof p.sortKey !== 'number') return e('missing sortKey');
   if (typeof p.createdAt !== 'number' || typeof p.updatedAt !== 'number') return e('missing timestamps');
   if (p.published !== null) {
+    // Published-snapshot blocks are validated structurally only (not per-block
+    // like working blocks below): a genuine bundle's published.blocks arrive
+    // already-normalized via the format up-migration, and the render path
+    // (publish-html / ReadPage) coerces any unknown autofit → fix/scroll and
+    // never crashes — so published blocks are trusted-by-construction here.
     const d = p.published as Record<string, unknown> | null;
     if (
       typeof d !== 'object' ||
@@ -77,7 +82,8 @@ function parsePage(path: string, value: unknown, errors: string[]): ExportPage |
       typeof b.colSpan !== 'number' ||
       typeof b.rowSpan !== 'number' ||
       !('content' in b) ||
-      (b.shell !== undefined && b.shell !== null && typeof b.shell !== 'string')
+      (b.shell !== undefined && b.shell !== null && typeof b.shell !== 'string') ||
+      (b.autofit !== undefined && b.autofit !== null && b.autofit !== 'follow' && b.autofit !== 'fix')
     ) {
       return e('malformed block');
     }
@@ -256,7 +262,7 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
           folderId,
           sortKey: page.sortKey,
           publishedDoc: published === null ? null : JSON.stringify(published),
-          publishedHtml: published === null ? null : renderStaticPage(published, page.slug, themeFor(page.themeId)),
+          publishedHtml: published === null ? null : renderStaticPage(toRenderDoc(published), page.slug, themeFor(page.themeId)),
           createdAt: new Date(page.createdAt),
           updatedAt: new Date(page.updatedAt),
         })
@@ -272,6 +278,7 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
             colSpan: b.colSpan,
             rowSpan: b.rowSpan,
             shell: b.shell ?? null,
+            autofit: b.autofit ?? null,
             content: JSON.stringify(b.content ?? null),
           })
           .run();

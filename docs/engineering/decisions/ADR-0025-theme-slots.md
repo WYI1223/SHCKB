@@ -6,8 +6,10 @@
 | Date | 2026-06-12 |
 | Authors | W_YI (owner), Claude |
 | Supersedes | —（修订 [ADR-0024] 的 "theme = 纯数据" 表述）|
-| Superseded by | — |
+| Superseded by | [ADR-0029](./ADR-0029-host-frame-core-blockskin.md) 部分修订：§1/§2 BlockFrame 槽位分配 → host `BlockFrameCore`；theme 供 `BlockSkin`（类型受限视觉子集，`shells` → `skins`）。§2 之后的"几何=host"（canvas 定位外层）与 §3"kind=content"（BlockFrame vs RenderView 边界）两半保留。 |
 | Source | [2026-06-12-theme-engine-v2-design.md](../../superpowers/specs/2026-06-12-theme-engine-v2-design.md)（owner ratified；动机 = owner 裁定 token-only "风格化程度太低"，theme-system PRD 本就定位 theme 可改结构）|
+
+> **Amendment (2026-06-14) — [ADR-0029]**：本 ADR §1/§2 的 `BlockFrame` 槽位分配已被 [ADR-0029](./ADR-0029-host-frame-core-blockskin.md) 修订。block 内容盒从 theme `BlockFrame` 移到 host `BlockFrameCore`；theme 改供 `BlockSkin`（类型受限视觉子集，物理上无法破坏盒不变量；`shells` → `skins`）。本 ADR 的"几何=host / canvas 定位外层"（§2）与"kind 管内容渲染，theme 管壳"（§3/§4 CONTRACT 约定）两半保留，不受影响。
 
 ## Context
 

@@ -19,6 +19,12 @@ export type WorkingBlock = {
   rowSpan: number;
   /** Theme shell option id (M6-D3); null = the theme's default shell. */
   shell?: string | null;
+  /** Autofit mode (block metadata, web/server-owned): 'follow' | 'fix'
+   * (2026-06-15 follow/fix redesign — floor removed). follow = height
+   * tracks content (1-row min); fix = fixed manual height, content scrolls.
+   * GET may return null (the route stores null for a legacy/unknown value,
+   * which resolves to the kind default on read); save() only writes follow|fix. */
+  autofit?: 'follow' | 'fix' | null;
   content: unknown;
 };
 

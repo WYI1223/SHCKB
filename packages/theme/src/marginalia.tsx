@@ -13,7 +13,8 @@
  * are deterministic, and renderToStaticMarkup-safe [ADR-0025].
  */
 import { useTheme } from './context';
-import type { BlockFrameProps, CanvasSurfaceProps, PageTitleProps, Theme, ThemeTokens } from './themes';
+import type { CanvasSurfaceProps, PageTitleProps, Theme, ThemeTokens } from './themes';
+import type { BlockSkin } from './skin';
 
 /** Quiet warm code colors — ink tones with one rubric note, AA on the
  * faint inset surface. */
@@ -64,82 +65,59 @@ const TOKENS: ThemeTokens = {
   codeCss: MARGINALIA_CODE_CSS,
 };
 
-/** Default shell: the passage — content printed on the paper, generous
+/** Default skin: the passage — content printed on the paper, generous
  * line height, no chrome at all. */
-function MarginaliaBlockFrame({ kind, children }: BlockFrameProps) {
-  const t = useTheme();
-  return (
-    <div
-      className="skb-block"
-      data-kind={kind}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        padding: '8px 10px',
-        fontSize: '15px',
-        lineHeight: 1.7,
-        color: t.textColor,
-        scrollbarWidth: 'thin',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+const marginaliaDefaultSkin: BlockSkin = {
+  id: 'page',
+  name: 'Page',
+  box: {
+    className: 'skb-block',
+    style: {
+      padding: '8px 10px',
+      fontSize: '15px',
+      lineHeight: 1.7,
+      color: 'oklch(23% 0.012 60)',
+      scrollbarWidth: 'thin',
+    },
+  },
+};
 
-/** 'plate' shell: a figure plate — hairline box, the way printed books
+/** 'plate' skin: a figure plate — hairline box, the way printed books
  * frame illustrations and tables. */
-function PlateFrame({ kind, shell, children }: BlockFrameProps) {
-  const t = useTheme();
-  return (
-    <div
-      className="skb-block"
-      data-kind={kind}
-      data-shell={shell ?? undefined}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        padding: '12px 14px',
-        fontSize: '15px',
-        lineHeight: 1.7,
-        color: t.textColor,
-        border: `1px solid ${t.hairline}`,
-        background: 'oklch(99% 0.004 90)',
-        scrollbarWidth: 'thin',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+const plateSkin: BlockSkin = {
+  id: 'plate',
+  name: 'Plate',
+  box: {
+    className: 'skb-block',
+    style: {
+      padding: '12px 14px',
+      fontSize: '15px',
+      lineHeight: 1.7,
+      color: 'oklch(23% 0.012 60)',
+      border: '1px solid oklch(88% 0.012 80)',
+      background: 'oklch(99% 0.004 90)',
+      scrollbarWidth: 'thin',
+    },
+  },
+};
 
-/** 'aside' shell: a margin note — smaller, muted, rubric-ruled on the
+/** 'aside' skin: a margin note — smaller, muted, rubric-ruled on the
  * left, like an editor's gloss beside the text. */
-function AsideFrame({ kind, shell, children }: BlockFrameProps) {
-  const t = useTheme();
-  return (
-    <div
-      className="skb-block"
-      data-kind={kind}
-      data-shell={shell ?? undefined}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        padding: '4px 10px 4px 12px',
-        fontSize: '13px',
-        lineHeight: 1.65,
-        color: t.quoteColor,
-        borderLeft: `2px solid ${t.accent}`,
-        scrollbarWidth: 'thin',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+const asideSkin: BlockSkin = {
+  id: 'aside',
+  name: 'Aside',
+  box: {
+    className: 'skb-block',
+    style: {
+      padding: '4px 10px 4px 12px',
+      fontSize: '13px',
+      lineHeight: 1.65,
+      color: 'oklch(44% 0.02 65)',
+      borderLeft: '2px solid oklch(50% 0.135 35)',
+      scrollbarWidth: 'thin',
+    },
+  },
+};
 
 function MarginaliaCanvasSurface({ widthPx, heightPx, children }: CanvasSurfaceProps) {
   return (
@@ -188,14 +166,14 @@ const MARGINALIA_GLOBAL_CSS = `
 
 export const marginalia: Theme = {
   ...TOKENS,
-  BlockFrame: MarginaliaBlockFrame,
   CanvasSurface: MarginaliaCanvasSurface,
   PageTitle: MarginaliaPageTitle,
   globalCss: MARGINALIA_GLOBAL_CSS,
 
-  shells: {
-    plate: { name: 'Plate', Frame: PlateFrame },
-    aside: { name: 'Aside', Frame: AsideFrame },
+  defaultSkin: marginaliaDefaultSkin,
+  skins: {
+    plate: plateSkin,
+    aside: asideSkin,
   },
 
   palettes: [

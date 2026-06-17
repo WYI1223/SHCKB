@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    /* hero: the stationery collapse, made visual */
+    .hero { display: grid; grid-template-columns: 1fr 70px 1fr; gap: 8px; align-items: center; margin-top: 22px; }
+    .demo { border-radius: 12px; padding: 14px 16px; border: 2px solid; }
+    .demo .dh { font-family: var(--mono); font-size: 11.5px; font-weight: 700; margin-bottom: 9px; line-height: 1.4; }
+    .demo.bad { border-color: rgba(190,58,43,.45); background: rgba(190,58,43,.05); }
+    .demo.bad .dh { color: var(--no); }
+    .demo.good { border-color: var(--host); background: rgba(15,118,110,.05); }
+    .demo.good .dh { color: var(--host); }
+    .line { font-size: 12px; color: var(--ink-soft); padding: 2px 0; border-bottom: 1px dotted var(--hair); }
+    .squashed { height: 30px; overflow: hidden; border: 1.5px dashed var(--no); border-radius: 7px; padding: 5px 9px; background: #fff; position: relative; }
+    .squashed::after { content: '6 行被裁到 1 行 ✂'; position: absolute; right: 8px; bottom: 3px; font-size: 9.5px; color: var(--no); font-family: var(--mono); }
+    .full { border: 1.5px solid var(--host); border-radius: 7px; padding: 9px 11px; background: #fff; }
+    .arrow { text-align: center; font-size: 30px; color: var(--ink-soft); font-weight: 300; }
+
+    .pairs { margin-top: 24px; border: 1px solid var(--edge); border-radius: 13px; overflow: hidden; }
+    .pairs .ph { display: grid; grid-template-columns: 130px 1fr 1fr; background: var(--paper-2); font-weight: 800; font-size: 13px; }
+    .pairs .ph > div { padding: 9px 15px; }
+    .pairs .ph .b { color: var(--no); } .pairs .ph .a { color: var(--host); }
+    .pr { display: grid; grid-template-columns: 130px 1fr 1fr; border-top: 1px solid var(--edge); font-size: 12.5px; line-height: 1.5; }
+    .pr > div { padding: 11px 15px; }
+    .pr .topic { font-weight: 800; color: var(--ink); background: rgba(0,0,0,.015); }
+    .pr .bef { color: var(--ink-soft); border-left: 3px solid rgba(190,58,43,.4); background: rgba(190,58,43,.03); }
+    .pr .aft { color: var(--ink-soft); border-left: 3px solid var(--host); background: rgba(15,118,110,.03); }
+    .pr .aft b, .pr .bef b { color: var(--ink); }
+    .mono { font-family: var(--mono); font-size: 11.5px; }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="eyebrow">Before → After · 权衡</div>
+    <h1 class="t">前 → 后 — 同一套内容，「盒归谁决定」改变一切</h1>
+    <p class="lede">同样 6 行 markdown，换一个主题就该一样高。<b>前：结构是 theme 的权力，壳一塌测量就崩；后：盒归 host，类型守门。</b></p>
+
+    <div class="hero">
+      <div class="demo bad">
+        <div class="dh">前 · stationery 自画盒<br>position:absolute → 测得 0 → fit = 1</div>
+        <div class="squashed"><div class="line">## 标题：块系统的盒……（其余 5 行被吞）</div></div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="demo good">
+        <div class="dh">后 · host 持盒 + 类型护栏<br>量准 → 撑成 6 行</div>
+        <div class="full">
+          <div class="line">## 标题：块系统的盒</div>
+          <div class="line">- autofit：follow / fix 两模</div>
+          <div class="line">- 可逆 C5 快照重算</div>
+          <div class="line">- 离屏 AREA / CONTENT</div>
+          <div class="line">- 类型即护栏</div>
+          <div class="line" style="border:none">- 三处同源</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pairs">
+      <div class="ph"><div>维度</div><div class="b">前</div><div class="a">后</div></div>
+      <div class="pr">
+        <div class="topic">盒结构</div>
+        <div class="bef"><span class="mono">theme.BlockFrame</span> 自画盒；离屏测量塌成 0 高。</div>
+        <div class="aft">host 持盒 + 类型受限 skin + 不变量测试 → <b>这类 bug 构造上不可能</b>。</div>
+      </div>
+      <div class="pr">
+        <div class="topic">autofit 适用面</div>
+        <div class="bef">两个 <span class="mono">kind==='markdown'</span> 闸门 + markdown 专属 seeding。</div>
+        <div class="aft">机制本就 kind-agnostic → 解闸 + 两模 <span class="mono">autofit:{default,canFollow}</span>（文本默认 follow · image fix-only）。</div>
+      </div>
+      <div class="pr">
+        <div class="topic">测量</div>
+        <div class="bef">量 frame 外层 auto 高 → 绝对定位塌 0 + 漏 <span class="mono">2·pad</span> 格内缩。</div>
+        <div class="aft">确定高离屏 + <span class="mono">AREA/CONTENT</span> + <span class="mono">chrome=格高−area</span> 反推，<b>与壳无关</b>。</div>
+      </div>
+      <div class="pr">
+        <div class="topic">空块占位</div>
+        <div class="bef">「Empty markdown block」泄漏到发布页（读者看见编辑器术语）。</div>
+        <div class="aft">空 = 空白；编辑态靠卡片框 + EditView「Write markdown…」提示。</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

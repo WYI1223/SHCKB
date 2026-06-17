@@ -156,6 +156,167 @@ export const FORMAT_TRANSFORMS: FormatTransform[] = [
       return { files: next, losses };
     },
   },
+  {
+    // v5: block-level autofit metadata — autofit mode + author floor
+    // (block-autofit-height). Block-level (web/server owned), not kind
+    // content. up() defaults BOTH to null (= off/legacy); the floor
+    // default is the ENGINE MINIMUM (null→treated as 1), never the
+    // current rowSpan, so a v6→v5→v6 (or v5→v4→v5) round trip can never
+    // raise the floor to a content-grown height.
+    to: 5,
+    up(files) {
+      const addAutofit = (b: Record<string, unknown>): Record<string, unknown> => {
+        // explicit key order: …, shell, autofit, minRowSpan, content, …
+        const { shell, content, ...brest } = b as { shell?: unknown; content?: unknown };
+        return { ...brest, shell, autofit: null, minRowSpan: null, content };
+      };
+      const next: JsonFiles = new Map();
+      for (const [path, value] of files) {
+        if (path.endsWith('.page.json')) {
+          const { blocks, published, ...rest } = value as Record<string, unknown> & {
+            blocks: Array<Record<string, unknown>>;
+            published?: Record<string, unknown> | null;
+          };
+          const upPublished =
+            published == null || typeof published !== 'object'
+              ? published
+              : {
+                  ...published,
+                  blocks: ((published.blocks as Array<Record<string, unknown>>) ?? []).map(addAutofit),
+                };
+          next.set(path, { ...rest, published: upPublished, blocks: blocks.map(addAutofit) });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return next;
+    },
+    down(files) {
+      const next: JsonFiles = new Map();
+      const losses: string[] = [];
+      const dropAutofit = (
+        b: Record<string, unknown>,
+        path: string,
+        where: string,
+      ): Record<string, unknown> => {
+        const { autofit, minRowSpan, ...brest } = b as Record<string, unknown> & { autofit?: unknown; minRowSpan?: unknown };
+        if (autofit != null && autofit !== 'off') {
+          losses.push(`${path}: ${where}block "${String(brest.id)}" autofit "${String(autofit)}" dropped (v4 has no autofit)`);
+        }
+        if (minRowSpan != null) {
+          // BEHAVIORAL loss, not cosmetic: dropping the floor changes how
+          // the block behaves on re-import — its minimum height resets and
+          // it can no longer shrink below the current rendered content.
+          losses.push(
+            `${path}: ${where}block "${String(brest.id)}" min height resets, can no longer shrink below current (v4 has no minRowSpan)`,
+          );
+        }
+        return brest;
+      };
+      for (const [path, value] of files) {
+        if (path.endsWith('.page.json')) {
+          const { blocks, published, ...rest } = value as Record<string, unknown> & {
+            blocks: Array<Record<string, unknown>>;
+            published?: Record<string, unknown> | null;
+          };
+          const downPublished =
+            published == null || typeof published !== 'object'
+              ? published
+              : {
+                  ...published,
+                  blocks: ((published.blocks as Array<Record<string, unknown>>) ?? []).map((b) =>
+                    dropAutofit(b, path, 'published '),
+                  ),
+                };
+          next.set(path, { ...rest, published: downPublished, blocks: blocks.map((b) => dropAutofit(b, path, '')) });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return { files: next, losses };
+    },
+  },
+  {
+    // v6: autofit enum → follow/fix two-mode (follow/fix redesign); the floor
+    // (minRowSpan) is deleted entirely. up() maps the old enum to a mode and
+    // drops the floor; down() is LOSSY — it collapses follow/fix back to the
+    // enum and re-introduces a null floor. Touches working AND published blocks.
+    to: 6,
+    up(files) {
+      // 'grow'/'grow+shrink' carried "height tracks content" → follow;
+      // everything else (null, 'off', garbage) → the fixed-height fallback.
+      const toMode = (af: unknown): 'follow' | 'fix' =>
+        af === 'grow' || af === 'grow+shrink' ? 'follow' : 'fix';
+      const up6Block = (b: Record<string, unknown>): Record<string, unknown> => {
+        const { minRowSpan: _minRowSpan, ...rest } = b as Record<string, unknown> & { minRowSpan?: unknown };
+        return { ...rest, autofit: toMode(b.autofit) };
+      };
+      const next: JsonFiles = new Map();
+      for (const [path, value] of files) {
+        if (path.endsWith('.page.json')) {
+          const { blocks, published, ...rest } = value as Record<string, unknown> & {
+            blocks: Array<Record<string, unknown>>;
+            published?: Record<string, unknown> | null;
+          };
+          const upPublished =
+            published == null || typeof published !== 'object'
+              ? published
+              : {
+                  ...published,
+                  blocks: ((published.blocks as Array<Record<string, unknown>>) ?? []).map(up6Block),
+                };
+          next.set(path, { ...rest, published: upPublished, blocks: blocks.map(up6Block) });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return next;
+    },
+    down(files) {
+      const next: JsonFiles = new Map();
+      const losses: string[] = [];
+      const down6Block = (
+        b: Record<string, unknown>,
+        path: string,
+        where: string,
+      ): Record<string, unknown> => {
+        const mode = b.autofit;
+        // follow→grow keeps the "grows with content" behavior; fix→off is a
+        // BEHAVIORAL collapse (v5 has no fixed-height mode), and the floor
+        // comes back as null (the follow/fix model deleted it). A v5
+        // 'grow+shrink' folded into 'follow' on the way up and returns as
+        // 'grow' here with no loss line — 'grow+shrink' was vestigial (never
+        // wired to behavior; spec/ADR-0030), so no behavior is lost.
+        if (mode === 'fix') {
+          losses.push(
+            `${path}: ${where}block "${String(b.id)}" autofit 'fix'→'off' and floor reset (follow/fix collapsed for v5)`,
+          );
+        }
+        return { ...b, autofit: mode === 'follow' ? 'grow' : 'off', minRowSpan: null };
+      };
+      for (const [path, value] of files) {
+        if (path.endsWith('.page.json')) {
+          const { blocks, published, ...rest } = value as Record<string, unknown> & {
+            blocks: Array<Record<string, unknown>>;
+            published?: Record<string, unknown> | null;
+          };
+          const downPublished =
+            published == null || typeof published !== 'object'
+              ? published
+              : {
+                  ...published,
+                  blocks: ((published.blocks as Array<Record<string, unknown>>) ?? []).map((b) =>
+                    down6Block(b, path, 'published '),
+                  ),
+                };
+          next.set(path, { ...rest, published: downPublished, blocks: blocks.map((b) => down6Block(b, path, '')) });
+        } else {
+          next.set(path, value);
+        }
+      }
+      return { files: next, losses };
+    },
+  },
 ];
 
 function versionOf(files: JsonFiles): number {

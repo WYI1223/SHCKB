@@ -39,6 +39,7 @@ export {
   deleteBlock,
   insertBlock,
   moveBlock,
+  pushResize,
   resizeBlock,
   transformBlock,
   type OpOptions,

@@ -116,6 +116,15 @@ Exact package choices should be confirmed by an implementation spike or later AD
 
 The markdown render/extract/sanitize path should be treated as a block-owned module. React components are adapters at the UI seam, not the source of truth for markdown semantics.
 
+### Auto-fit + editing surface (this round)
+
+Markdown blocks default to **auto-fit on** (see blocks.md). The active-editing surface is a
+**single source textarea** filling the block, accompanied by a **floating rendered preview**
+(right-aligned) so the author still sees rendered output without leaving the editing flow —
+this satisfies the source-plus-preview feedback-loop requirement above via a floating preview
+rather than a split pane. New markdown blocks start auto-fit on; pre-existing blocks remain off
+until the author opts them in.
+
 ### Reader Render Surface
 
 Reader output must render supported markdown as readable formatted content. Author-only controls must not appear in public/read-only rendering.
@@ -287,3 +296,4 @@ Scenario: Unsupported markdown feature degrades locally
 - 2026-05-23 React markdown stack direction pass: captured React as the frontend host assumption while keeping markdown render/extract/sanitize behavior behind block-owned boundaries.
 - 2026-05-23 closeout pass: resolved the M2 authoring direction to React-hosted lightweight source-plus-preview, captured prototype-validated state separation, and narrowed remaining open questions to package/dialect/cache/extraction details.
 - 2026-05-23 review cleanup: downgraded named markdown libraries to spike/ADR candidates, clarified markdown metadata ownership, and made notepage-owned persistence orchestration explicit.
+- 2026-06-14 autofit PRD pass: added "Auto-fit + editing surface (this round)" — markdown defaults to auto-fit on; single textarea + floating preview reconciles the source-plus-preview requirement; opt-in semantics for pre-existing blocks (source: autofit spec §9 / [ADR-0028]).

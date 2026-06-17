@@ -98,19 +98,27 @@ export function ResizeHandles({
   block,
   interaction,
   slot,
+  canResizeVertical,
 }: {
   block: Block;
   interaction: Interaction;
   slot: number;
+  /** follow blocks own their height (content-driven) → no vertical/corner
+   * handles; fix blocks resize on all axes. */
+  canResizeVertical: boolean;
 }) {
   return (
     <>
-      <ResizeHandle axis="top" block={block} interaction={interaction} slot={slot} />
       <ResizeHandle axis="right" block={block} interaction={interaction} slot={slot} />
-      <ResizeHandle axis="bottom" block={block} interaction={interaction} slot={slot} />
       <ResizeHandle axis="left" block={block} interaction={interaction} slot={slot} />
-      <ResizeHandle axis="corner" block={block} interaction={interaction} slot={slot} />
-      <ResizeHandle axis="top-left" block={block} interaction={interaction} slot={slot} />
+      {canResizeVertical && (
+        <>
+          <ResizeHandle axis="top" block={block} interaction={interaction} slot={slot} />
+          <ResizeHandle axis="bottom" block={block} interaction={interaction} slot={slot} />
+          <ResizeHandle axis="corner" block={block} interaction={interaction} slot={slot} />
+          <ResizeHandle axis="top-left" block={block} interaction={interaction} slot={slot} />
+        </>
+      )}
     </>
   );
 }

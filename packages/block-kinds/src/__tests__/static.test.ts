@@ -39,6 +39,27 @@ describe('renderStaticPage', () => {
   });
 });
 
+describe('follow publish overflow', () => {
+  test('follow block renders overflow:hidden; fix block keeps overflow:auto', () => {
+    const doc = {
+      title: 'follow',
+      blocks: [
+        { id: 'a', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 2, follow: true, content: { markdown: 'clip me' } },
+        { id: 'b', kind: 'markdown', col: 6, row: 0, colSpan: 6, rowSpan: 2, content: { markdown: 'scroll me' } },
+      ],
+    };
+    const html = renderStaticPage(doc, 's', graphPaper);
+    // Published path now uses BlockFrameCore: .skb-frame-root wraps .skb-content-box;
+    // .skb-block no longer appears in default-skin output.
+    expect(html).toContain('class="skb-frame-root"');
+    expect(html).toContain('class="skb-content-box"');
+    expect(html).not.toContain('class="skb-block"');
+    // overflow is set on .skb-content-box (the host-invariant overflow owner).
+    expect(html).toContain('overflow:hidden');
+    expect(html).toContain('overflow:auto');
+  });
+});
+
 // ----- v2: surface tokens (dark-theme hardcode fix) -----
 
 import { blueprint } from '@skb/theme';
