@@ -45,3 +45,7 @@ data/
 *.sqlite
 *.sqlite3
 .playwright-mcp/
+
+# Stray root screenshots (owner: not tracked)
+/toolpanel-code.png
+/toolpanel-image.png

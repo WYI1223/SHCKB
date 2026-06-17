@@ -1,0 +1,4 @@
+manim==0.20.1
+matplotlib>=3.10
+numpy>=2.1
+
