@@ -60,16 +60,31 @@ export function useNavigateToPage(): (ref: LinkRef) => void {
 
 /** A delegated click handler: any click on a rendered internal link
  * (a[data-skb-page], or a[href^="/p/"] fallback) routes through navigateToPage,
- * client-side. New-tab / modified clicks pass through. */
-export function makeLinkClickHandler(nav: (ref: LinkRef) => void) {
+ * client-side. New-tab / modified clicks pass through.
+ *
+ * MVP-10 Task 11: the Public surface passes an optional `toPath` so links whose
+ * href was MATERIALIZED to /notes/:slug (publish-time rewrite) client-navigate
+ * via the router instead of falling back to the /p/:id permalink (full reload).
+ * The fragment rides along in the href, so block targeting still works. Editor /
+ * In-app View call sites omit `toPath` and keep their exact behavior. */
+export function makeLinkClickHandler(nav: (ref: LinkRef) => void, toPath?: (path: string) => void) {
   return (e: React.MouseEvent) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = (e.target as HTMLElement).closest('a') as HTMLAnchorElement | null;
     if (!a) return;
+    const href = a.getAttribute('href') ?? '';
+    // materialized internal link on the public surface: navigate the SPA route
+    // directly (must precede the data-skb-page branch, which would otherwise
+    // fall back to the /p/:id permalink = full reload on the public surface).
+    if (toPath && href.startsWith('/notes/')) {
+      e.preventDefault();
+      toPath(href);
+      return;
+    }
     const pageId = a.getAttribute('data-skb-page');
-    let ref: LinkRef | null = pageId
+    const ref: LinkRef | null = pageId
       ? { pageId, ...(a.getAttribute('data-skb-block') ? { blockId: a.getAttribute('data-skb-block')! } : {}) }
-      : parsePermalink(a.getAttribute('href') ?? '');
+      : parsePermalink(href);
     if (!ref) return;
     e.preventDefault();
     nav(ref);

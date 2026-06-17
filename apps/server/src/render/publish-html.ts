@@ -28,3 +28,29 @@ export function toRenderDoc(doc: PublishedDoc): PublishedDocShape {
     })),
   };
 }
+
+/**
+ * MVP-10: rewrite internal permalinks in published HTML so the public SPA can
+ * navigate client-side. `/p/:id(#b)` → `/notes/:slug(#b)` when id∈idToSlug;
+ * unresolved ids stay `/p/:id` (the server 302 still resolves them). The
+ * data-skb-page/data-skb-block attributes are preserved (only the href
+ * changes), so the public click handler can route either form. Pure function:
+ * call it on the renderStaticPage output just before storing publishedHtml.
+ *
+ * The id captured from the href is percent-encoded (RichtextRenderView emits
+ * encodeURIComponent ids; markdown passes the author href verbatim) — decode
+ * before the map lookup, re-encode the resolved slug for the new href.
+ */
+export function materializeInternalLinks(html: string, idToSlug: Map<string, string>): string {
+  return html.replace(/href="\/p\/([^"#]+)(#[^"]*)?"/g, (m, id: string, frag?: string) => {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(id);
+    } catch {
+      return m; // malformed %-encoding: leave the href untouched (302 still resolves)
+    }
+    const slug = idToSlug.get(decoded);
+    if (!slug) return m;
+    return `href="/notes/${encodeURIComponent(slug)}${frag ?? ''}"`;
+  });
+}

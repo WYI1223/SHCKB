@@ -5,8 +5,8 @@
  * [ADR-0024]; the effective theme arrives in the public payload.
  * 404 is identical for missing/private/unpublished.
  */
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PublishedCanvas } from '@skb/block-kinds';
 import {
   THEMES,
@@ -17,9 +17,14 @@ import {
 } from '@skb/theme';
 import { api, ApiError, type PublishedDoc } from '../api/client';
 import { BENCH } from '../chrome/bench';
+import { makeLinkClickHandler, useNavigateToPage } from '../nav/useNavigateToPage';
+import { useScrollRestore } from '../nav/useScrollRestore';
+import { scrollToBlock } from '../nav/scrollToBlock';
 
 export function ReadPage() {
   const { slug } = useParams<{ slug: string }>();
+  const { hash } = useLocation();
+  const navigate = useNavigate();
   const [resp, setResp] = useState<{
     doc: PublishedDoc;
     theme: string;
@@ -27,8 +32,20 @@ export function ReadPage() {
   } | null>(null);
   const [notFound, setNotFound] = useState(false);
 
+  // Public-surface client nav (MVP-10 Task 11): materialized /notes/:slug links
+  // navigate via the router; unresolved /p/:id links fall back to the server
+  // 302 through navigateToPage. Plus position layer + hash-jump on entry.
+  const navigateToPage = useNavigateToPage();
+  const onLinkClick = useMemo(
+    () => makeLinkClickHandler(navigateToPage, (p) => navigate(p)),
+    [navigateToPage, navigate],
+  );
+  const scrollRef = useScrollRestore(slug ?? '', 'public');
+
   useEffect(() => {
     if (!slug) return;
+    setResp(null);
+    setNotFound(false);
     api
       .getPublicNote(slug)
       .then((r) => setResp({ doc: r.doc, theme: r.theme, customization: r.customization }))
@@ -36,6 +53,12 @@ export function ReadPage() {
         if (e instanceof ApiError && e.status === 404) setNotFound(true);
       });
   }, [slug]);
+
+  // Hash-jump on entry: once the published doc has rendered, scroll to #blockId
+  // (a materialized block link carries the fragment in its /notes/:slug href).
+  useEffect(() => {
+    if (resp && hash) scrollToBlock(decodeURIComponent(hash.slice(1)));
+  }, [resp, hash]);
 
   const message = (text: string) => (
     <p
@@ -64,9 +87,15 @@ export function ReadPage() {
     blocks: resp.doc.blocks.map((b) => ({ ...b, follow: isFollow(b.autofit) })),
   };
 
+  // Scroll container owns the position layer + the delegated link handler.
+  // MVP limitation: on the standalone /notes/:slug route this box is the
+  // scroller; inside the Shell (/read/:slug) the Shell's <main> is the real
+  // scroller, so scroll-restore is best-effort there — acceptable for MVP.
   return (
-    <ThemeProvider theme={applyCustomization(THEMES[resp.theme] ?? graphPaper, resp.customization)}>
-      <PublishedCanvas doc={renderDoc} />
-    </ThemeProvider>
+    <div ref={scrollRef} style={{ height: '100%', overflow: 'auto' }} onClick={onLinkClick}>
+      <ThemeProvider theme={applyCustomization(THEMES[resp.theme] ?? graphPaper, resp.customization)}>
+        <PublishedCanvas doc={renderDoc} />
+      </ThemeProvider>
+    </div>
   );
 }
