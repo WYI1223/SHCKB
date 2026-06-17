@@ -101,6 +101,11 @@ function applyMarks(text: string, marks: PmMark[]): ReactNode {
       case 'pagelink': {
         const pageId = typeof mark.attrs?.pageId === 'string' ? mark.attrs.pageId : '';
         const blockId = typeof mark.attrs?.blockId === 'string' ? mark.attrs.blockId : '';
+        // /p/:id(#blockId) permalink — the server 302s to the page's CURRENT
+        // slug, so renames never break the link (M9-D1 first-class links).
+        // RenderView percent-encodes ids for publish-HTML safety; schema.ts
+        // toDOM (editing surface only) emits raw ids — both correct for their
+        // context, and parsePermalink() always decodeURIComponent()s back.
         out = (
           <a
             href={`/p/${encodeURIComponent(pageId)}${blockId ? '#' + encodeURIComponent(blockId) : ''}`}

@@ -1,5 +1,5 @@
 import type { BlockKindModule } from '../types';
-import { coerceContent, createContent, extractText, links, linkedPageIds, type RichtextContent } from './richtext';
+import { coerceContent, createContent, extractText, links, type RichtextContent } from './richtext';
 import { RichtextEditView } from './RichtextEditView';
 import { RichtextRenderView } from './RichtextRenderView';
 
@@ -16,4 +16,4 @@ export const richtextModule: BlockKindModule<RichtextContent> = {
   autofit: { default: 'follow' },
 };
 
-export { coerceContent, links, linkedPageIds, type RichtextContent };
+export { coerceContent, links, type RichtextContent };

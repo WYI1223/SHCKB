@@ -9,6 +9,7 @@
  * consume registry + HostServices + ThemeContext + ui-kit — never the
  * host app's chrome.
  */
+import type { LinkRef } from '../links';
 
 export type RichtextSpacing = 'compact' | 'normal' | 'relaxed';
 
@@ -85,8 +86,6 @@ function textOf(node: PmNode): string {
   if (node.type === 'hard_break') return '\n';
   return (node.content ?? []).map(textOf).join('');
 }
-
-import type { LinkRef } from '../links';
 
 /** Outbound internal links (MVP-10) — walks pagelink marks → LinkRef, deduped.
  * Supersedes linkedPageIds ("future backlink feed"): now block-aware. */

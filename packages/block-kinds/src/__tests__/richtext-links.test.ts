@@ -23,4 +23,11 @@ describe('richtext links()', () => {
     ]);
     expect(links(c)).toEqual([{ pageId: 'P1' }]);
   });
+  test('page-level and block-level refs to same page are distinct', () => {
+    const c = doc([
+      { type: 'pagelink', attrs: { pageId: 'P1' } },
+      { type: 'pagelink', attrs: { pageId: 'P1', blockId: 'B2' } },
+    ]);
+    expect(links(c)).toEqual([{ pageId: 'P1' }, { pageId: 'P1', blockId: 'B2' }]);
+  });
 });
