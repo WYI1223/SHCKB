@@ -7,7 +7,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { PublishedCanvas } from '@skb/block-kinds';
+import { PublishedCanvas, type PublishedDocShape } from '@skb/block-kinds';
 import { THEMES, ThemeProvider, applyCustomization, graphPaper } from '@skb/theme';
 import { api, ApiError, type NotepageDetail } from '../api/client';
 import { BENCH } from '../chrome/bench';
@@ -43,12 +43,13 @@ export function InAppView() {
   if (notFound) return <Msg text="This page does not exist." />;
   if (!detail) return <Msg text="Loading…" />;
 
-  // working blocks → the PublishedCanvas render shape (follow boolean from autofit)
+  // working blocks → the PublishedCanvas render shape (follow boolean from
+  // autofit). Annotated as the canvas doc type so the prop is fully checked —
+  // gravityEnabled (not read by the canvas) is intentionally dropped.
   const isFollow = (af: unknown) => af === 'follow' || af === 'grow' || af === 'grow+shrink';
-  const renderDoc = {
+  const renderDoc: PublishedDocShape = {
     title: detail.page.title,
     background: detail.page.background,
-    gravityEnabled: detail.page.gravityEnabled,
     blocks: detail.blocks.map((b) => ({ ...b, follow: isFollow(b.autofit) })),
   };
   const themeId = detail.page.themeId ?? shell.instanceTheme;
@@ -61,7 +62,7 @@ export function InAppView() {
           edit ✎
         </Link>
       </div>
-      <ThemeProvider theme={theme}><PublishedCanvas doc={renderDoc as never} /></ThemeProvider>
+      <ThemeProvider theme={theme}><PublishedCanvas doc={renderDoc} /></ThemeProvider>
     </div>
   );
 }
