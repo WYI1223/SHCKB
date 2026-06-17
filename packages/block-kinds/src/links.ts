@@ -8,17 +8,22 @@
  */
 export type LinkRef = { pageId: string; blockId?: string };
 
-const PERMALINK = /^\/p\/([^/#?]+)(?:#([^/?]+))?$/;
+const PERMALINK = /^\/p\/([^/#?]+)(?:#([^#/?]+))?$/;
 
 /** Parse a `/p/:id` or `/p/:id#:blockId` permalink href → LinkRef, else null.
- * Ids are percent-decoded. Any other href (external, /notes/, fragment) → null. */
+ * Ids are percent-decoded. Any other href (external, /notes/, fragment) → null.
+ * Malformed percent-encoding (e.g. `/p/%GG`) is not a valid permalink → null. */
 export function parsePermalink(href: string): LinkRef | null {
   const m = PERMALINK.exec(href);
   if (!m) return null;
-  const pageId = decodeURIComponent(m[1]!);
-  const rawBlock = m[2];
-  const blockId = rawBlock ? decodeURIComponent(rawBlock) : undefined;
-  return blockId ? { pageId, blockId } : { pageId };
+  try {
+    const pageId = decodeURIComponent(m[1]!);
+    const rawBlock = m[2];
+    const blockId = rawBlock ? decodeURIComponent(rawBlock) : undefined;
+    return blockId ? { pageId, blockId } : { pageId };
+  } catch {
+    return null;
+  }
 }
 
 /** Build the canonical permalink string from a LinkRef. */
