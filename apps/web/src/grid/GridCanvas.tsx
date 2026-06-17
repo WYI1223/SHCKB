@@ -209,6 +209,15 @@ function BlockShell({
       className="pu-block"
       {...(isActive || autofitGestureLocked ? {} : interaction.blockDragProps(block))}
       onClick={(e) => {
+        // An internal page-link click inside an INACTIVE preview block is a
+        // navigation intent, not block activation. Don't swallow it: let it
+        // bubble to EditorPage's delegated onLinkClick handler (which
+        // preventDefaults + client-navigates, keeping the editor surface).
+        // Without this, the stopPropagation below kills the bubble and the
+        // bare /p/:id href full-reloads to the published view (the MVP-10
+        // core bug — only the real-browser e2e catches it). Active blocks
+        // keep editing semantics (e.g. richtext caret placement).
+        if (!isActive && (e.target as HTMLElement).closest('a[data-skb-page], a[href^="/p/"]')) return;
         e.stopPropagation();
         if (!isActive) onActivate(block.id);
       }}
