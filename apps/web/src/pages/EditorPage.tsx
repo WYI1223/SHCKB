@@ -10,7 +10,7 @@
  * they live in a separate contents map joined at save time.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
 import { blockModule, defaultSizeFor, HostContext, type HostServices } from '@skb/block-kinds';
@@ -23,6 +23,8 @@ import { Properties, type Selection } from '../grid/Properties';
 import { useGridInteraction } from '../grid/useGridInteraction';
 import { useAutosave } from '../hooks/useAutosave';
 import { makeLinkClickHandler, useNavigateToPage } from '../nav/useNavigateToPage';
+import { scrollToBlock } from '../nav/scrollToBlock';
+import { useScrollRestore } from '../nav/useScrollRestore';
 import { useShell } from '../shell/Shell';
 
 const AUTOSAVE_MS = 800;
@@ -251,6 +253,13 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   // blocks (a[data-skb-page]). Routes client-side, keeps editor surface.
   const onLinkClick = useMemo(() => makeLinkClickHandler(navigateToPage), [navigateToPage]);
 
+  // Position layer (MVP-10 §5.5): scroll-restore + hash-jump on entry.
+  const { hash } = useLocation();
+  const scrollRef = useScrollRestore(pageId, 'edit');
+  useEffect(() => {
+    if (hash) scrollToBlock(decodeURIComponent(hash.slice(1)));
+  }, [hash]);
+
   return (
     <ThemeProvider theme={effective}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -306,6 +315,14 @@ function Editor({ detail }: { detail: NotepageDetail }) {
           >
             {instrumentsOpen ? 'instruments ▾' : 'instruments ▸'}
           </button>
+
+          <Link
+            to={`/view/${pageId}`}
+            title="Preview this draft as a reader (read-only)"
+            style={{ ...labelStyle({ color: BENCH.blue }), textDecoration: 'none' }}
+          >
+            preview ◉
+          </Link>
 
           <span aria-hidden style={{ width: '1px', alignSelf: 'stretch', background: BENCH.hairlineDark }} />
 
@@ -425,7 +442,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         <HostContext.Provider value={hostServices}>
           <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
             <Palette interaction={interaction} />
-            <div className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }} onClick={onLinkClick}>
+            <div ref={scrollRef} className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }} onClick={onLinkClick}>
               <GridCanvas
                 interaction={interaction}
                 contents={contents}
