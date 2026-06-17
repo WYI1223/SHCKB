@@ -27,7 +27,7 @@ const SAMPLE: RichtextContent = {
           { type: 'text', text: ' and a ' },
           { type: 'text', text: 'link', marks: [{ type: 'link', attrs: { href: 'https://x.test' } }] },
           { type: 'text', text: ' plus ' },
-          { type: 'text', text: 'June notes', marks: [{ type: 'pagelink', attrs: { pageId: 'pg_42' } }] },
+          { type: 'text', text: 'June notes', marks: [{ type: 'pagelink', attrs: { pageId: 'pg_42', blockId: null } }] },
         ],
       },
       {
