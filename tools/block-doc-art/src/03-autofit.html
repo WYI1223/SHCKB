@@ -5,79 +5,101 @@
   <link rel="stylesheet" href="../art.css" />
   <style>
     #art { width: 712px; }
-    .stage { display: grid; grid-template-columns: 1fr; gap: 26px; margin-top: 22px; align-items: start; }
+    .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; align-items: stretch; }
+    .mode { border-radius: 13px; border: 2px solid; padding: 14px 16px; display: flex; flex-direction: column; }
+    .mode.follow { border-color: var(--host); background: rgba(15,118,110,.05); }
+    .mode.fix { border-color: var(--canv); background: rgba(81,96,122,.05); }
+    .mh { display: flex; align-items: baseline; gap: 8px; font-weight: 800; font-size: 16px; margin-bottom: 3px; }
+    .mode.follow .mh { color: var(--host); } .mode.fix .mh { color: var(--canv); }
+    .mh .tag { font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .mode.follow .tag { background: var(--host); color: #fff; } .mode.fix .tag { background: var(--canv); color: #fff; }
+    .msub { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 10px; }
 
-    /* left: a grid-row ruler showing floor / fit / effective */
-    .ruler { position: relative; padding-left: 92px; padding-right: 92px; }
-    .row { height: 38px; border: 1px solid var(--hair); border-bottom: none; background: rgba(255,255,255,.5); display: flex; align-items: center; padding-left: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
-    .row:last-child { border-bottom: 1px solid var(--hair); }
-    .row.filled { background: var(--kind-soft); color: #7a3a06; }
-    .brk { position: absolute; width: 22px; }
-    .brk .line { position: absolute; top: 0; bottom: 0; width: 3px; border-radius: 3px; }
-    .brk .lab { position: absolute; font-family: var(--mono); font-size: 11px; font-weight: 700; white-space: nowrap; }
-    .brk.floor { left: 0; top: 0; height: 114px; }
-    .brk.floor .line { left: 16px; background: var(--host); }
-    .brk.floor .lab { left: -2px; top: 46px; width: 84px; color: var(--host); text-align: left; line-height: 1.3; }
-    .brk.fit { right: 0; top: 0; height: 228px; }
-    .brk.fit .line { right: 16px; background: var(--kind); }
-    .brk.fit .lab { right: -2px; top: 96px; width: 84px; color: var(--kind); text-align: right; line-height: 1.3; }
-    .eff { margin-top: 12px; text-align: center; font-weight: 800; font-size: 15px; color: var(--ink); }
-    .eff .mono { color: var(--host); }
-    .formula { margin-top: 12px; font-family: var(--mono); font-size: 12px; color: var(--ink-soft); text-align: center; background: var(--paper-2); border: 1px solid var(--edge); border-radius: 9px; padding: 9px; }
+    /* schematic block: follow hugs content; fix is a fixed window that scrolls */
+    .demo { border-radius: 8px; padding: 8px; background: #fff; margin-bottom: 11px; position: relative; }
+    .mode.follow .demo { border: 1.5px solid var(--host); }
+    .mode.fix .demo { border: 1.5px solid var(--canv); height: 56px; overflow: hidden; }
+    .ln { height: 7px; border-radius: 2px; margin: 4px 0; }
+    .mode.follow .ln { background: var(--host-soft); }
+    .mode.fix .ln { background: var(--canv-soft); }
+    .demo .badge { position: absolute; top: -9px; right: 10px; font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .mode.follow .badge { background: var(--host); color: #fff; }
+    .mode.fix .badge { background: var(--canv); color: #fff; }
+    .mode.fix .demo .scroll { position: absolute; top: 6px; right: 4px; bottom: 6px; width: 4px; border-radius: 3px; background: var(--canv); opacity: .5; }
+    .mode.fix .demo .clip { position: absolute; left: 8px; right: 14px; bottom: 0; height: 13px; background: linear-gradient(to top, #fff, transparent); }
 
-    /* right: reversible grow / shrink */
-    .states { display: flex; flex-direction: column; gap: 14px; }
-    .twin { display: grid; grid-template-columns: 1fr 56px 1fr; align-items: center; gap: 6px; }
-    .blk { border: 2px solid var(--kind); border-radius: 10px; background: var(--kind-soft); padding: 11px 13px; font-size: 12.5px; line-height: 1.5; color: #7a3a06; }
-    .blk.small { height: 70px; overflow: hidden; }
-    .blk .t { font-weight: 800; color: var(--kind); display: block; margin-bottom: 4px; font-size: 12px; }
-    .loop { text-align: center; color: var(--host); font-family: var(--mono); font-size: 11px; font-weight: 700; line-height: 1.3; }
-    .loop .big { font-size: 26px; display: block; }
-    .c5 { margin-top: 4px; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
-    .c5 b { color: var(--host); }
-    .policy { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
-    .policy .h { font-size: 13px; font-weight: 700; margin-right: 4px; }
+    ul.feat { margin: 0; padding-left: 17px; font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); flex: 1; }
+    ul.feat b { color: var(--ink); }
+    ul.feat .mono { font-family: var(--mono); font-size: 11.5px; }
+
+    .strip { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; }
+    .kinds { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .kinds .h { font-size: 12.5px; font-weight: 700; margin-right: 2px; }
+    .formula { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--edge); border-radius: 9px; padding: 9px 12px; text-align: center; }
+    .toggle { margin-top: 14px; display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ink-soft); }
+    .toggle .box { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--canv); border: 1.5px solid var(--canv); background: var(--canv-soft); border-radius: 7px; padding: 3px 10px; }
+    .toggle b { color: var(--ink); }
   </style>
 </head>
 <body>
   <div id="art" class="card">
-    <div class="eyebrow">Autofit · 限高 + grow</div>
-    <h1 class="t">autofit — 有效高 = max(floor, fit)，且可逆</h1>
-    <p class="lede"><b>这是 block 顶端能力，不是 markdown 专属。</b> 作者定下限（floor），内容实测撑高（fit），整行往上长、不回退；删回又精确归位。</p>
+    <div class="eyebrow">Autofit · follow / fix</div>
+    <h1 class="t">autofit — 跟随内容，还是固定高度</h1>
+    <p class="lede"><b>block 顶端能力，逐 kind 默认。</b> 两个模式，二选一：<b>follow</b>（默认）高度跟随内容；<b>fix</b> 固定高度、内容滚动。<b>无 floor、无 minRowSpan</b> —— 跟随就是跟随，固定就是固定。</p>
 
-    <div class="stage">
-      <div>
-        <div class="ruler">
-          <div class="brk floor"><div class="line"></div><div class="lab">floor<br>= minRowSpan<br>（作者最小高）</div></div>
-          <div class="brk fit"><div class="line"></div><div class="lab">fit<br>= 实测行数<br>（仅编辑时测）</div></div>
-          <div class="row filled">行 1 · 内容</div>
-          <div class="row filled">行 2 · 内容</div>
-          <div class="row filled">行 3 · 内容 ← floor</div>
-          <div class="row filled">行 4 · 内容</div>
-          <div class="row filled">行 5 · 内容</div>
-          <div class="row filled">行 6 · 内容 ← fit</div>
+    <div class="modes">
+      <div class="mode follow">
+        <div class="mh">follow <span class="tag">默认</span></div>
+        <div class="msub">文本 kind（markdown / richtext / code）的默认</div>
+        <div class="demo">
+          <span class="badge">高 = 内容</span>
+          <div class="ln" style="width:90%"></div>
+          <div class="ln" style="width:75%"></div>
+          <div class="ln" style="width:84%"></div>
         </div>
-        <div class="eff">有效 = <span class="mono">max(floor=3, fit=6) = 6</span></div>
-        <div class="formula">fit = ⌈(内容高 + chrome + 2·pad) / slot⌉<br>不持久 · 不写库</div>
+        <ul class="feat">
+          <li>高度 = 实测内容 <span class="mono">fit</span>（<b>1 行下限</b>，在 measureFit）</li>
+          <li>打字撑高 · 删回缩回，都跟随内容</li>
+          <li>overflow <b>裁剪</b>（rowSpan == fit，刚好填满）</li>
+          <li>无竖向 resize 手柄（高度归内容）</li>
+          <li><b>可逆 C5</b>：从不可变 base 快照重算 → 精确归位</li>
+        </ul>
       </div>
 
-      <div>
-        <div class="states">
-          <div class="twin">
-            <div class="blk small"><span class="t">打字 → 撑高</span>一行变多行，块整行往上长……</div>
-            <div class="loop"><span class="big">⇄</span>可逆</div>
-            <div class="blk"><span class="t">删回 → 归位</span>删到比 floor 矮，精确回到 floor，不残留。</div>
-          </div>
+      <div class="mode fix">
+        <div class="mh">fix <span class="tag">opt-in</span></div>
+        <div class="msub">image 的唯一模式（fix-only · canFollow:false）</div>
+        <div class="demo">
+          <span class="badge">高 = 你设定</span>
+          <span class="scroll"></span>
+          <div class="ln" style="width:88%"></div>
+          <div class="ln" style="width:80%"></div>
+          <div class="ln" style="width:86%"></div>
+          <span class="clip"></span>
         </div>
-        <div class="c5"><b>可逆（C5）</b>：每次手势都从<b>不可变 base 快照</b>重算 effective，所以撑高与归位都精确、无漂移。测量发生在离屏，永不写库。</div>
-        <div class="policy">
-          <span class="h">逐 kind 策略：</span>
-          <span class="chip kind">markdown · grow</span>
-          <span class="chip kind">richtext · grow</span>
-          <span class="chip kind">code · grow</span>
-          <span class="chip" style="color:var(--ink-soft)">image · off（不可用）</span>
-        </div>
+        <ul class="feat">
+          <li>固定手动 <span class="mono">rowSpan</span>（<b>可拖拽改</b>）</li>
+          <li>内容超出 → <b>滚动</b>（overflow: auto）</li>
+          <li>切入时<b>冻结</b>当前显示高（follow→fix 不跳变）</li>
+          <li>暴露竖向 resize 手柄</li>
+        </ul>
       </div>
+    </div>
+
+    <div class="toggle">
+      <span class="box">☑ Fixed height</span>
+      <span>右键菜单的 opt-in 勾选框 —— <b>勾选 = fix</b>，默认 follow 不勾。</span>
+    </div>
+
+    <div class="strip">
+      <div class="kinds">
+        <span class="h">逐 kind 默认：</span>
+        <span class="chip kind">markdown → follow</span>
+        <span class="chip kind">richtext → follow</span>
+        <span class="chip kind">code → follow</span>
+        <span class="chip canv">image → fix-only</span>
+      </div>
+      <div class="formula">fit = ⌈(内容高 + chrome + 2·pad) / slot⌉<br>1 行下限 · 仅编辑时测 · 不写库</div>
     </div>
   </div>
 </body>
