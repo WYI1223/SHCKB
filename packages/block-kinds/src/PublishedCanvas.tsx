@@ -77,6 +77,7 @@ export function PublishedCanvas({ doc }: { doc: PublishedDocShape }) {
             return (
               <div
                 key={b.id}
+                data-block-id={b.id}
                 style={{
                   position: 'absolute',
                   left: `${b.col * SLOT + PAD}px`,
