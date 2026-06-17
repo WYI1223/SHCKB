@@ -197,7 +197,7 @@ async function seedMap(folderId: string) {
       'keyline'),
     b('map-blocks', 6, 7, 3, 3,
       '### @skb/block-kinds\n\n**块即插件**：markdown / image / code 是恰好住在仓库里的插件，' +
-        '只消费公开契约面。RenderView 必须静态渲染安全。\n\n' + see('块系统'),
+        '只消费公开契约面。RenderView 必须静态渲染安全。\n\n' + see('块系统 · 抽象逻辑', '块系统-抽象逻辑'),
       'keyline'),
     b('map-uikit', 9, 7, 3, 3,
       '### @skb/ui-kit\n\n工具面板 UI 原语（Select/Button/Toggle…），纯 token 消费、零 context 依赖——' +
@@ -620,7 +620,7 @@ async function seedNewBlock(folderId: string) {
       b('nb-intro', 0, 0, 12, 2,
         '# 写一个块（block kind）\n\n' +
           '在 `packages/block-kinds/src/<kind>/` 实现 `BlockKindModule`，registry 登记一行，完事——' +
-          'palette、Properties 面板、发布渲染全部自动接上。契约细节见 ' + see('块系统') + '。',
+          'palette、Properties 面板、发布渲染全部自动接上。契约细节见 ' + see('块系统 · 抽象逻辑', '块系统-抽象逻辑') + '。',
       ),
       cb('nb-code', 0, 2, 7, 7, 'typescript',
         "// packages/block-kinds/src/callout/callout.tsx（示意）\n" +
@@ -851,7 +851,9 @@ async function main() {
   await seedEngine(archId);
   await seedTwoState(archId);
   await seedThemeEngine(archId);
-  await seedBlockSystem(archId);
+  // 块系统 page retired 2026-06-17 — superseded by the image-forward pair
+  // (块系统 · 抽象逻辑 / 实现与权衡, seeded by seed-block-system-doc.ts).
+  // seedBlockSystem() remains below as dead code (safe to delete).
   await seedAuth(archId);
   await seedData(archId);
   // 扩展开发
