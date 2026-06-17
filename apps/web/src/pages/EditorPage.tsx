@@ -22,6 +22,7 @@ import { Palette } from '../grid/Palette';
 import { Properties, type Selection } from '../grid/Properties';
 import { useGridInteraction } from '../grid/useGridInteraction';
 import { useAutosave } from '../hooks/useAutosave';
+import { makeLinkClickHandler, useNavigateToPage } from '../nav/useNavigateToPage';
 import { useShell } from '../shell/Shell';
 
 const AUTOSAVE_MS = 800;
@@ -50,6 +51,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const pageId = detail.page.id;
   const shell = useShell();
   const overlays = useOverlays();
+  const navigateToPage = useNavigateToPage();
 
   // Host capability surface for block kinds (plugin seam). listPages +
   // promptText are the M9 stress-test additions — kinds reach the page
@@ -65,8 +67,9 @@ function Editor({ detail }: { detail: NotepageDetail }) {
       // the universal menu face on loan (M9-D3): HostMenuItem mirrors
       // the chrome MenuItem shape, so this is a pass-through
       menu: (anchor, items, opts) => overlays.menu(anchor, items, opts),
+      navigateToPage,
     }),
-    [pageId, overlays],
+    [pageId, overlays, navigateToPage],
   );
   const [title, setTitle] = useState(detail.page.title);
   const [themeId, setThemeId] = useState(detail.page.themeId);
@@ -244,6 +247,10 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     shell.customizations[effectiveId],
   );
 
+  // Delegated click handler for internal page-links rendered inside preview
+  // blocks (a[data-skb-page]). Routes client-side, keeps editor surface.
+  const onLinkClick = useMemo(() => makeLinkClickHandler(navigateToPage), [navigateToPage]);
+
   return (
     <ThemeProvider theme={effective}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -418,7 +425,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         <HostContext.Provider value={hostServices}>
           <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
             <Palette interaction={interaction} />
-            <div className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }}>
+            <div className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }} onClick={onLinkClick}>
               <GridCanvas
                 interaction={interaction}
                 contents={contents}

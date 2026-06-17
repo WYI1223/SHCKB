@@ -5,9 +5,10 @@
  * Public surface has no client id→slug map, so it falls back to the /p/:id
  * permalink (server 302) — acceptable for the anonymous read surface.
  */
+import type React from 'react';
 import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { permalinkOf, type LinkRef } from '@skb/block-kinds';
+import { parsePermalink, permalinkOf, type LinkRef } from '@skb/block-kinds';
 import { scrollToBlock } from './scrollToBlock';
 
 export type Surface = 'editor' | 'view' | 'public' | 'other';
@@ -55,4 +56,22 @@ export function useNavigateToPage(): (ref: LinkRef) => void {
     },
     [navigate, pathname],
   );
+}
+
+/** A delegated click handler: any click on a rendered internal link
+ * (a[data-skb-page], or a[href^="/p/"] fallback) routes through navigateToPage,
+ * client-side. New-tab / modified clicks pass through. */
+export function makeLinkClickHandler(nav: (ref: LinkRef) => void) {
+  return (e: React.MouseEvent) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = (e.target as HTMLElement).closest('a') as HTMLAnchorElement | null;
+    if (!a) return;
+    const pageId = a.getAttribute('data-skb-page');
+    let ref: LinkRef | null = pageId
+      ? { pageId, ...(a.getAttribute('data-skb-block') ? { blockId: a.getAttribute('data-skb-block')! } : {}) }
+      : parsePermalink(a.getAttribute('href') ?? '');
+    if (!ref) return;
+    e.preventDefault();
+    nav(ref);
+  };
 }
