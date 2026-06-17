@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { totalRows, type Block } from '@skb/grid-engine';
-import { BLOCK_KINDS, blockModule, BlockFrameCore, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
+import { BLOCK_KINDS, blockModule, BlockFrameCore, DefaultCanvasSurface, pageBackgroundStyle, permalinkOf } from '@skb/block-kinds';
 import { resolveSkin, skinOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
 import { BENCH } from '../chrome/bench';
 import { useOverlays, type MenuItem } from '../chrome/overlays';
@@ -28,6 +28,8 @@ export type GridCanvasProps = {
   shells: Record<string, string | null>;
   /** Author-picked page background (M6-D4) — live working-state preview. */
   background: PageBackground | null;
+  /** Page id used to build block permalink URLs (MVP-10 copy-link-to-block). */
+  pageId: string;
   activeId: string | null;
   onActivate: (id: string | null) => void;
   onContentChange: (id: string, content: unknown) => void;
@@ -162,6 +164,7 @@ function BlockShell({
   interaction,
   contents,
   shells,
+  pageId,
   activeId,
   onActivate,
   onContentChange,
@@ -237,6 +240,14 @@ function BlockShell({
           { x: e.clientX, y: e.clientY },
           [
             { label: 'edit', onSelect: () => onActivate(block.id) },
+            {
+              label: 'Copy link to block',
+              onSelect: () => {
+                void navigator.clipboard.writeText(
+                  `${window.location.origin}${permalinkOf({ pageId, blockId: block.id })}`,
+                );
+              },
+            },
             // Height-mode toggle: an opt-in "Fixed height" checkbox (checked =
             // fix; the default follow is unchecked), shown for any kind that can
             // follow (image is fix-only via canFollow:false; markdown/richtext/

@@ -448,6 +448,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
                 contents={contents}
                 shells={shells}
                 background={background}
+                pageId={pageId}
                 activeId={activeId}
                 onActivate={setActiveId}
                 onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}
