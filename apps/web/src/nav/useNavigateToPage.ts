@@ -16,7 +16,11 @@ export type Surface = 'editor' | 'view' | 'public' | 'other';
 export function surfaceOf(pathname: string): Surface {
   if (pathname.startsWith('/edit/')) return 'editor';
   if (pathname.startsWith('/view/')) return 'view';
-  if (pathname.startsWith('/notes/')) return 'public';
+  // both public read surfaces: standalone /notes/:slug and the in-Shell
+  // /read/:slug pane. Treating /read/ as 'public' keeps an unresolved /p/:id
+  // click anonymous-safe (permalink 302 → /notes/:slug) instead of routing to
+  // the auth-walled /view/:id (the 'other' default).
+  if (pathname.startsWith('/notes/') || pathname.startsWith('/read/')) return 'public';
   return 'other';
 }
 

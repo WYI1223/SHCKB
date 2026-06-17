@@ -24,3 +24,18 @@ export function scrollToBlock(blockId: string): void {
   el.classList.add('skb-block-flash');
   window.setTimeout(() => el.classList.remove('skb-block-flash'), 1300);
 }
+
+/** Safely scroll to the block named by a URL hash (e.g. "#blk9"); no-op on
+ * empty/malformed fragments (decodeURIComponent can throw URIError on e.g.
+ * "#%GG"). The single hash-jump entry point for every surface. */
+export function scrollToHashTarget(hash: string): void {
+  const raw = hash.startsWith('#') ? hash.slice(1) : hash;
+  if (!raw) return;
+  let id: string;
+  try {
+    id = decodeURIComponent(raw);
+  } catch {
+    return;
+  }
+  scrollToBlock(id);
+}

@@ -19,7 +19,7 @@ import { api, ApiError, type PublishedDoc } from '../api/client';
 import { BENCH } from '../chrome/bench';
 import { makeLinkClickHandler, useNavigateToPage } from '../nav/useNavigateToPage';
 import { useScrollRestore } from '../nav/useScrollRestore';
-import { scrollToBlock } from '../nav/scrollToBlock';
+import { scrollToHashTarget } from '../nav/scrollToBlock';
 
 export function ReadPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -44,20 +44,26 @@ export function ReadPage() {
 
   useEffect(() => {
     if (!slug) return;
+    let active = true; // ignore a stale response if slug changed mid-flight
     setResp(null);
     setNotFound(false);
     api
       .getPublicNote(slug)
-      .then((r) => setResp({ doc: r.doc, theme: r.theme, customization: r.customization }))
+      .then((r) => {
+        if (active) setResp({ doc: r.doc, theme: r.theme, customization: r.customization });
+      })
       .catch((e: unknown) => {
-        if (e instanceof ApiError && e.status === 404) setNotFound(true);
+        if (active && e instanceof ApiError && e.status === 404) setNotFound(true);
       });
+    return () => {
+      active = false;
+    };
   }, [slug]);
 
   // Hash-jump on entry: once the published doc has rendered, scroll to #blockId
   // (a materialized block link carries the fragment in its /notes/:slug href).
   useEffect(() => {
-    if (resp && hash) scrollToBlock(decodeURIComponent(hash.slice(1)));
+    if (resp && hash) scrollToHashTarget(hash);
   }, [resp, hash]);
 
   const message = (text: string) => (
@@ -88,11 +94,12 @@ export function ReadPage() {
   };
 
   // Scroll container owns the position layer + the delegated link handler.
-  // MVP limitation: on the standalone /notes/:slug route this box is the
-  // scroller; inside the Shell (/read/:slug) the Shell's <main> is the real
-  // scroller, so scroll-restore is best-effort there — acceptable for MVP.
+  // min-height:100vh (not height:100%) so the standalone /notes/:slug route —
+  // which has no parent height chain outside the Shell — still fills the
+  // viewport and scrolls; inside the Shell (/read/:slug) the <main> provides
+  // height and is the real scroller, so scroll-restore there is best-effort.
   return (
-    <div ref={scrollRef} style={{ height: '100%', overflow: 'auto' }} onClick={onLinkClick}>
+    <div ref={scrollRef} style={{ minHeight: '100vh', overflow: 'auto' }} onClick={onLinkClick}>
       <ThemeProvider theme={applyCustomization(THEMES[resp.theme] ?? graphPaper, resp.customization)}>
         <PublishedCanvas doc={renderDoc} />
       </ThemeProvider>

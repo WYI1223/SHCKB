@@ -15,7 +15,7 @@ import type { Db } from '../db/client';
 import { blobs as blobsTable, blocks, notepages, type PublishedDoc } from '../db/schema';
 import { THEMES, isSafeCssColor } from '@skb/theme';
 import { safeParse } from '../json';
-import { NOT_FOUND_HTML, materializeInternalLinks, renderStaticPage, toRenderDoc } from '../render/publish-html';
+import { NOT_FOUND_HTML, materializeInternalLinks, publicIdToSlug, renderStaticPage, toRenderDoc } from '../render/publish-html';
 import { effectiveTheme, themeCustomizations } from '../settings';
 
 type WorkingBlock = {
@@ -101,25 +101,6 @@ function parseWorkingState(body: unknown): WorkingStateBody | null {
     });
   }
   return { title: b.title, gravityEnabled: b.gravityEnabled, blocks: parsed };
-}
-
-/**
- * MVP-10: map every public+published page id → its current slug, so
- * materializeInternalLinks can rewrite /p/:id permalinks to client-navigable
- * /notes/:slug on the public surface. The predicate mirrors the /notes/:slug
- * and /p/:id serving gate (visibility='public' AND publishedHtml present), so
- * an id is rewritten ONLY when the slug route would actually serve it; every
- * other link stays /p/:id and resolves via the server 302.
- */
-function publicIdToSlug(db: Db): Map<string, string> {
-  const rows = db
-    .select({ id: notepages.id, slug: notepages.slug, publishedHtml: notepages.publishedHtml })
-    .from(notepages)
-    .where(eq(notepages.visibility, 'public'))
-    .all();
-  const map = new Map<string, string>();
-  for (const row of rows) if (row.publishedHtml !== null) map.set(row.id, row.slug);
-  return map;
 }
 
 function loadWorkingBlocks(db: Db, notepageId: string): WorkingBlock[] {

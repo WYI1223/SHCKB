@@ -6,7 +6,9 @@
  */
 export { NOT_FOUND_HTML, escapeHtml, renderStaticPage } from '@skb/block-kinds/static';
 
-import type { PublishedDoc } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import type { Db } from '../db/client';
+import { notepages, type PublishedDoc } from '../db/schema';
 import type { PublishedDocShape } from '@skb/block-kinds';
 
 /**
@@ -53,4 +55,27 @@ export function materializeInternalLinks(html: string, idToSlug: Map<string, str
     if (!slug) return m;
     return `href="/notes/${encodeURIComponent(slug)}${frag ?? ''}"`;
   });
+}
+
+/**
+ * MVP-10: map every public+published page id → its current slug, the input to
+ * materializeInternalLinks. Lives here (not in a route module) so all four
+ * publishedHtml write sites — publish, theme-pin, rerenderAllPublished, import
+ * — share ONE definition and stay consistent (importer builds its own map from
+ * the in-memory bundle, since rows don't exist yet).
+ *
+ * Predicate mirrors the /notes/:slug + /p/:id serving gate (visibility='public'
+ * AND a published snapshot present), so an id is rewritten ONLY when the slug
+ * route would actually serve it. Gates on publishedDoc (set atomically with
+ * publishedHtml) to avoid loading every page's full HTML blob into memory.
+ */
+export function publicIdToSlug(db: Db): Map<string, string> {
+  const rows = db
+    .select({ id: notepages.id, slug: notepages.slug, publishedDoc: notepages.publishedDoc })
+    .from(notepages)
+    .where(eq(notepages.visibility, 'public'))
+    .all();
+  const map = new Map<string, string>();
+  for (const row of rows) if (row.publishedDoc !== null) map.set(row.id, row.slug);
+  return map;
 }

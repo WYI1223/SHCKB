@@ -23,7 +23,7 @@ import { Properties, type Selection } from '../grid/Properties';
 import { useGridInteraction } from '../grid/useGridInteraction';
 import { useAutosave } from '../hooks/useAutosave';
 import { makeLinkClickHandler, useNavigateToPage } from '../nav/useNavigateToPage';
-import { scrollToBlock } from '../nav/scrollToBlock';
+import { scrollToHashTarget } from '../nav/scrollToBlock';
 import { useScrollRestore } from '../nav/useScrollRestore';
 import { useShell } from '../shell/Shell';
 
@@ -257,7 +257,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const { hash } = useLocation();
   const scrollRef = useScrollRestore(pageId, 'edit');
   useEffect(() => {
-    if (hash) scrollToBlock(decodeURIComponent(hash.slice(1)));
+    if (hash) scrollToHashTarget(hash);
   }, [hash]);
 
   return (

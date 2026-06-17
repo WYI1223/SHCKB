@@ -9,6 +9,7 @@ describe('surfaceOf', () => {
     ['/edit/abc', 'editor'],
     ['/view/abc', 'view'],
     ['/notes/some-slug', 'public'],
+    ['/read/some-slug', 'public'], // in-Shell read pane is a public surface too
     ['/', 'other'],
   ])('%s → %s', (path, expected) => expect(surfaceOf(path)).toBe(expected));
 });
@@ -28,6 +29,9 @@ describe('resolveTarget', () => {
   });
   test('public surface falls back to the /p/:id permalink (full nav)', () => {
     expect(resolveTarget('/notes/s', { pageId: 'B', blockId: 'X' })).toEqual({ kind: 'permalink', to: '/p/B#X' });
+  });
+  test('/read/ surface also falls back to the permalink (anonymous-safe, not /view/)', () => {
+    expect(resolveTarget('/read/s', { pageId: 'B' })).toEqual({ kind: 'permalink', to: '/p/B' });
   });
 });
 

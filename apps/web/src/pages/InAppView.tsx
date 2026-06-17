@@ -14,7 +14,7 @@ import { BENCH } from '../chrome/bench';
 import { useShell } from '../shell/Shell';
 import { makeLinkClickHandler, useNavigateToPage } from '../nav/useNavigateToPage';
 import { useScrollRestore } from '../nav/useScrollRestore';
-import { scrollToBlock } from '../nav/scrollToBlock';
+import { scrollToHashTarget } from '../nav/scrollToBlock';
 
 export function InAppView() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +37,7 @@ export function InAppView() {
   // Hash-jump on entry takes precedence over scroll restore: if the URL carries
   // #blockId, scroll to that block once the doc has rendered.
   useEffect(() => {
-    if (detail && hash) scrollToBlock(decodeURIComponent(hash.slice(1)));
+    if (detail && hash) scrollToHashTarget(hash);
   }, [detail, hash]);
 
   if (notFound) return <Msg text="This page does not exist." />;
