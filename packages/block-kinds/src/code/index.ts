@@ -21,7 +21,7 @@ export const codeModule: BlockKindModule<CodeContent> = {
   RenderView: CodeRenderView,
   extractText,
   tools: [{ id: 'language', label: 'Language', View: LanguageTool }],
-  autofit: { default: 'grow' },
+  autofit: { default: 'follow' },
 };
 
 export { coerceContent, type CodeContent };

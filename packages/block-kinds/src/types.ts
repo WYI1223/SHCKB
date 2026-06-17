@@ -41,10 +41,16 @@ export type BlockKindModule<C = unknown> = {
   /** Tools for the active block, rendered in the host's tool panel.
    *  Editing-surface only — never reachable from RenderView. */
   tools?: Array<BlockTool<C>>;
-  /** Autofit policy (spec 2026-06-14 §6): `false` = autofit unavailable for
-   * this kind (no toggle, no probe); `{ default }` = available, new blocks
-   * seed to that mode; omitted = available, default off. */
-  autofit?: false | { default: 'off' | 'grow' | 'grow+shrink' };
+  /**
+   * Per-kind autofit policy (follow/fix, 2026-06-15 redesign).
+   * - `default`: the mode a freshly-inserted block of this kind starts in.
+   * - `canFollow`: whether this kind can use follow mode at all. `false` =
+   *   fix-only (e.g. image — no measurable text content; the follow toggle is
+   *   hidden). Defaults to `true` when omitted.
+   * follow = height tracks measured content (1-row min, no floor);
+   * fix = fixed manual height, drag-resizable, content scrolls.
+   */
+  autofit?: { default: 'follow' | 'fix'; canFollow?: boolean };
 };
 
 /** Menu vocabulary a module may hand to the host (M9-D3 finding #3):

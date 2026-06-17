@@ -103,22 +103,27 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     initialBlocks: useMemo(() => detail.blocks.map(({ content: _c, ...geom }) => geom), [detail.blocks]),
     initialGravity: detail.page.gravityEnabled,
     defaultSizeFor,
-    initialAutofit: useMemo(
-      () => Object.fromEntries(detail.blocks.map((b) => [b.id, b.autofit ?? null])),
-      [detail.blocks],
-    ),
-    initialMinRowSpan: useMemo(
-      () => Object.fromEntries(detail.blocks.map((b) => [b.id, b.minRowSpan ?? null])),
-      [detail.blocks],
-    ),
+    // Seed the follow/fix mode from the server. The DB may not be migrated
+    // yet, so coerce legacy enums; a null/unknown value resolves to the KIND
+    // DEFAULT (spec §2 / plan) — NOT blindly to fix (fix is only the published
+    // fallback). 'grow'/'grow+shrink' → follow; an explicit follow/fix passes
+    // through; anything else (null/'off'/garbage) → the kind's default mode.
+    initialAutofit: useMemo(() => {
+      const toMode = (af: string | null | undefined, kind: string): 'follow' | 'fix' =>
+        af === 'grow' || af === 'grow+shrink' || af === 'follow'
+          ? 'follow'
+          : af === 'fix'
+            ? 'fix'
+            : (blockModule(kind)?.autofit?.default ?? 'fix');
+      return Object.fromEntries(
+        detail.blocks.map((b) => [b.id, toMode(b.autofit as string | null | undefined, b.kind)]),
+      );
+    }, [detail.blocks]),
     onBlockInserted: (block: Block) => {
       const mod = blockModule(block.kind);
       setContents((c) => ({ ...c, [block.id]: mod ? mod.createContent() : null }));
       const af = mod?.autofit;
-      if (af && typeof af === 'object' && af.default !== 'off') {
-        interaction.setAutofit(block.id, af.default);
-        interaction.setMinRowSpan(block.id, block.rowSpan);
-      }
+      if (af) interaction.setAutofit(block.id, af.default);
     },
   });
 
@@ -138,8 +143,9 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     const blocks: WorkingBlock[] = interaction.state.blocks.map((b) => ({
       ...b,
       shell: shellsRef.current[b.id] ?? null,
-      autofit: interaction.autofit[b.id] ?? null,
-      minRowSpan: interaction.minRowSpan[b.id] ?? null,
+      // mode string ('follow'|'fix'); every block resolves to a mode, but
+      // fall back to 'fix' (the safe fixed-height value) if somehow unseeded.
+      autofit: interaction.autofit[b.id] === 'follow' ? 'follow' : 'fix',
       content: contentsRef.current[b.id] ?? null,
     }));
     try {
@@ -159,7 +165,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
       }
       return false;
     }
-  }, [pageId, title, interaction.state, interaction.gravityEnabled, interaction.autofit, interaction.minRowSpan, activeId]);
+  }, [pageId, title, interaction.state, interaction.gravityEnabled, interaction.autofit, activeId]);
 
   useAutosave({
     save,

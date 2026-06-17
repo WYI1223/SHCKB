@@ -6,7 +6,7 @@
  * and cross-links stay as crisp, selectable, searchable text.
  *
  *   块系统 · 抽象逻辑    — ① 一个块的解剖（缩进即包含）② 组合而非继承
- *                          ③ autofit（floor/fit/effective）
+ *                          ③ autofit（follow / fix 两模）
  *   块系统 · 实现与权衡  — ④ 类型即护栏 ⑤ 测量管线 ⑥ 前→后，配真实代码
  *
  * Figures are authored at the 12-col content-box width (712px) so they
@@ -99,7 +99,7 @@ function abstractBlocks(H: Art, implId: string): SeedBlock[] {
     im('a-fig2', 0, 16, 12, 15, H.composition,
       '图②组合而非继承：kind（内容）/ host（盒与能力）/ theme（材质）三个薄插件汇入同一个 host 盒；接口 + registry，无基类。'),
     im('a-fig3', 0, 31, 12, 12, H.autofit,
-      '图③autofit：有效高 = max(floor, fit)，从不可变 base 快照重算所以可逆（C5）；逐 kind 策略 image=off、文本(md/rich/code)=grow。'),
+      '图③autofit：两模 follow（默认，文本 kind，高度跟随内容、1 行下限、无 floor、可逆 C5）/ fix（固定高、内容滚动、可拖拽，image 唯一模式）。'),
 
     b('a-close', 0, 43, 12, 4,
       '**代码地图** — ' +

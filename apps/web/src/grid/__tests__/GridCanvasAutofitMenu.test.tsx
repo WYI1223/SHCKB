@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
 /**
- * The autofit toggle in the block right-click menu (spec §7): a
- * menuitemcheckbox whose checked state reflects interaction.autofit, and
- * which flips the metadata on select. Shown per the kind's autofit policy
- * (blockModule(kind).autofit !== false): markdown/richtext/code in, image out.
+ * The height-mode toggle in the block right-click menu (spec §3.2): an
+ * OPT-IN menuitemcheckbox labelled "Fixed height" whose checked state is
+ * `interaction.autofit !== 'follow'` (checked = fix; the default follow is
+ * unchecked), and which flips the mode on select ('follow' ↔ 'fix'). Shown
+ * per the kind's autofit policy (blockModule(kind).autofit?.canFollow !==
+ * false): markdown/richtext/code in, image (canFollow:false) out.
  */
 import { afterEach, describe, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -17,13 +19,13 @@ afterEach(cleanup);
 
 const host: HostServices = { uploadBlob: async () => ({ hash: 'h', size: 0, mimeType: 'x' }) };
 
-function Harness({ kind }: { kind: string }) {
+function Harness({ kind, mode = 'follow' }: { kind: string; mode?: 'follow' | 'fix' }) {
   const interaction = useGridInteraction({
     initialBlocks: [{ id: 'g', col: 0, row: 0, colSpan: 2, rowSpan: 1, kind }],
     initialGravity: false,
     defaultSizeFor: () => ({ colSpan: 2, rowSpan: 1 }),
     onBlockInserted: () => {},
-    initialAutofit: { g: 'grow' },
+    initialAutofit: { g: mode },
   });
   return (
     <ThemeProvider theme={graphPaper}>
@@ -49,32 +51,63 @@ function Harness({ kind }: { kind: string }) {
   );
 }
 
-describe('autofit toggle — per-kind policy', () => {
-  test('block menu shows a checked "auto height" menuitemcheckbox (markdown)', async () => {
-    render(<Harness kind="markdown" />);
+describe('Fixed-height toggle — per-kind policy', () => {
+  test('the "Fixed height" checkbox is UNCHECKED for a follow block (the default)', async () => {
+    render(<Harness kind="markdown" mode="follow" />);
     const block = document.querySelector('[data-block-id="g"]')!;
     fireEvent.contextMenu(block);
-    const toggle = await screen.findByRole('menuitemcheckbox', { name: /auto height/i });
+    const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+  });
+
+  test('the "Fixed height" checkbox is CHECKED when the block is in fix mode', async () => {
+    render(<Harness kind="markdown" mode="fix" />);
+    const block = document.querySelector('[data-block-id="g"]')!;
+    fireEvent.contextMenu(block);
+    const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
     expect(toggle.getAttribute('aria-checked')).toBe('true');
   });
 
+  test('checking "Fixed height" on a follow block writes fix', async () => {
+    render(<Harness kind="markdown" mode="follow" />);
+    const block = document.querySelector('[data-block-id="g"]')!;
+    fireEvent.contextMenu(block);
+    const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
+    fireEvent.click(toggle);
+    // re-open the menu; the checkbox should now reflect fix (checked).
+    fireEvent.contextMenu(block);
+    const after = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
+    expect(after.getAttribute('aria-checked')).toBe('true');
+  });
+
+  test('unchecking "Fixed height" on a fix block writes follow', async () => {
+    render(<Harness kind="markdown" mode="fix" />);
+    const block = document.querySelector('[data-block-id="g"]')!;
+    fireEvent.contextMenu(block);
+    const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
+    fireEvent.click(toggle);
+    fireEvent.contextMenu(block);
+    const after = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
+    expect(after.getAttribute('aria-checked')).toBe('false');
+  });
+
   test.each(['markdown', 'richtext', 'code'])(
-    'toggle is present for autofit-eligible kind "%s"',
+    'the "Fixed height" toggle is present for follow-eligible kind "%s"',
     async (kind) => {
       render(<Harness kind={kind} />);
       const block = document.querySelector('[data-block-id="g"]')!;
       fireEvent.contextMenu(block);
-      const toggle = await screen.findByRole('menuitemcheckbox', { name: /auto height/i });
+      const toggle = await screen.findByRole('menuitemcheckbox', { name: /fixed height/i });
       expect(toggle).toBeTruthy();
     },
   );
 
-  test('toggle is ABSENT for image (autofit: false)', async () => {
-    render(<Harness kind="image" />);
+  test('the "Fixed height" toggle is ABSENT for image (canFollow: false)', async () => {
+    render(<Harness kind="image" mode="fix" />);
     const block = document.querySelector('[data-block-id="g"]')!;
     fireEvent.contextMenu(block);
-    // wait for the menu itself, then assert no auto-height checkbox is in it.
+    // wait for the menu itself, then assert no Fixed-height checkbox is in it.
     await screen.findByRole('menuitem', { name: /edit/i });
-    expect(screen.queryByRole('menuitemcheckbox', { name: /auto height/i })).toBeNull();
+    expect(screen.queryByRole('menuitemcheckbox', { name: /fixed height/i })).toBeNull();
   });
 });

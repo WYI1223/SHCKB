@@ -13,7 +13,7 @@
  * redo. The undo feature is a separate later PRD that builds on this.
  *
  * Web layer (NOT engine): keeps the engine pure/kind-opaque (invariant
- * 6), consistent with floor/fit also living in the web layer (spec §4.3).
+ * 6), consistent with fit measurement also living in the web layer (spec §4.3).
  */
 import type { Block, GridState } from '@skb/grid-engine';
 

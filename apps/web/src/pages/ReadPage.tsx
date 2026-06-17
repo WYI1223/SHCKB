@@ -53,11 +53,15 @@ export function ReadPage() {
   if (notFound) return message('This page does not exist.');
   if (!resp) return message('Loading…');
 
-  // Coerce string autofit ('grow' | 'off' | null) to the boolean render
-  // shape expected by PublishedDocShape / BlockFrameProps.
+  // Coerce the persisted autofit mode to the boolean `follow` render shape
+  // (follow → clip, fix → scroll). Legacy-aware: until the data migration
+  // lands, the wire value can still be a legacy enum, so map
+  // 'grow'/'grow+shrink' → follow too (mirrors EditorPage.toMode and
+  // publish-html) to keep the SPA and static published surfaces in lockstep.
+  const isFollow = (af: unknown) => af === 'follow' || af === 'grow' || af === 'grow+shrink';
   const renderDoc = {
     ...resp.doc,
-    blocks: resp.doc.blocks.map((b) => ({ ...b, autofit: b.autofit === 'grow' })),
+    blocks: resp.doc.blocks.map((b) => ({ ...b, follow: isFollow(b.autofit) })),
   };
 
   return (

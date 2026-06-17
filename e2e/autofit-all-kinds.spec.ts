@@ -2,19 +2,19 @@ import { expect, test } from '@playwright/test';
 import { createMarkdownPage, loginViaApi, sel } from './fixtures/login';
 
 /**
- * T14 — per-kind autofit policy (frame-core refactor). After un-gating
- * autofit from markdown, the "auto height" toggle must appear for any kind
- * whose module is autofit-available (code, text) and be ABSENT for an
- * autofit-unavailable kind (image, `BlockKindModule.autofit === false`).
+ * T14 — per-kind autofit policy (follow/fix redesign). The "follow
+ * content" toggle must appear for any kind that can follow (code, text:
+ * `BlockKindModule.autofit.canFollow !== false`) and be ABSENT for a
+ * fix-only kind (image, `autofit.canFollow === false`).
  *
- * Scope: this verifies the per-kind AVAILABILITY at the UI. The grow
+ * Scope: this verifies the per-kind AVAILABILITY at the UI. The follow
  * MECHANISM itself is kind-agnostic and already covered by
- * autofit-grow-shrink.spec (markdown gesture) + the frame-invariant unit
+ * autofit-follow.spec (markdown gesture) + the frame-invariant unit
  * suite (every theme × kind × skin). We deliberately do NOT assert
- * "code grows on load" — an inactive autofit block renders at its stored
+ * "code grows on load" — an inactive follow block renders at its stored
  * rowSpan; growth happens inside an active edit gesture, not on page load.
  */
-test('autofit toggle: present for code, absent for image', async ({ page }) => {
+test('follow toggle: present for code, absent for image', async ({ page }) => {
   await loginViaApi(page);
   const { id } = await createMarkdownPage(page.request, {
     title: 'autofit-all-kinds',
@@ -29,8 +29,7 @@ test('autofit toggle: present for code, absent for image', async ({ page }) => {
         row: 0,
         colSpan: 6,
         rowSpan: 2,
-        autofit: 'grow',
-        minRowSpan: 1,
+        autofit: 'follow',
         // CodeContent: { language: string; source: string }
         content: { language: 'typescript', source: 'const x = 1;\n'.repeat(8) },
       },
@@ -41,8 +40,7 @@ test('autofit toggle: present for code, absent for image', async ({ page }) => {
         row: 3,
         colSpan: 4,
         rowSpan: 3,
-        autofit: 'off',
-        minRowSpan: null,
+        autofit: 'fix',
         // ImageContent: { blobHash: null; alt: string }
         content: { blobHash: null, alt: '' },
       },
@@ -51,13 +49,13 @@ test('autofit toggle: present for code, absent for image', async ({ page }) => {
 
   await page.goto(`/edit/${id}`);
 
-  // code → autofit available → the "auto height" toggle is in the menu
+  // code → can follow → the "Fixed height" toggle is in the menu
   await page.locator(sel.block('C')).click({ button: 'right' });
-  await expect(page.getByRole('menuitemcheckbox', { name: /auto height/i })).toBeVisible();
+  await expect(page.getByRole('menuitemcheckbox', { name: /fixed height/i })).toBeVisible();
   await page.keyboard.press('Escape');
 
-  // image → autofit unavailable → menu opens (edit item present) but no toggle
+  // image → fix-only (canFollow:false) → menu opens (edit item present) but no toggle
   await page.locator(sel.block('I')).click({ button: 'right' });
   await expect(page.getByText('edit', { exact: true })).toBeVisible();
-  await expect(page.getByRole('menuitemcheckbox', { name: /auto height/i })).toHaveCount(0);
+  await expect(page.getByRole('menuitemcheckbox', { name: /fixed height/i })).toHaveCount(0);
 });

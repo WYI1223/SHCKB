@@ -7,7 +7,7 @@ test('ghost preview shows rendered markdown while the block stays active', async
     title: 'autofit ghost preview',
     themeId: 'graph-paper',
     blocks: [
-      { id: 'G', kind: 'markdown', col: 0, row: 0, colSpan: 5, rowSpan: 2, autofit: 'grow', minRowSpan: 2, content: md('') },
+      { id: 'G', kind: 'markdown', col: 0, row: 0, colSpan: 5, rowSpan: 2, autofit: 'follow', content: md('') },
     ],
   });
   await page.goto(`/edit/${id}`);

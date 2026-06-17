@@ -39,12 +39,12 @@ describe('renderStaticPage', () => {
   });
 });
 
-describe('autofit publish overflow', () => {
-  test('autofit block renders overflow:hidden; non-autofit keeps overflow:auto', () => {
+describe('follow publish overflow', () => {
+  test('follow block renders overflow:hidden; fix block keeps overflow:auto', () => {
     const doc = {
-      title: 'autofit',
+      title: 'follow',
       blocks: [
-        { id: 'a', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 2, autofit: true, content: { markdown: 'clip me' } },
+        { id: 'a', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 2, follow: true, content: { markdown: 'clip me' } },
         { id: 'b', kind: 'markdown', col: 6, row: 0, colSpan: 6, rowSpan: 2, content: { markdown: 'scroll me' } },
       ],
     };

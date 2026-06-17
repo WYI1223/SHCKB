@@ -12,8 +12,8 @@ export function MarkdownRenderView({ content }: { content: MarkdownContent }) {
   const theme = useTheme();
   if (content.markdown.trim() === '') {
     // Empty = blank (owner decision, frame-core slice): readers never see
-    // editor jargon, and an emptied autofit block measures ~0 → shrinks to its
-    // floor cleanly. The author affordance for an empty block is the block's
+    // editor jargon, and an emptied follow block measures ~0 → shrinks to its
+    // 1-row minimum cleanly. The author affordance for an empty block is the block's
     // own frame (a visible card) + the EditView "Write markdown…" textarea on
     // click — no placeholder text leaks into the rendered/published output.
     return null;

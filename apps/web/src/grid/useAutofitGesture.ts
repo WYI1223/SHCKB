@@ -4,20 +4,23 @@
  * One ATOMIC EDIT GESTURE per active autofit block:
  * 1. On activate (gesture start) capture an immutable BASE snapshot of
  *    the whole layout + the grower's base rowSpan.
- * 2. Each measured fit (debounced ~200ms) reconciles to the effective
- *    target rowSpan = max(floor, fit) by re-deriving from the BASE every
- *    time — interaction.ops.reconcileTo(base, id, target). Gravity stays
- *    SUSPENDED within the gesture; reconcile never compacts.
+ * 2. Each measured fit (debounced ~200ms) reconciles to the follow
+ *    target rowSpan = Math.max(1, fit) by re-deriving from the BASE every
+ *    time — interaction.ops.reconcileTo(base, id, target). The 1-row min
+ *    lives in measureFit.ts (fitFromContent); there is no separate floor.
+ *    Gravity stays SUSPENDED within the gesture; reconcile never compacts.
  * 3. On commit (deactivate) interaction.ops.commitGesture(id, baseRowSpan)
  *    applies the COMMIT RULE: one applyGravity iff net delta && gravity-on.
  *
  * ATOMICITY (spec §4.4 / §10 R9): no gravity-running op may interleave a
- * gesture. We expose `gestureActive` so the host suspends the debounced
- * autosave commit while a gesture is live (single-user debounced-PUT
- * makes this an invariant, not a convention).
+ * gesture. Autosave is suspended while a block is active — the gate lives in
+ * EditorPage.save() (it returns early when activeId !== null), which subsumes
+ * the follow gesture (it only runs on the active block). `gestureActive`
+ * exposes that liveness for callers; it is not itself the autosave gate today.
  *
- * `fit` is fed by MeasureProbe (already ceil(outerHeight/slot)); `floor`
- * is the block's minRowSpan (author intent). We never persist fit.
+ * `fit` is fed by MeasureProbe (already ceil(outerHeight/slot)). The
+ * follow target is the fit itself (1-row min in measureFit). We never
+ * persist fit.
  */
 import { useEffect, useRef } from 'react';
 import type { GridState } from '@skb/grid-engine';
@@ -28,10 +31,8 @@ export type UseAutofitGestureArgs = {
   interaction: Interaction;
   /** The currently active block id (gesture target), or null. */
   activeId: string | null;
-  /** Autofit on for this block (MVP: autofit === 'grow'). */
+  /** Follow mode on for this block (autofit === 'follow'). */
   enabled: boolean;
-  /** Author floor (minRowSpan); falls back to base rowSpan if unset. */
-  floor: number;
   /** Latest measured fit rows (from MeasureProbe). */
   fit: number;
   debounceMs?: number;
@@ -43,7 +44,7 @@ export type AutofitGesture = {
 };
 
 export function useAutofitGesture(args: UseAutofitGestureArgs): AutofitGesture {
-  const { interaction, activeId, enabled, floor, fit, debounceMs = 200 } = args;
+  const { interaction, activeId, enabled, fit, debounceMs = 200 } = args;
   // The immutable gesture base + the grower's base rowSpan. Captured once
   // per gesture (on the active id changing into a block), cleared on end.
   const baseRef = useRef<GridState | null>(null);
@@ -51,8 +52,8 @@ export function useAutofitGesture(args: UseAutofitGestureArgs): AutofitGesture {
   const activeRef = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // hold latest reconcile inputs so the debounced fire reads fresh values
-  const latest = useRef({ floor, fit, enabled });
-  latest.current = { floor, fit, enabled };
+  const latest = useRef({ fit, enabled });
+  latest.current = { fit, enabled };
 
   // Gesture lifecycle: capture base on enter, commit on leave.
   useEffect(() => {
@@ -77,22 +78,22 @@ export function useAutofitGesture(args: UseAutofitGestureArgs): AutofitGesture {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
-  // Debounced reconcile on fit/floor change while a gesture is live.
+  // Debounced reconcile on fit change while a gesture is live.
   useEffect(() => {
     if (!enabled || activeId === null || baseRef.current === null) return;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       const base = baseRef.current;
       if (!base) return;
-      const { floor: f, fit: fi } = latest.current;
-      const target = Math.max(f, fi); // effective rowSpan = max(floor, fit)
+      const { fit: fi } = latest.current;
+      const target = Math.max(1, fi); // follow target = fit (1-row min)
       interaction.ops.reconcileTo(base, activeId, target);
     }, debounceMs);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, enabled, floor, fit, debounceMs]);
+  }, [activeId, enabled, fit, debounceMs]);
 
   return { gestureActive: enabled && activeId !== null };
 }

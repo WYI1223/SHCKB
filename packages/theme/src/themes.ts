@@ -304,11 +304,11 @@ export function canvasBaseplateStyle(theme: Theme): React.CSSProperties {
   };
 }
 
-/** Block body overflow under the autofit contract: autofit blocks clip
- * (no scrollbar — rowSpan ≥ fit so content lands exactly), every other
- * block keeps the theme's scroll behavior. Single truth source so the
- * default frame and every curated shell agree. */
-export function blockOverflow(autofit: boolean | undefined): 'hidden' | 'auto' {
-  return autofit ? 'hidden' : 'auto';
+/** Block body overflow under the follow/fix contract: follow blocks clip
+ * (no scrollbar — height tracks measured content so it lands exactly), fix
+ * blocks have a manual height the content may exceed → scroll. Single truth
+ * source so the default frame and every curated shell agree. */
+export function blockOverflow(follow: boolean | undefined): 'hidden' | 'auto' {
+  return follow ? 'hidden' : 'auto';
 }
 

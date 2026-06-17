@@ -3,16 +3,16 @@ import { createMarkdownPage, loginViaApi, md, sel } from './fixtures/login';
 
 const SLOT = 60; // theme.slot for graph-paper/galley/stationery (verified in packages/theme/src)
 
-test('typing grows G and pushes W down; deleting shrinks G and returns W', async ({ page }) => {
+test('follow: typing grows G and pushes W down; deleting shrinks G to fit (1-row min) and returns W', async ({ page }) => {
   await loginViaApi(page);
-  // G: narrow autofit markdown (cols0-1), floor=1; W: wide block below.
+  // G: narrow follow markdown (cols0-1), 1-row min; W: wide fix block below.
   const { id } = await createMarkdownPage(page.request, {
-    title: 'autofit grow/shrink',
+    title: 'autofit follow',
     themeId: 'graph-paper',
     gravityEnabled: true,
     blocks: [
-      { id: 'G', kind: 'markdown', col: 0, row: 0, colSpan: 2, rowSpan: 1, autofit: 'grow', minRowSpan: 1, content: md('') },
-      { id: 'W', kind: 'markdown', col: 0, row: 1, colSpan: 6, rowSpan: 1, autofit: 'off', minRowSpan: null, content: md('below') },
+      { id: 'G', kind: 'markdown', col: 0, row: 0, colSpan: 2, rowSpan: 1, autofit: 'follow', content: md('') },
+      { id: 'W', kind: 'markdown', col: 0, row: 1, colSpan: 6, rowSpan: 1, autofit: 'fix', content: md('below') },
     ],
   });
 
@@ -24,7 +24,7 @@ test('typing grows G and pushes W down; deleting shrinks G and returns W', async
 
   const wTopBase = (await W.boundingBox())!.y;
 
-  // Activate G and type enough wrapped lines to force fit > floor.
+  // Activate G and type enough wrapped lines to force fit past 1 row.
   await G.click();
   const ta = page.locator(sel.activeMarkdownTextarea);
   await expect(ta).toBeVisible();
@@ -42,8 +42,8 @@ test('typing grows G and pushes W down; deleting shrinks G and returns W', async
   const gHeightGrown = (await G.boundingBox())!.height;
   expect(gHeightGrown).toBeGreaterThan(SLOT); // G itself grew past one row
 
-  // Delete the content: G shrinks to floor, W returns to its base row
-  // (C5 reconcile re-derives from the gesture base — reversible).
+  // Delete the content: G shrinks to fit (1-row min), W returns to its
+  // base row (C5 reconcile re-derives from the gesture base — reversible).
   await ta.fill('');
   await expect
     .poll(async () => (await W.boundingBox())!.y, { timeout: 5_000 })

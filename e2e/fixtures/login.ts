@@ -28,8 +28,7 @@ export type E2EBlock = {
   colSpan: number;
   rowSpan: number;
   shell?: string | null;
-  autofit?: 'off' | 'grow' | 'grow+shrink' | null;
-  minRowSpan?: number | null;
+  autofit?: 'follow' | 'fix' | null;
   content: unknown;
 };
 

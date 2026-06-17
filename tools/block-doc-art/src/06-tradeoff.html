@@ -48,7 +48,7 @@
         <div class="dh">后 · host 持盒 + 类型护栏<br>量准 → 撑成 6 行</div>
         <div class="full">
           <div class="line">## 标题：块系统的盒</div>
-          <div class="line">- floor / fit / effective</div>
+          <div class="line">- autofit：follow / fix 两模</div>
           <div class="line">- 可逆 C5 快照重算</div>
           <div class="line">- 离屏 AREA / CONTENT</div>
           <div class="line">- 类型即护栏</div>
@@ -67,7 +67,7 @@
       <div class="pr">
         <div class="topic">autofit 适用面</div>
         <div class="bef">两个 <span class="mono">kind==='markdown'</span> 闸门 + markdown 专属 seeding。</div>
-        <div class="aft">机制本就 kind-agnostic → 解闸 + <span class="mono">BlockKindModule.autofit</span>（image=false · 文本=grow）。</div>
+        <div class="aft">机制本就 kind-agnostic → 解闸 + 两模 <span class="mono">autofit:{default,canFollow}</span>（文本默认 follow · image fix-only）。</div>
       </div>
       <div class="pr">
         <div class="topic">测量</div>

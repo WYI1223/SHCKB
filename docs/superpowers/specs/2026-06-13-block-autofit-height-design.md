@@ -1,5 +1,7 @@
 # Block Auto-fit Height（limited-height + grow）— 设计
 
+> **Superseded 2026-06-15** by [docs/superpowers/specs/2026-06-15-autofit-follow-fix-design.md](./2026-06-15-autofit-follow-fix-design.md) and [ADR-0030]: the floor / `max(floor, fit)` / floor-resize / floor-invariant model (§4.3/§5.1/§6/§7) is replaced by the follow/fix two-mode model. Sections below are legacy trace.
+
 Date: 2026-06-13
 Status: **ratified（owner 批 C5 + MAJOR/ADR 范围，2026-06-13）** — 红队 20 项 + 可逆机制仿真已折入；转 writing-plans（计划末步：bridge 实例入 dev 库）
 Topic owner: W_YI

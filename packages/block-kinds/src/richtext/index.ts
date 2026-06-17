@@ -12,7 +12,7 @@ export const richtextModule: BlockKindModule<RichtextContent> = {
   EditView: RichtextEditView,
   RenderView: RichtextRenderView,
   extractText,
-  autofit: { default: 'grow' },
+  autofit: { default: 'follow' },
 };
 
 export { coerceContent, linkedPageIds, type RichtextContent };

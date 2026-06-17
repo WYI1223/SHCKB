@@ -79,8 +79,7 @@ type SeedBlock = {
   colSpan: number;
   rowSpan: number;
   shell?: string | null;
-  autofit?: 'off' | 'grow' | 'grow+shrink' | null;
-  minRowSpan?: number | null;
+  autofit?: 'follow' | 'fix' | null;
   content: unknown;
 };
 
@@ -105,13 +104,12 @@ async function createPage(opts: { title: string; folderId: string; themeId: stri
 
 async function seedBridge(folderId: string) {
   const blocks: SeedBlock[] = [
-    // G — narrow autofit markdown grower (cols 0-1, floor = 1 row).
+    // G — narrow follow markdown grower (cols 0-1, height tracks content).
     {
       id: 'G',
       kind: 'markdown',
       col: 0, row: 0, colSpan: 2, rowSpan: 1,
-      autofit: 'grow',
-      minRowSpan: 1,
+      autofit: 'follow',
       content: md(
         '**G**\n\n' +
           '在这里打字 → 我会变高、把下面的 **W** 整体下推；' +
@@ -125,8 +123,7 @@ async function seedBridge(folderId: string) {
       id: 'W',
       kind: 'markdown',
       col: 0, row: 1, colSpan: 6, rowSpan: 1,
-      autofit: 'off',
-      minRowSpan: null,
+      autofit: 'fix',
       content: md('**W** — 横跨 G 列与旁列的桥块（被 G 撑高时整体下推）'),
     },
     // K — side-column block below W (cols 4-5, row 2). The block the
@@ -135,8 +132,7 @@ async function seedBridge(folderId: string) {
       id: 'K',
       kind: 'markdown',
       col: 4, row: 2, colSpan: 2, rowSpan: 1,
-      autofit: 'off',
-      minRowSpan: null,
+      autofit: 'fix',
       content: md('**K** — 旁列块（手势内绝不应被挪动）'),
     },
     // The exercise recipe on the page itself (cols 6-11, row 0). Must
@@ -148,8 +144,7 @@ async function seedBridge(folderId: string) {
       id: 'howto',
       kind: 'markdown',
       col: 6, row: 0, colSpan: 6, rowSpan: 3,
-      autofit: 'off',
-      minRowSpan: null,
+      autofit: 'fix',
       content: md(
         '## 手测脚本（最难的可逆路径）\n\n' +
           '1. 点开 **G**，连打几行 → 看 **W** 下推、**K** 不动。\n' +

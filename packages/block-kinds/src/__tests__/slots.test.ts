@@ -22,7 +22,7 @@ function renderSkin(theme: Theme, kind: string, skinId: string | null, blockId =
         blockId,
         colSpan: 6,
         rowSpan: 2,
-        autofit: false,
+        follow: false,
         skin,
         children: createElement('p', null, 'hello'),
       }),
