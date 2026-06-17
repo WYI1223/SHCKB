@@ -12,6 +12,7 @@
 import { toString as mdastToString } from 'mdast-util-to-string';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
+import { parsePermalink, type LinkRef } from '../links';
 
 export type MarkdownContent = {
   markdown: string;
@@ -31,6 +32,26 @@ export function coerceContent(c: unknown): MarkdownContent {
 }
 
 const parser = unified().use(remarkParse);
+
+/** Outbound internal links (MVP-10): markdown internal links are ordinary
+ * `[text](/p/:id(#blockId))` — no new syntax. Extract their targets. */
+export function links(content: MarkdownContent): LinkRef[] {
+  const out: LinkRef[] = [];
+  const seen = new Set<string>();
+  // markdown inline link: [label](target) — capture target up to space/paren
+  const re = /\]\(\s*(\/p\/[^\s)]+)\s*\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content.markdown)) !== null) {
+    const ref = parsePermalink(m[1]!);
+    if (!ref) continue;
+    const key = `${ref.pageId}#${ref.blockId ?? ''}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(ref);
+    }
+  }
+  return out;
+}
 
 /** Plain text from the parsed mdast tree — never from rendered DOM. */
 export function extractText(content: MarkdownContent): string {

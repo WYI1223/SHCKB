@@ -1,5 +1,5 @@
 import type { BlockKindModule } from '../types';
-import { coerceContent, createContent, extractText, type MarkdownContent } from './markdown';
+import { coerceContent, createContent, extractText, links, type MarkdownContent } from './markdown';
 import { MarkdownEditView } from './MarkdownEditView';
 import { MarkdownRenderView } from './MarkdownRenderView';
 
@@ -12,6 +12,7 @@ export const markdownModule: BlockKindModule<MarkdownContent> = {
   EditView: MarkdownEditView,
   RenderView: MarkdownRenderView,
   extractText,
+  links,
   autofit: { default: 'follow' },
 };
 
