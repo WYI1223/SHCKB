@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (pass 5 — authoring state + BDD rewrite) |
-| Last updated | 2026-05-22 |
+| Status | draft (pass 6 — mode model update [ADR-0031]) |
+| Last updated | 2026-06-18 |
 | Owner | W_YI |
 | Parent PRD | [notepage.md](./notepage.md) |
 
@@ -41,11 +41,11 @@ Editing is the author productivity surface. It must make notepage composition fe
 The key product split from parent PRD is:
 
 - Author edits operate on **author working state**.
-- Public readers see **last completed public state**.
-- Author can preview working state in a reader-like form.
+- Public readers see **last completed public state** (a separately published edition).
+- Editing and reading are **two modes of the same page** for the author: the author can switch between editing and a read-only preview of their own draft instantly, without a save step and without losing their place. The published edition the public sees is a distinct, separate thing.
 - Author must explicitly complete/update public state before reader-visible content changes.
 
-This lets the product avoid a user-facing "draft version" lifecycle while still protecting public readers from half-finished edits.
+This lets the product avoid a user-facing "draft version" lifecycle while still protecting public readers from half-finished edits. Architecture for the mode model: [ADR-0031].
 
 ---
 
@@ -58,7 +58,8 @@ This lets the product avoid a user-facing "draft version" lifecycle while still 
   authoring surface
       authenticated
       works on author working state
-      can preview reader-like result
+      can switch to read-only preview of own draft (instant; no save step; no position loss)
+      edit and read = two modes of the same page
 
   grid operations
       insert / move / resize / delete
@@ -89,6 +90,14 @@ This lets the product avoid a user-facing "draft version" lifecycle while still 
 New notepages start private. An author can open the authoring surface, add a first markdown block, write content, and keep editing without exposing the page to anonymous readers.
 
 The authoring surface should make the empty state actionable, but the exact form factor is not fixed by this PRD.
+
+### Edit/Read Mode Toggle
+
+While working on a page, the author can switch to a read-only view of their own working content at any moment. The switch is instant — no save step is required and the author does not lose their place in the content. Switching back to editing is equally instant.
+
+This read-only view shows the author's current working draft, not the published edition that public readers see. The author can use it to check how the page reads before choosing to publish.
+
+**Following internal links while editing** takes the author to the editing view of the target page, not to a public read view. The author stays in editing mode as they navigate their own content. A link can target a specific block on the destination page; following such a link brings that block into view.
 
 ### Editing Block Content
 
@@ -304,6 +313,7 @@ PRD-layer upstream dependencies:
 - **[ADR-0009] mutation API**: update-public action and author working state persistence need endpoint semantics.
 - **Undo/redo ADR or ADR extension**: unresolved cross-layer behavior.
 - **Conflict semantics**: multi-tab/last-write behavior needs explicit API/substrate alignment.
+- **[ADR-0031] view-mode navigation + first-class links** (proposed, 2026-06-17): surface model (edit/read modes of same page, draft preview, published edition); mode-preserving navigation from editing; block-targeted links. Realizes the mode-model invariants added in this PRD's pass 6.
 
 详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) PRD-surfaced debts log。
 
@@ -316,6 +326,7 @@ PRD-layer upstream dependencies:
   - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — drag fps / op latency
   - [ADR-0013](../../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — block EditView internals
   - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — defaultSize / EditView / RenderView contract
+  - [ADR-0031](../../../../engineering/decisions/ADR-0031-view-mode-navigation.md) — view-mode surface model, mode-preserving navigation from editing, first-class links (downstream of this PRD)
 - **Parent**: [notepage.md](./notepage.md)
 - **Sibling PRDs**: [notepage-view.md](./notepage-view.md) / [notepage-responsive.md](./notepage-responsive.md)
 - **Cross-folder PRDs**: [authentication.md](../authentication/authentication.md) / [identity.md](../authentication/identity.md) / [theme-system.md](../theme-system/theme-system.md) / [theme-system-author-view.md](../theme-system/theme-system-author-view.md) / [plugin-system.md](../plugin-system/plugin-system.md)
@@ -340,3 +351,4 @@ PRD-layer upstream dependencies:
 - 2026-06-11 gravity toggle absorption：Author-Facing Experience 加 Gravity Toggle 节（行为 product-locked / 形态 dev-theme / re-enable UX 随 parent open question）；对应 [notepage.md] 2026-06-11 Gravity Setting 决策。
 - 2026-05-23 closeout：收窄 update-public Open Question；只保留 label / placement / save-control coupling，explicit reader-visible update boundary 不再重开。
 - 2026-06-14 autofit PRD pass: Layout Operations 增 auto-fit resize 语义（floor-not-fixed-height / bottoms-out / width-unchanged）+ session-reversibility + 旁列不扰（source: autofit spec §9 / [ADR-0028]）。
+- 2026-06-18 pass 6 — mode model update [ADR-0031]：Why 节更新为"edit/read 是同一页的两个模式、即时切换、无需保存、不丢位置；published edition 是独立分开的东西"；Whole picture authoring surface 描述同步；新增 Edit/Read Mode Toggle 节（instant toggle、draft preview、following links while editing stays in edit mode、block-targeted links）；Surfaced ADR Debts + References 新增 ADR-0031。
