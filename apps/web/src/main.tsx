@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { EditorPage } from './pages/EditorPage';
+import { InAppView } from './pages/InAppView';
 import { LoginPage } from './pages/LoginPage';
 import { ReadPage } from './pages/ReadPage';
 import { WelcomePane } from './pages/WelcomePane';
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')!).render(
         <Route element={<Shell />}>
           <Route path="/" element={<WelcomePane />} />
           <Route path="/edit/:id" element={<EditorPage />} />
+          <Route path="/view/:id" element={<InAppView />} />
           {/* in-app read pane (anonymous browsing inside the shell) */}
           <Route path="/read/:slug" element={<ReadPage />} />
         </Route>
