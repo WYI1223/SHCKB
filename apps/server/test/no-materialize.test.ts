@@ -1,19 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { createTestContext } from './helpers';
+import { createPublicPage, createTestContext } from './helpers';
 import { notepages } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
-
-async function createPublicPage(t: Awaited<ReturnType<typeof createTestContext>>, opts: { title: string; body: string }) {
-  const { id } = await (await t.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: opts.title }) })).json();
-  await t.authed(`/api/notepages/${id}/working-state`, { method: 'PUT', body: JSON.stringify({
-    title: opts.title, gravityEnabled: false,
-    blocks: [{ id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 1, shell: null, content: { markdown: opts.body } }],
-  }) });
-  await t.authed(`/api/notepages/${id}/theme`, { method: 'POST', body: JSON.stringify({ themeId: 'graph-paper' }) });
-  const { slug } = await (await t.authed(`/api/notepages/${id}/publish`, { method: 'POST' })).json();
-  await t.authed(`/api/notepages/${id}/visibility`, { method: 'POST', body: JSON.stringify({ visibility: 'public' }) });
-  return { id, slug };
-}
 
 describe('published HTML keeps /p/:id (no slug-materialization)', () => {
   test('publish leaves internal /p/:id content hrefs intact', async () => {

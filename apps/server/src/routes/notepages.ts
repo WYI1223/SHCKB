@@ -230,7 +230,7 @@ export function notepageRoutes(db: Db) {
       title: page.title,
       gravityEnabled: page.gravityEnabled,
       // appearance enters the snapshot (M6-D3/D4): publishedHtml stays
-      // a pure function of (doc, slug, effective theme)
+      // a pure function of (doc, id, effective theme)
       background: page.background !== null ? safeParse<PageBackground | null>(page.background, null) : null,
       blocks: loadWorkingBlocks(db, page.id),
       publishedAt: Date.now(),
@@ -265,7 +265,7 @@ export function notepageRoutes(db: Db) {
 
   // Per-page theme pin (MVP-4 M4-D2): null = follow instance. Changing
   // the pin re-renders the published HTML immediately — publishedHtml
-  // stays a pure function of (doc, slug, effective theme).
+  // stays a pure function of (doc, id, effective theme).
   r.post('/notepages/:id/theme', async (c) => {
     const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
     if (!page) return c.json(NOT_FOUND, 404);

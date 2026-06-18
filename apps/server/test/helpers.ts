@@ -72,3 +72,24 @@ export async function json(res: Response) {
   expect(res.headers.get('content-type')).toContain('application/json');
   return res.json() as Promise<any>;
 }
+
+/** Create → publish → make public a single-markdown-block page; returns its id + slug.
+ * Shared by the public-surface tests (no-materialize / public-by-id / public-tree-id). */
+export async function createPublicPage(
+  t: TestContext,
+  opts: { title: string; body: string },
+): Promise<{ id: string; slug: string }> {
+  const { id } = await json(await t.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: opts.title }) }));
+  await t.authed(`/api/notepages/${id}/working-state`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      title: opts.title,
+      gravityEnabled: false,
+      blocks: [{ id: 'b1', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 1, shell: null, content: { markdown: opts.body } }],
+    }),
+  });
+  await t.authed(`/api/notepages/${id}/theme`, { method: 'POST', body: JSON.stringify({ themeId: 'graph-paper' }) });
+  const { slug } = await json(await t.authed(`/api/notepages/${id}/publish`, { method: 'POST' }));
+  await t.authed(`/api/notepages/${id}/visibility`, { method: 'POST', body: JSON.stringify({ visibility: 'public' }) });
+  return { id, slug };
+}
