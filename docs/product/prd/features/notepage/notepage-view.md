@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (pass 5 — mode model update [ADR-0031]) |
+| Status | draft (pass 6 — preview as browsing mode) |
 | Last updated | 2026-06-18 |
 | Owner | W_YI |
 | Parent PRD | [notepage.md](./notepage.md) |
@@ -99,6 +99,8 @@ Authenticated but unauthorized users may receive a clearer forbidden response wh
 Editing and reading are **two modes of the same page** for the author. While working on a draft, the author can switch to a read-only preview of their own working content at any moment — without a save step and without losing their place. Switching back to editing is equally instant.
 
 This draft preview is distinct from the published edition that public readers see. The author's working draft is always accessible in both modes regardless of whether the page has a published edition.
+
+Preview is not only per-page but a **sustained mode**: the author can put their workspace into read-only preview and keep moving between pages while staying in preview — browsing their own library the way a reader would, instead of dropping back into editing on every navigation. Turning preview off returns navigation to editing. The mode is always visible and stays consistent with the page currently shown, so the author is never left guessing which mode a click will land in.
 
 Preview must be:
 
@@ -224,6 +226,7 @@ Scenario: Public read route is server-rendered
 | **No authoring controls in public view** | Public readers never see drag/resize/palette/selection UI. |
 | **Public read state is completed state** | The public edition renders the last explicitly published state, not the author's unfinished working edits. |
 | **Edit and read are modes of the same page** | An author can toggle between editing and a read-only preview of their own draft instantly, without a save step and without losing their place. These are two views of the same page; the public published edition is a separate thing. Architecture: [ADR-0031]. |
+| **Preview is a browsing mode** | The author can sustain read-only preview across page navigation — browse the whole library as a reader, not only one page at a time. The mode is visible and stays consistent with the page shown (no hidden mode). Architecture: [ADR-0031]. |
 | **Preview is non-canonical** | Preview may render working state but must not become public canonical content. |
 | **Private/deleted content does not leak** | Inaccessible routes must not include private/deleted content in body, metadata, or SSR output. |
 | **RenderView per block** | View mode calls each supported block kind's RenderView, not EditView. |
@@ -318,3 +321,4 @@ PRD-layer upstream dependencies:
 - 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正。
 - 2026-05-22 pass 4 — route/visibility + BDD rewrite：改为 What / Why / Whole picture / User-facing experience / BDD Acceptance / Reference；同步 parent private/public、last completed public state、route-class framing、preview noindex、privacy-preserving delete/default response、BDD acceptance discipline。
 - 2026-06-18 pass 5 — mode model update [ADR-0031]：Author Preview 节更新为"edit/read 是同一页的两个模式、即时切换、无需保存、不丢位置"；新增 Internal Link Navigation 节（mode-preserving navigation、block-targeted links、browse position restore）；View Invariants 新增"Edit and read are modes of the same page"不变量（含 ADR-0031 引用）、"Mode-preserving navigation"、"Block-targeted links"；Open Question 1 去除"slug-based"HOW token（addressing scheme 是 impl 决策，非 WHAT）；Open Question 2 已为 impl-neutral；Surfaced ADR Debts + References 新增 ADR-0031。
+- 2026-06-18 pass 6 — preview 作为浏览模式：Author Preview 节补「sustained mode，可跨页保持、像读者一样逛整库、模式始终可见无隐藏态」；View Invariants 新增「Preview is a browsing mode」不变量（含 ADR-0031 引用）。落地细节（chrome 切换 / sidebar 守面 / 折叠 inline flip）见 MVP-10 spec §12。

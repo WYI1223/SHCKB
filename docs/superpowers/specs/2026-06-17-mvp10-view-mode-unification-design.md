@@ -254,3 +254,27 @@ type LinkRef = { pageId: string; blockId?: string };
 - markdown kind：`links()` 实现（解析 `/p/:id` href）。
 - server：`apps/server/src/routes/notepages.ts`（`/p/:id` 收为 surface-neutral；公开取数按 **id**）、**`render/publish-html.ts` / `settings.ts`(rerenderAllPublished) / `export/importer.ts`：移除 `materializeInternalLinks` / `publicIdToSlug` 及 4 写点**、`PublishedCanvas` 块锚。
 - 渲染对齐：`packages/block-kinds` 的 `PublishedCanvas`（块锚 data attr）。
+
+---
+
+## 12. 收尾增补（2026-06-18）：preview 作为浏览模式（chrome 切换）
+
+> 落地 MVP-10 后、收尾前 owner 提的一轮优化。承 §4「edit ⇄ view = 一体两面」，把 view 从**单页 peek** 升成**整库浏览模式**：把 per-page 的 preview 控件从编辑器顶栏挪进左侧 chrome（sidebar），改成 edit/preview 切换；切到 preview 后，sidebar 点任意页都开 view（不是 edit）。
+
+### 12.1 根因（承 §5 守面不变量）
+§5 的守面不变量只覆盖**正文内链接**（`resolveTarget` 从 pathname 派生当前面）。但 **sidebar 的作者页行硬编码 `/edit/:id`**（[`Sidebar.tsx`](../../../apps/web/src/shell/Sidebar.tsx) L48），**不参与守面**。后果：在 `/view/A` 预览时点 sidebar 里的 B → 被弹回 `/edit/B`。于是 preview 是**单页死角**——没法像读者一样接着逛。这正是 owner 指的摩擦。
+
+### 12.2 模型：作者面 = 从 URL 调和的轻状态（不引隐藏态）
+- 作者两个 live 面 = edit / view。`authorSurfaceOf(pathname)` = `surfaceOf==='view' ? 'view' : 'edit'`（read/note/other 不是作者工作面 → 落 edit）。
+- sidebar 持轻状态 `mode: 'edit'|'view'`（默认 edit）。**调和规则**：只要落在作者页面（edit/view），URL 即 SSOT —— 一个 effect 把 `mode` 同步成 `surfaceOf(pathname)`。故**在页上 toggle 与地址栏永不矛盾**（杜绝经典 mode-error 的隐藏态）。非页路由（`/` 等）`mode` 粘住上次值 → 兑现「设好模式再逛」。
+- sidebar 作者页行 `to = /<mode>/:id`；toggle = `mode` 的呈现，点另一侧 = setMode +（若在页上）navigate 当前 id 到该面。
+- **不落 localStorage**：reload 落 `/view/X` 时 effect 即从 URL 复原 preview；落 `/` 复位 edit（安全默认）。无跨 reload 隐藏态。
+
+### 12.3 折叠 inline flip（单一真相）
+- 删编辑器顶栏 `preview ◉`（[`EditorPage.tsx`](../../../apps/web/src/pages/EditorPage.tsx) L317）与 view 顶的 `edit ✎`（[`InAppView.tsx`](../../../apps/web/src/pages/InAppView.tsx) L61）。二者是旧 per-page flip，并入 chrome toggle。
+- 编辑器 instruments 抽屉里的 `view ↗`（→ `/notes/:id` 已发布单页）**保留**——那是公开 note 面，与作者草稿 preview 不同。
+- collapse 边角：sidebar 收起成 30px 轨时 toggle 随之隐藏（同所有作者控件）；要 flip 先展开。可接受（与 + page / settings 等同待遇）。
+
+### 12.4 测试
+- 单元（承 §10 纯函数风格）：`authorSurfaceOf`（edit/view→各自，read/note/other→edit）、`currentId` 导出。
+- e2e（真浏览器，承 §10 ④ 教训：只有真浏览器抓 DOM 导航）：登录 → `/edit/A` → 点 chrome「preview」→ `/view/A`；点 sidebar B → **停 `/view/B`**（守 preview）；点「edit」→ `/edit/B`。
