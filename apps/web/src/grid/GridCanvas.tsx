@@ -252,9 +252,9 @@ function BlockShell({
             {
               label: 'Copy link to block',
               onSelect: () => {
-                void navigator.clipboard.writeText(
-                  `${window.location.origin}${permalinkOf({ pageId, blockId: block.id })}`,
-                );
+                // Copy the PATH form (`/p/:id#blockId`) — the markdown/richtext
+                // link parsers only recognise the path, not an app-origin full URL.
+                void navigator.clipboard.writeText(permalinkOf({ pageId, blockId: block.id }));
               },
             },
             // Height-mode toggle: an opt-in "Fixed height" checkbox (checked =

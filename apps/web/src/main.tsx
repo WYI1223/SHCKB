@@ -18,11 +18,11 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/edit/:id" element={<EditorPage />} />
           <Route path="/view/:id" element={<InAppView />} />
           {/* in-app read pane (anonymous browsing inside the shell) */}
-          <Route path="/read/:slug" element={<ReadPage />} />
+          <Route path="/read/:id" element={<ReadPage />} />
         </Route>
         {/* standalone: login + the clean public share page */}
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/notes/:slug" element={<ReadPage />} />
+        <Route path="/notes/:id" element={<ReadPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
