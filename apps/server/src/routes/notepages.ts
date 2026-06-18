@@ -15,7 +15,7 @@ import type { Db } from '../db/client';
 import { blobs as blobsTable, blocks, notepages, type PublishedDoc } from '../db/schema';
 import { THEMES, isSafeCssColor } from '@skb/theme';
 import { safeParse } from '../json';
-import { NOT_FOUND_HTML, materializeInternalLinks, publicIdToSlug, renderStaticPage, toRenderDoc } from '../render/publish-html';
+import { NOT_FOUND_HTML, renderStaticPage, toRenderDoc } from '../render/publish-html';
 import { effectiveTheme, themeCustomizations } from '../settings';
 
 type WorkingBlock = {
@@ -236,13 +236,7 @@ export function notepageRoutes(db: Db) {
       publishedAt: Date.now(),
     };
     // Snapshot is frozen → render reader-grade HTML once, store with it.
-    // MVP-10: materialize /p/:id → /notes/:slug for public+published targets so
-    // the public SPA navigates internal links client-side (unresolved ids stay
-    // /p/:id and resolve via the 302).
-    const html = materializeInternalLinks(
-      renderStaticPage(toRenderDoc(doc), slug, effectiveTheme(db, page)),
-      publicIdToSlug(db),
-    );
+    const html = renderStaticPage(toRenderDoc(doc), page.id, effectiveTheme(db, page));
     db.update(notepages)
       .set({
         slug,
@@ -285,12 +279,7 @@ export function notepageRoutes(db: Db) {
       // corrupt snapshot: pin still lands, stale HTML stays (re-publish heals)
       const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
       if (doc !== null) {
-        // re-render keeps the MVP-10 link materialization (theme pin must not
-        // un-resolve /notes/:slug links back to bare /p/:id)
-        const html = materializeInternalLinks(
-          renderStaticPage(toRenderDoc(doc), page.slug, effectiveTheme(db, { themeId })),
-          publicIdToSlug(db),
-        );
+        const html = renderStaticPage(toRenderDoc(doc), page.id, effectiveTheme(db, { themeId }));
         db.update(notepages).set({ publishedHtml: html }).where(eq(notepages.id, page.id)).run();
       }
     }

@@ -116,54 +116,9 @@ describe('publish-time static HTML (phase 4)', () => {
     },
   });
 
-  test('public internal links are materialized /p/:id → /notes/:slug at publish time (MVP-10)', async () => {
-    // target page: public + published, so its id resolves to a slug
-    const target = await json(
-      await t.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Target Page' }) }),
-    );
-    await t.authed(`/api/notepages/${target.id}/working-state`, {
-      method: 'PUT',
-      body: JSON.stringify({ title: 'Target Page', gravityEnabled: true, blocks: [] }),
-    });
-    // slug comes from the PUBLISH response (locked at first publish), not the
-    // create response — so the assertion isn't fragile to slug derivation.
-    const targetPub = await json(await t.authed(`/api/notepages/${target.id}/publish`, { method: 'POST' }));
-    await t.authed(`/api/notepages/${target.id}/visibility`, {
-      method: 'POST',
-      body: JSON.stringify({ visibility: 'public' }),
-    });
 
-    // source page: a richtext block links to the target (block b9) and to a
-    // non-existent page id; publish AFTER the target is public.
-    const source = await json(
-      await t.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Source Page' }) }),
-    );
-    await t.authed(`/api/notepages/${source.id}/working-state`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        title: 'Source Page',
-        gravityEnabled: true,
-        blocks: [
-          { id: 'r1', kind: 'richtext', col: 0, row: 0, colSpan: 12, rowSpan: 1, content: pagelinkRichtext(target.id, 'b9') },
-          { id: 'r2', kind: 'richtext', col: 0, row: 1, colSpan: 12, rowSpan: 1, content: pagelinkRichtext('pg_nope', null) },
-        ],
-      }),
-    });
-    const sourcePub = await json(await t.authed(`/api/notepages/${source.id}/publish`, { method: 'POST' }));
-    await t.authed(`/api/notepages/${source.id}/visibility`, {
-      method: 'POST',
-      body: JSON.stringify({ visibility: 'public' }),
-    });
 
-    const html = await (await t.app.request(`/notes/${sourcePub.slug}`)).text();
-    // resolvable target → /notes/:slug (fragment preserved), data attr kept
-    expect(html).toContain(`href="/notes/${targetPub.slug}#b9"`);
-    expect(html).toContain(`data-skb-page="${target.id}"`);
-    // unresolvable id stays /p/:id (server 302 fallback)
-    expect(html).toContain('href="/p/pg_nope"');
-  });
-
-  test('link to a PRIVATE (published) target stays /p/:id — only public targets materialize', async () => {
+  test('link to a PRIVATE (published) target stays /p/:id — no materialization ever', async () => {
     // target published but NEVER made public → must not be a materialization target
     const target = await json(
       await t.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'Hidden Target' }) }),

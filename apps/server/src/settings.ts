@@ -17,7 +17,7 @@ import {
 import type { Db } from './db/client';
 import { notepages, settings, type NotepageRow, type PublishedDoc } from './db/schema';
 import { safeParse } from './json';
-import { materializeInternalLinks, publicIdToSlug, renderStaticPage, toRenderDoc } from './render/publish-html';
+import { renderStaticPage, toRenderDoc } from './render/publish-html';
 
 export function getSetting(db: Db, key: string): string | null {
   return db.select().from(settings).where(eq(settings.key, key)).get()?.value ?? null;
@@ -65,11 +65,6 @@ export function effectiveTheme(db: Db, page: Pick<NotepageRow, 'themeId'>): Them
 /** Re-render every published page with its effective theme — the
  * invariant that public pages always wear the current theme. */
 export function rerenderAllPublished(db: Db): number {
-  // MVP-10: keep internal links materialized on the re-render too — an
-  // instance-theme / customization change must NOT silently revert public
-  // pages' /notes/:slug links back to /p/:id. The map is stable across the
-  // loop (we only rewrite publishedHtml; visibility/publishedDoc untouched).
-  const idToSlug = publicIdToSlug(db);
   let n = 0;
   for (const page of db.select().from(notepages).all()) {
     if (page.publishedDoc === null) continue;
@@ -77,10 +72,7 @@ export function rerenderAllPublished(db: Db): number {
     // the instance still re-renders (re-publish heals the bad page)
     const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
     if (doc === null) continue;
-    const html = materializeInternalLinks(
-      renderStaticPage(toRenderDoc(doc), page.slug, effectiveTheme(db, page)),
-      idToSlug,
-    );
+    const html = renderStaticPage(toRenderDoc(doc), page.id, effectiveTheme(db, page));
     db.update(notepages).set({ publishedHtml: html }).where(eq(notepages.id, page.id)).run();
     n++;
   }
