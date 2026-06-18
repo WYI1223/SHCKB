@@ -1,13 +1,29 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
 import type React from 'react';
-import { makeLinkClickHandler, resolveTarget, surfaceOf } from '../useNavigateToPage';
+import { authorSurfaceOf, currentId, makeLinkClickHandler, resolveTarget, surfaceOf } from '../useNavigateToPage';
 
 describe('surfaceOf', () => {
   test.each([
     ['/edit/A', 'edit'], ['/view/A', 'view'], ['/read/A', 'read'],
     ['/notes/A', 'note'], ['/', 'other'], ['/login', 'other'],
   ])('%s -> %s', (path, s) => expect(surfaceOf(path)).toBe(s));
+});
+
+describe('authorSurfaceOf (sidebar/toggle mode source)', () => {
+  // The author has two live surfaces — edit + view. This collapses any path to
+  // the one the sidebar/toggle should reflect: 'view' only while explicitly
+  // previewing, else 'edit'. read/note/other are not author working surfaces.
+  test.each([
+    ['/edit/A', 'edit'], ['/view/A', 'view'],
+    ['/read/A', 'edit'], ['/notes/A', 'edit'], ['/', 'edit'], ['/login', 'edit'],
+  ])('%s -> %s', (path, s) => expect(authorSurfaceOf(path)).toBe(s));
+});
+
+describe('currentId', () => {
+  test('extracts the id segment', () => expect(currentId('/edit/A')).toBe('A'));
+  test('decodes percent-encoding', () => expect(currentId('/view/p%2Fx')).toBe('p/x'));
+  test('empty on a non-page route', () => expect(currentId('/')).toBe(''));
 });
 
 describe('resolveTarget (all-id, surface-preserving)', () => {

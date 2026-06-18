@@ -20,7 +20,19 @@ export function surfaceOf(pathname: string): Surface {
   return 'other';
 }
 
-function currentId(pathname: string): string {
+/** The author's current live surface. The author has exactly two working
+ * surfaces — edit + view — so any path collapses to the one the sidebar/toggle
+ * should reflect: 'view' only while explicitly previewing, else 'edit'.
+ * (read/note/other are public/neutral, not author working surfaces.) This is
+ * what makes the chrome an edit⇄preview mode: the sidebar reads it to route
+ * page rows, and on author page routes the URL is its single source of truth. */
+export function authorSurfaceOf(pathname: string): 'edit' | 'view' {
+  return surfaceOf(pathname) === 'view' ? 'view' : 'edit';
+}
+
+/** The id segment of a surface path (`/edit/:id` → `:id`), decoded. Empty on
+ * non-page routes. Exported so the chrome toggle can target the current page. */
+export function currentId(pathname: string): string {
   return decodeURIComponent(pathname.split('/')[2] ?? '');
 }
 
