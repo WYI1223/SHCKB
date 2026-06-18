@@ -277,7 +277,7 @@ PRD-layer upstream dependencies:
 
 ### Open Questions
 
-1. **Exact public route path**: the public canonical read route uses a human-readable identifier (slug-based); final product URL syntax remains open per parent PRD.
+1. **Exact public route path**: the public canonical read route has a stable, shareable address; the specific addressing scheme is an implementation choice per parent PRD.
 2. **Exact author preview surface address**: the addressing mechanism for the author's draft preview is an implementation choice as long as preview remains authenticated, non-canonical, and noindex.
 3. **403 vs generic not-found details**: privacy-preserving default is preferred; exact response differentiation should align with authentication/identity PRDs.
 4. **Future 410 tombstone**: not M2; may be revisited if public SEO transparency is prioritized.
@@ -317,4 +317,4 @@ PRD-layer upstream dependencies:
 - 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段。
 - 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正。
 - 2026-05-22 pass 4 — route/visibility + BDD rewrite：改为 What / Why / Whole picture / User-facing experience / BDD Acceptance / Reference；同步 parent private/public、last completed public state、route-class framing、preview noindex、privacy-preserving delete/default response、BDD acceptance discipline。
-- 2026-06-18 pass 5 — mode model update [ADR-0031]：Author Preview 节更新为"edit/read 是同一页的两个模式、即时切换、无需保存、不丢位置"；新增 Internal Link Navigation 节（mode-preserving navigation、block-targeted links、browse position restore）；View Invariants 新增"Edit and read are modes of the same page"不变量（含 ADR-0031 引用）、"Mode-preserving navigation"、"Block-targeted links"；Open Question 1/2 去除 HOW token（路由串 / 实现细节）；Surfaced ADR Debts + References 新增 ADR-0031。
+- 2026-06-18 pass 5 — mode model update [ADR-0031]：Author Preview 节更新为"edit/read 是同一页的两个模式、即时切换、无需保存、不丢位置"；新增 Internal Link Navigation 节（mode-preserving navigation、block-targeted links、browse position restore）；View Invariants 新增"Edit and read are modes of the same page"不变量（含 ADR-0031 引用）、"Mode-preserving navigation"、"Block-targeted links"；Open Question 1 去除"slug-based"HOW token（addressing scheme 是 impl 决策，非 WHAT）；Open Question 2 已为 impl-neutral；Surfaced ADR Debts + References 新增 ADR-0031。
