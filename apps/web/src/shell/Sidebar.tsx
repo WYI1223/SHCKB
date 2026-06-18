@@ -4,9 +4,11 @@
  * hover affordance kept per row class (new-page on folders); destructive
  * and naming flows go through the chrome overlay dialogs, never
  * window.* (M8-D1). The anonymous side renders the pruned public
- * projection with zero instrumentation — no menus where a reader
- * stands. The admin back office folds into the settings panel (M8-D2);
- * the rack's foot keeps only its entry.
+ * projection with zero instrumentation — no menus where a reader stands.
+ * A logged-in author can preview that public side via the account foot's
+ * "view as visitor" (spec §13): on read/note surfaces the directory itself
+ * switches to the public projection. Session + admin back office + the
+ * visitor-preview entry all live in the sticky account foot.
  */
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -16,7 +18,7 @@ import {
   benchButtonStyle,
   labelStyle,
 } from '../chrome/bench';
-import { authorSurfaceOf, currentId, surfaceOf } from '../nav/useNavigateToPage';
+import { authorSurfaceOf, chromeAudience, currentId, surfaceOf, viewAsVisitorTarget } from '../nav/useNavigateToPage';
 import { useOverlays, type MenuItem } from '../chrome/overlays';
 import { useShell } from './Shell';
 import { SettingsPanel } from './SettingsPanel';
@@ -64,24 +66,45 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
     }
   }
 
-  const folders: TreeFolder[] = (me ? tree?.folders : publicTree?.folders) ?? [];
-  const pages: PageItem[] = me
-    ? (tree?.notepages ?? []).map((p) => ({
-        key: p.id,
-        id: p.id,
-        to: `/${mode}/${p.id}`,
-        title: p.title,
-        folderId: p.folderId,
-        sortKey: p.sortKey,
-        badge: p.visibility === 'public' && p.hasPublished ? 'public' : 'private',
-      }))
-    : (publicTree?.notepages ?? []).map((p) => ({
-        key: p.id,
-        to: `/read/${p.id}`,
-        title: p.title,
-        folderId: p.folderId,
-        sortKey: p.sortKey,
-      }));
+  // Which directory to show (spec §13.1): a logged-in author sees their rack on
+  // author surfaces, but the visitor's public directory on read/note — so
+  // browsing /read while logged in is a faithful visitor preview. authorMode
+  // gates author affordances; inVisitorPreview = logged in but viewing public.
+  const audience = chromeAudience(pathname, !!me);
+  const authorMode = !!me && audience === 'author';
+  const inVisitorPreview = !!me && audience === 'public';
+
+  // "View as visitor" lands on the current page if it is published, else the
+  // first published page, else it is disabled (nothing is published).
+  const publishedIds = (publicTree?.notepages ?? []).map((p) => p.id);
+  const visitorTarget = viewAsVisitorTarget(currentId(pathname), publishedIds);
+  function viewAsVisitor() {
+    if (visitorTarget) navigate(`/read/${visitorTarget}`);
+  }
+  function exitPreview() {
+    const id = currentId(pathname);
+    navigate(id ? `/edit/${id}` : '/');
+  }
+
+  const folders: TreeFolder[] = (audience === 'author' ? tree?.folders : publicTree?.folders) ?? [];
+  const pages: PageItem[] =
+    audience === 'author'
+      ? (tree?.notepages ?? []).map((p) => ({
+          key: p.id,
+          id: p.id,
+          to: `/${mode}/${p.id}`,
+          title: p.title,
+          folderId: p.folderId,
+          sortKey: p.sortKey,
+          badge: p.visibility === 'public' && p.hasPublished ? 'public' : 'private',
+        }))
+      : (publicTree?.notepages ?? []).map((p) => ({
+          key: p.id,
+          to: `/read/${p.id}`,
+          title: p.title,
+          folderId: p.folderId,
+          sortKey: p.sortKey,
+        }));
 
   const childFolders = (parentId: string | null) =>
     folders.filter((f) => f.parentId === parentId);
@@ -218,8 +241,8 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           className="pu-row"
           style={{ ...rowStyle(false), paddingLeft: `${10 + depth * INDENT}px`, cursor: 'pointer' }}
           onClick={() => toggleFolder(f.id)}
-          onContextMenu={me ? (e) => openFolderMenu(e, f) : undefined}
-          title={me ? 'Right-click for folder actions' : undefined}
+          onContextMenu={authorMode ? (e) => openFolderMenu(e, f) : undefined}
+          title={authorMode ? 'Right-click for folder actions' : undefined}
         >
           <span
             aria-hidden
@@ -245,7 +268,7 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           >
             {f.name}
           </span>
-          {me && (
+          {authorMode && (
             <span className="pu-actions" style={{ display: 'flex', gap: '1px' }}>
               <RowAction label={`New page in ${f.name}`} onClick={() => void createPage(f.id)}>＋</RowAction>
               <RowAction label={`Actions for ${f.name}`} onClick={(e) => openFolderMenu(e, f)}>⋯</RowAction>
@@ -269,8 +292,8 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
         to={p.to}
         className="pu-row"
         style={({ isActive }) => ({ ...rowStyle(isActive), paddingLeft: `${10 + depth * INDENT + 12}px` })}
-        onContextMenu={me ? (e) => openPageMenu(e, p) : undefined}
-        title={me ? 'Right-click for page actions' : undefined}
+        onContextMenu={authorMode ? (e) => openPageMenu(e, p) : undefined}
+        title={authorMode ? 'Right-click for page actions' : undefined}
       >
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {p.title}
@@ -285,7 +308,7 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
             —
           </span>
         )}
-        {me && (
+        {authorMode && (
           <span className="pu-actions" style={{ display: 'flex', gap: '1px' }}>
             <RowAction
               label={`Actions for ${p.title}`}
@@ -304,7 +327,6 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
 
   return (
     <aside
-      className="pu-scroll"
       style={{
         width: `${SIDEBAR_W}px`,
         flexShrink: 0,
@@ -312,7 +334,8 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
         flexDirection: 'column',
         borderRight: `1px solid ${BENCH.hairlineDark}`,
         background: BENCH.paper,
-        overflow: 'auto',
+        overflow: 'hidden',
+        minHeight: 0,
       }}
     >
       {/* shop sign */}
@@ -339,25 +362,12 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
         >
           SHCKB
         </Link>
-        {me ? (
-          <button
-            onClick={() => void api.signOut().then(() => (window.location.href = '/'))}
-            title={`Signed in as ${me.email}`}
-            style={quietButton}
-          >
-            sign out
-          </button>
-        ) : me === null ? (
-          <Link to="/login" style={{ ...quietButton, textDecoration: 'none', color: BENCH.inkSoft }}>
-            sign in
-          </Link>
-        ) : null}
         <button onClick={onCollapse} aria-label="Collapse sidebar" title="Collapse sidebar" style={quietButton}>
           ⟨
         </button>
       </div>
 
-      {me && (
+      {authorMode && (
         <div style={{ display: 'flex', gap: '6px', padding: '10px 12px' }}>
           <button onClick={() => void createPage(null)} className="pu-hoverable" style={{ ...benchButtonStyle(), flex: 1 }}>
             + page
@@ -367,36 +377,74 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           </button>
         </div>
       )}
-      {me && (
+      {authorMode && (
         <div style={{ padding: '0 12px 6px' }}>
           <ModeToggle mode={mode} onSwitch={switchMode} />
         </div>
       )}
-      {!me && (
+      {audience === 'public' && (
         <div style={{ padding: '12px 12px 4px' }}>
-          <span style={labelStyle()}>Published pages</span>
+          <span style={labelStyle()}>{inVisitorPreview ? 'Public preview · published pages' : 'Published pages'}</span>
         </div>
       )}
 
-      <nav aria-label="Notepages" style={{ padding: '4px 6px 12px', flex: 1 }}>
+      <nav
+        aria-label="Notepages"
+        className="pu-scroll"
+        style={{ padding: '4px 6px 12px', flex: 1, minHeight: 0, overflow: 'auto' }}
+      >
         {childFolders(null).map((f) => renderFolder(f, 0))}
         {childPages(null).map((p) => renderPage(p, 0))}
-        {me && tree && tree.folders.length === 0 && tree.notepages.length === 0 && (
+        {authorMode && tree && tree.folders.length === 0 && tree.notepages.length === 0 && (
           <Empty text="The rack is empty — start a page." />
         )}
-        {me === null && publicTree && publicTree.notepages.length === 0 && (
+        {audience === 'public' && publicTree && publicTree.notepages.length === 0 && (
           <Empty text="Nothing published yet." />
         )}
       </nav>
 
-      {me?.role === 'admin' && (
-        <div
-          style={{
-            borderTop: `1px solid ${BENCH.hairlineDark}`,
-            padding: '8px 12px',
-            background: BENCH.paperSunken,
-          }}
-        >
+      {/* account foot — sticky (spec §13.2): the view-as-visitor / exit entry,
+          admin settings, and identity + session. */}
+      <div
+        style={{
+          borderTop: `1px solid ${BENCH.hairlineDark}`,
+          padding: '8px 12px',
+          background: BENCH.paperSunken,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          flexShrink: 0,
+        }}
+      >
+        {authorMode && (
+          <button
+            onClick={viewAsVisitor}
+            disabled={visitorTarget === null}
+            aria-label="View as visitor"
+            className="pu-hoverable"
+            title={visitorTarget === null ? 'Nothing published yet' : 'Preview the public site as a visitor'}
+            style={{
+              ...benchButtonStyle(),
+              width: '100%',
+              opacity: visitorTarget === null ? 0.5 : 1,
+              cursor: visitorTarget === null ? 'not-allowed' : 'pointer',
+            }}
+          >
+            view as visitor
+          </button>
+        )}
+        {inVisitorPreview && (
+          <button
+            onClick={exitPreview}
+            aria-label="Exit visitor preview"
+            className="pu-hoverable"
+            title="Exit visitor preview — back to editing"
+            style={{ ...benchButtonStyle(), width: '100%' }}
+          >
+            ← exit preview
+          </button>
+        )}
+        {authorMode && me?.role === 'admin' && (
           <button
             onClick={() => setSettingsOpen(true)}
             className="pu-hoverable"
@@ -405,8 +453,31 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           >
             settings
           </button>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+          {me ? (
+            <>
+              <span
+                style={{ ...labelStyle(), flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                title={`Signed in as ${me.email}`}
+              >
+                {me.email}
+              </span>
+              <button
+                onClick={() => void api.signOut().then(() => (window.location.href = '/'))}
+                title="Sign out"
+                style={quietButton}
+              >
+                sign out
+              </button>
+            </>
+          ) : me === null ? (
+            <Link to="/login" style={{ ...quietButton, textDecoration: 'none', color: BENCH.inkSoft, flex: 1 }}>
+              sign in
+            </Link>
+          ) : null}
         </div>
-      )}
+      </div>
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </aside>
   );

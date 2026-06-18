@@ -69,6 +69,9 @@ export function Shell() {
         if (user) {
           // authors see all themes in pickers — fetch the full map
           api.getSettings().then(({ customizations: all }) => setCustomizations(all)).catch(() => undefined);
+          // also keep the public projection so the sidebar can show the
+          // visitor's directory under "view as visitor" (spec §13.1)
+          api.getPublicTree().then(setPublicTree).catch(() => undefined);
           return api.getTree().then(setTree);
         }
         return api.getPublicTree().then(setPublicTree);
