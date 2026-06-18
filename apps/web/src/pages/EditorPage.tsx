@@ -314,14 +314,6 @@ function Editor({ detail }: { detail: NotepageDetail }) {
             {instrumentsOpen ? 'instruments ▾' : 'instruments ▸'}
           </button>
 
-          <Link
-            to={`/view/${pageId}`}
-            title="Preview this draft as a reader (read-only)"
-            style={{ ...labelStyle({ color: BENCH.blue }), textDecoration: 'none' }}
-          >
-            preview ◉
-          </Link>
-
           <span aria-hidden style={{ width: '1px', alignSelf: 'stretch', background: BENCH.hairlineDark }} />
 
           {/* state stamp + the one heavy action */}

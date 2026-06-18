@@ -8,14 +8,15 @@
  * stands. The admin back office folds into the settings panel (M8-D2);
  * the rack's foot keeps only its entry.
  */
-import { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { api, type TreeFolder } from '../api/client';
 import {
   BENCH,
   benchButtonStyle,
   labelStyle,
 } from '../chrome/bench';
+import { authorSurfaceOf, currentId, surfaceOf } from '../nav/useNavigateToPage';
 import { useOverlays, type MenuItem } from '../chrome/overlays';
 import { useShell } from './Shell';
 import { SettingsPanel } from './SettingsPanel';
@@ -37,15 +38,38 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   const { me, tree, publicTree, refresh } = useShell();
   const overlays = useOverlays();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Author preview mode (spec §12): the left chrome drives an edit⇄preview
+  // lever. While on an author page (edit/view) the URL is the single source of
+  // truth — sync the mode to it so the toggle and the address bar can never
+  // disagree (no hidden mode). On non-page routes the last value sticks, so you
+  // can set the mode once and then browse the whole library in it.
+  const pageSurface = surfaceOf(pathname);
+  const onAuthorPage = pageSurface === 'edit' || pageSurface === 'view';
+  const [mode, setMode] = useState<'edit' | 'view'>(() => authorSurfaceOf(pathname));
+  useEffect(() => {
+    if (pageSurface === 'edit' || pageSurface === 'view') setMode(pageSurface);
+  }, [pageSurface]);
+
+  function switchMode(next: 'edit' | 'view') {
+    setMode(next);
+    // On an author page, flip THIS page now; the surface-preserving page rows
+    // then keep every subsequent sidebar click in the chosen mode.
+    if (onAuthorPage) {
+      const id = currentId(pathname);
+      if (id) navigate(`/${next}/${id}`);
+    }
+  }
 
   const folders: TreeFolder[] = (me ? tree?.folders : publicTree?.folders) ?? [];
   const pages: PageItem[] = me
     ? (tree?.notepages ?? []).map((p) => ({
         key: p.id,
         id: p.id,
-        to: `/edit/${p.id}`,
+        to: `/${mode}/${p.id}`,
         title: p.title,
         folderId: p.folderId,
         sortKey: p.sortKey,
@@ -343,6 +367,11 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           </button>
         </div>
       )}
+      {me && (
+        <div style={{ padding: '0 12px 6px' }}>
+          <ModeToggle mode={mode} onSwitch={switchMode} />
+        </div>
+      )}
       {!me && (
         <div style={{ padding: '12px 12px 4px' }}>
           <span style={labelStyle()}>Published pages</span>
@@ -410,6 +439,63 @@ function RowAction({
         padding: '0 3px',
         color: danger ? BENCH.red : BENCH.inkSoft,
         lineHeight: 1.4,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** edit ⇄ preview — the workspace mode lever (spec §12). Author-only. Its
+ * label always reflects the current author surface; flipping it sets the mode
+ * and (on a page) navigates the current page to that surface, after which the
+ * surface-preserving page rows keep browsing in it. */
+function ModeToggle({ mode, onSwitch }: { mode: 'edit' | 'view'; onSwitch: (m: 'edit' | 'view') => void }) {
+  return (
+    <div
+      role="group"
+      aria-label="Workspace mode"
+      style={{ display: 'flex', border: `1px solid ${BENCH.hairlineDark}`, borderRadius: '2px', overflow: 'hidden' }}
+    >
+      <ModeButton active={mode === 'edit'} label="Edit mode" onClick={() => onSwitch('edit')}>
+        edit
+      </ModeButton>
+      <ModeButton active={mode === 'view'} label="Preview mode" onClick={() => onSwitch('view')}>
+        preview
+      </ModeButton>
+    </div>
+  );
+}
+
+function ModeButton({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      onClick={onClick}
+      style={{
+        flex: 1,
+        fontFamily: BENCH.fontMono,
+        fontSize: '10px',
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        padding: '5px 6px',
+        border: 'none',
+        cursor: 'pointer',
+        background: active ? BENCH.ink : 'transparent',
+        color: active ? BENCH.paper : BENCH.inkSoft,
       }}
     >
       {children}

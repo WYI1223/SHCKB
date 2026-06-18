@@ -6,7 +6,7 @@
  * the public page), so edit/preview parity is by construction.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { PublishedCanvas, type PublishedDocShape } from '@skb/block-kinds';
 import { THEMES, ThemeProvider, applyCustomization, graphPaper } from '@skb/theme';
 import { api, ApiError, type NotepageDetail } from '../api/client';
@@ -57,11 +57,6 @@ export function InAppView() {
 
   return (
     <div ref={scrollRef} className="pu-scroll" style={{ height: '100%', overflow: 'auto', background: BENCH.paperSunken }} onClick={onLinkClick}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 12px' }}>
-        <Link to={`/edit/${detail.page.id}`} style={{ color: BENCH.blue, fontFamily: BENCH.fontUi, fontSize: '12px', textDecoration: 'none' }}>
-          edit ✎
-        </Link>
-      </div>
       <ThemeProvider theme={theme}><PublishedCanvas doc={renderDoc} /></ThemeProvider>
     </div>
   );
