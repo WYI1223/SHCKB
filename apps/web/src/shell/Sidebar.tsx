@@ -52,8 +52,8 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
         badge: p.visibility === 'public' && p.hasPublished ? 'public' : 'private',
       }))
     : (publicTree?.notepages ?? []).map((p) => ({
-        key: p.slug,
-        to: `/read/${p.slug}`,
+        key: p.id,
+        to: `/read/${p.id}`,
         title: p.title,
         folderId: p.folderId,
         sortKey: p.sortKey,

@@ -139,7 +139,7 @@ export const api = {
   signOut: () => request<unknown>('/api/auth/sign-out', { method: 'POST', body: '{}' }),
   me: () => request<{ user: Me | null }>('/api/me'),
   listPublicNotes: () =>
-    request<{ notes: Array<{ slug: string; title: string; publishedAt: number }> }>(
+    request<{ notes: Array<{ id: string; slug: string; title: string; publishedAt: number }> }>(
       '/api/public/notes',
     ),
   listNotepages: () => request<{ notepages: NotepageSummary[] }>('/api/notepages'),

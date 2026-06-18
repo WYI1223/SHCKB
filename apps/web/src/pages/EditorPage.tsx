@@ -77,7 +77,6 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const [themeId, setThemeId] = useState(detail.page.themeId);
   const [visibility, setVisibility] = useState(detail.page.visibility);
   const [hasPublished, setHasPublished] = useState(detail.page.hasPublished);
-  const [slug, setSlug] = useState(detail.page.slug);
   const [linkCopied, setLinkCopied] = useState(false);
   // Selection model (M6-D1): page is the default selection; activating
   // a block selects it. The Properties inspector keys off this.
@@ -209,8 +208,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   async function publish() {
     if (!(await save())) return; // unsaved working state must not promote stale data
     await runAction('publish', async () => {
-      const res = await api.publish(pageId);
-      setSlug(res.slug);
+      await api.publish(pageId);
       setHasPublished(true);
       shell.refresh();
     });
@@ -218,7 +216,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
 
   async function copyLink() {
     await runAction('copy link', async () => {
-      await navigator.clipboard.writeText(`${window.location.origin}/notes/${slug}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/notes/${pageId}`);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 1500);
     });
@@ -403,7 +401,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
             {visibility === 'public' && hasPublished && (
               <>
                 <Link
-                  to={`/notes/${slug}`}
+                  to={`/notes/${pageId}`}
                   title="Open the published page"
                   style={{ ...labelStyle({ color: BENCH.inkSoft }), textDecoration: 'none' }}
                 >
