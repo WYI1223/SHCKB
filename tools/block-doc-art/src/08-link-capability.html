@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .head { display: flex; flex-direction: column; gap: 10px; }
+    .head .legend { justify-content: flex-start; }
+
+    .token { margin: 22px auto 4px; text-align: center; }
+    .token .ref { display: inline-block; font-family: var(--mono); font-size: 18px; font-weight: 800; color: #7e1d4e; background: var(--theme-soft); border: 2px solid var(--theme); border-radius: 12px; padding: 11px 22px; box-shadow: 0 0 0 5px rgba(242,212,227,.55); }
+    .token .cap { margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
+    .token .cap b { color: var(--ink); }
+
+    .feeders { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .feed { border: 1.5px solid var(--edge); border-radius: 11px; background: var(--paper-2); padding: 11px 13px; text-align: center; font-size: 13px; }
+    .feed b { color: var(--ink); } .feed .k { font-family: var(--mono); font-size: 11.5px; color: var(--kind); font-weight: 700; }
+    .feed .arrow { color: var(--theme); font-size: 16px; margin-top: 5px; line-height: 1; }
+
+    .seamhdr { margin: 20px 0 11px; display: flex; align-items: center; gap: 11px; }
+    .seamhdr .rule { flex: 1; }
+    .seamhdr span { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+
+    .seams { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 13px; }
+    .seam { border-radius: 12px; border: 2px solid; background: #fff; padding: 13px 14px; display: flex; flex-direction: column; gap: 9px; }
+    .seam .n { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; }
+    .seam .n .circle { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-family: var(--mono); font-size: 13px; }
+    .seam .sig { font-family: var(--mono); font-size: 12px; padding: 5px 8px; border-radius: 7px; background: var(--paper-2); color: var(--ink); }
+    .seam .use { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+    .seam .stat { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; align-self: flex-start; }
+
+    .seam.live { border-color: var(--host); } .seam.live .n { color: var(--host); } .seam.live .circle { background: var(--host); } .seam.live .stat { background: var(--host-soft); color: #0c5650; }
+    .seam.defer { border-color: var(--defer); border-style: dashed; }
+    .seam.defer .n { color: var(--defer); } .seam.defer .circle { background: var(--defer); } .seam.defer .sig { background: var(--defer-soft); color: #4b3a86; } .seam.defer .stat { background: var(--defer-soft); color: #4b3a86; }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="head">
+      <div>
+        <div class="eyebrow">Links · one kind-agnostic capability</div>
+        <h1 class="t">链接是一种能力 — 一种货币，三道缝</h1>
+        <p class="lede">链接不是某个 block 的私货。统一货币 <b>LinkRef</b>：markdown、richtext、未来的 canvas <b>都喂同一种</b>。能力对外开三道缝——抽取、导航、编写。</p>
+      </div>
+      <div class="legend">
+        <span class="lg"><span class="sw theme"></span> LinkRef · 链接货币</span>
+        <span class="lg"><span class="sw host"></span> 已落地 MVP-10</span>
+        <span class="lg"><span class="sw defer"></span> 延后 MVP-11</span>
+      </div>
+    </div>
+
+    <div class="token">
+      <span class="ref">LinkRef { pageId, blockId? }</span>
+      <div class="cap">一个页 · 可选一个块 —— 同页同块即<b>锚点</b>，跨页即<b>页间链接</b>，细到一个 block</div>
+    </div>
+
+    <div class="feeders">
+      <div class="feed"><b>markdown</b><div>自带 <span class="k">/p/:id</span> 超链接 → 解析器</div><div class="arrow">▼</div></div>
+      <div class="feed"><b>richtext</b><div>pagelink mark（含 <span class="k">blockId</span>）</div><div class="arrow">▼</div></div>
+      <div class="feed"><b>canvas（未来）</b><div>各自的链接形态</div><div class="arrow">▼</div></div>
+    </div>
+
+    <div class="seamhdr"><span>三道缝</span><div class="rule"></div></div>
+
+    <div class="seams">
+      <div class="seam live">
+        <div class="n"><span class="circle">①</span> 抽取</div>
+        <div class="sig">links(content): LinkRef[]</div>
+        <div class="use">喂 backlinks · 搜索 · 导出 · 导入完整性</div>
+        <span class="stat">✓ 已落地</span>
+      </div>
+      <div class="seam live">
+        <div class="n"><span class="circle">②</span> 导航</div>
+        <div class="sig">navigateToPage(ref)</div>
+        <div class="use">保面跳转——当前在哪面，跳到哪面，客户端</div>
+        <span class="stat">✓ 已落地</span>
+      </div>
+      <div class="seam defer">
+        <div class="n"><span class="circle">③</span> 编写</div>
+        <div class="sig">pickLinkTarget()</div>
+        <div class="use">选目标插链接——复用搜索做选择器</div>
+        <span class="stat">⋯ 延后 MVP-11</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
