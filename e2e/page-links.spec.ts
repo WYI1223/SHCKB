@@ -231,77 +231,68 @@ test('editor: same-page block link scrolls without navigation', async ({ page })
 });
 
 // ---------------------------------------------------------------------------
-// Test 4 — Public surface: link to B eventually lands on /notes/:B
+// Test 4 — read surface stays in /read/:id (whole-library browse), by id
 //
-// Architecture note: in the e2e setup (Vite dev server), /notes/:slug is a
-// React SPA route — the SPA fetches /api/public/notes/:slug and re-renders
-// via PublishedCanvas + MarkdownRenderView. MarkdownRenderView emits
-// href="/p/:id" (not the materialized href that appears only in the static
-// publishedHtml served by the production server). On the public surface,
-// resolveTarget returns kind:'permalink' for a data-skb-page link, so
-// makeLinkClickHandler calls window.location.assign('/p/:id'), which the
-// Vite dev proxy forwards to the real server's 302 → /notes/:B.slug.
-//
-// The __noreload sentinel does NOT survive this path (it's a real redirect).
-// What we can assert: (a) clicking the link lands on /notes/:B.slug, and
-// (b) B's content is visible. The "client-side, no reload" path for the
-// public surface is the production code path (materialized href in static
-// publishedHtml) and is verified by the unit tests in
-// apps/server/test/materialize-links.test.ts + nav/__tests__/navigateToPage.
+// All-id (MVP-10 §4/§5): /read/:id is the in-Shell public read. A click on an
+// internal /p/:id link resolves (resolveTarget) to /read/:targetId —
+// surface-preserving, CLIENT-SIDE — NOT a 302 escape to the bare /notes/
+// share. So the __noreload sentinel survives (no document reload). This is the
+// regression Q1 flagged (chrome read surface used to escape to bare /notes).
 // ---------------------------------------------------------------------------
-test('public: /notes/:A link to B resolves to /notes/:B (via /p/:id permalink)', async ({
+test('read: internal link stays in /read/:B (no escape to /notes), client-side', async ({
   page,
 }) => {
-  // Admin login is needed to call the API to create pages.
   await loginViaApi(page);
 
-  // Page B: the destination. Must be public+published for /p/:id → 302 to work.
+  // Page B: the destination. public+published so the read surface can serve it.
   const B = await createMarkdownPage(page.request, {
-    title: 'public-nav target B',
+    title: 'read target B',
     themeId: 'graph-paper',
     gravityEnabled: false,
     blocks: [
-      { id: 'pubB1', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 1, content: md('# Public B') },
+      { id: 'rB1', kind: 'markdown', col: 0, row: 0, colSpan: 6, rowSpan: 1, content: md('# Read B') },
     ],
   });
 
-  // Page A: links to B via the /p/:id permalink.
-  // In the SPA render, MarkdownRenderView preserves href="/p/:B.id" and adds data-skb-page.
+  // Page A: links to B via the /p/:id permalink (MarkdownRenderView emits data-skb-page).
   const A = await createMarkdownPage(page.request, {
-    title: 'public-nav source A',
+    title: 'read source A',
     themeId: 'graph-paper',
     gravityEnabled: false,
     blocks: [
       {
-        id: 'pubA1',
+        id: 'rA1',
         kind: 'markdown',
         col: 0,
         row: 0,
         colSpan: 6,
         rowSpan: 1,
-        content: md(`[go to public B](/p/${B.id})`),
+        content: md(`[go to B](/p/${B.id})`),
       },
     ],
   });
 
-  // Visit the published public page of A (SPA route via Vite).
-  await page.goto(`/notes/${A.slug}`);
+  // Visit the in-Shell read surface of A, addressed by id.
+  await page.goto(`/read/${A.id}`);
   await expect(page.locator('.skb-md')).toBeVisible();
 
-  // The SPA render emits data-skb-page on the link.
   const link = page.locator(`a[data-skb-page="${B.id}"]`).first();
   await expect(link).toBeVisible();
 
-  // Clicking routes through window.location.assign('/p/:B.id') → Vite proxies to
-  // server → 302 → /notes/:B.slug. Allow navigation to happen.
+  // Sentinel: survives client-side navigation, dies on a full document reload.
+  await page.evaluate(() => { (window as unknown as Record<string, unknown>)['__noreload'] = 1; });
   await link.click();
 
-  // Final URL must be /notes/:B.slug (the public surface, not the editor).
-  await expect(page).toHaveURL(`/notes/${B.slug}`);
+  // Stays in the read surface, addressed by id — not /notes/, not /edit/.
+  await expect(page).toHaveURL(`/read/${B.id}`);
+
+  // Sentinel survived → client-side nav, no 302/reload.
+  const sentinel = await page.evaluate(() => (window as unknown as Record<string, unknown>)['__noreload']);
+  expect(sentinel).toBe(1);
 
   // B's content is rendered on arrival.
-  await expect(page.locator('.skb-md').filter({ hasText: 'Public B' })).toBeVisible();
+  await expect(page.locator('.skb-md').filter({ hasText: 'Read B' })).toBeVisible();
 
-  // Surface invariant: the public route never shows the editor chrome.
+  // Surface invariant: the read route never shows the editor chrome.
   await expect(page.locator('input[aria-label="Notepage title"]')).toHaveCount(0);
 });
