@@ -3,7 +3,7 @@ import { createMarkdownPage, loginViaApi, md } from './fixtures/login';
 
 test('published follow block clips (overflow:hidden); fix block scrolls (auto)', async ({ page }) => {
   await loginViaApi(page);
-  const { slug } = await createMarkdownPage(page.request, {
+  const { id } = await createMarkdownPage(page.request, {
     title: 'autofit publish clip',
     themeId: 'graph-paper',
     blocks: [
@@ -12,8 +12,8 @@ test('published follow block clips (overflow:hidden); fix block scrolls (auto)',
     ],
   });
 
-  // The clean public share route (standalone, no shell).
-  await page.goto(`/notes/${slug}`);
+  // The clean public share route (standalone, no shell). All-id (MVP-10): by id.
+  await page.goto(`/notes/${id}`);
 
   // Published markup is read-only (no editor-only data-block-id). The host
   // BlockFrameCore renders the overflow-owning content box as

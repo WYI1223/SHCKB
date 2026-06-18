@@ -38,7 +38,8 @@ export type E2EBlock = {
 
 /** Build a page the honest way (mirrors seed-examples createPage):
  * create → PUT working-state → theme → publish → public. Returns the
- * page id (for /edit/:id) and slug (for /notes/:slug). gravityEnabled
+ * page id (all surfaces are by id under all-id: /edit/:id, /notes/:id) plus the
+ * slug (latent alias still returned by publish; not used in URLs). gravityEnabled
  * defaults ON (the autofit commit-compaction rule). */
 export async function createMarkdownPage(
   request: APIRequestContext,
