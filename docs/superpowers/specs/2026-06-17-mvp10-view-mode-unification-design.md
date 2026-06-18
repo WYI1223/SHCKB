@@ -278,3 +278,33 @@ type LinkRef = { pageId: string; blockId?: string };
 ### 12.4 测试
 - 单元（承 §10 纯函数风格）：`authorSurfaceOf`（edit/view→各自，read/note/other→edit）、`currentId` 导出。
 - e2e（真浏览器，承 §10 ④ 教训：只有真浏览器抓 DOM 导航）：登录 → `/edit/A` → 点 chrome「preview」→ `/view/A`；点 sidebar B → **停 `/view/B`**（守 preview）；点「edit」→ `/edit/B`。
+
+---
+
+## 13. 收尾增补②（2026-06-18）：登录态「以访客预览」+ 底部账户区
+
+> 承上一问「登录用户怎么看 read 界面」。owner 裁定本轮补（MVP-11 要扛搜索/AI，不再塞）。形状（AskUserQuestion 终裁）：**单独「以访客预览」入口**（非三态切换），住在新的**底部悬浮账户区**（③ 也本轮做）。
+
+### 13.1 使能：侧栏目录按 surface 取（终裁 §11.1）
+今 [`Shell.tsx`](../../../apps/web/src/shell/Shell.tsx) `me ? authorTree : publicTree`、[`Sidebar.tsx`](../../../apps/web/src/shell/Sidebar.tsx) 据此渲染。改成**按当前 surface 取**：
+- `edit`/`view`/`other`（作者面）→ 作者目录（edit/view 行，随 mode）。
+- `read`/`note`（公开面）→ **public-tree 投影**（只已发布页、行走 `/read/:id`），**即使登录**。
+
+故登录态进 read 即得整库浏览（点侧栏停在 read）。**§11.1 本轮终裁 = 登录作者进公开面看「访客真正的库」（public 投影），非作者全鞋柜。** Shell 给登录用户也拉一份 public tree（多一次轻请求，只含已发布投影）。纯函数 `chromeAudience(pathname, isLoggedIn): 'author' | 'public'` 单测。
+
+### 13.2 底部悬浮账户区（③）
+sign in/out 从侧栏头（[`Sidebar.tsx`] shop-sign 行）移到**底部 sticky 块**（flex-none，常驻不随页列滚动；同现有 settings 块的位置语义）。账户区内容按 auth × surface：
+- **匿名**：`sign in`。
+- **登录·作者面**：身份（email）+ `sign out` + **`以访客预览`** 入口。
+- **登录·公开面**（read/note，即正在访客预览）：身份 + `sign out` + **`退出预览 → /edit/:id`**（公开侧栏没有 edit 链，退出唯靠这里）。
+
+admin 的 settings 入口并入账户区（顺手）。
+
+### 13.3 入口/出口与作者控件让位
+- **「以访客预览」目标**：当前页若 published+public → `/read/:currentId`；否则 → public tree 第一篇已发布页的 `/read`；都没有 → 禁用（提示「还没有已发布页」）。未发布页不送进 read（会 404）。
+- **read/note·登录态**：**隐藏 edit/preview 切换**（那是作者面控件），改显「退出预览」。回 edit/view 唯一途径 = 账户区退出（→ `/edit/:id`）。
+- 注：真·像素级访客视角仍是退出登录 / 无痕窗（公开侧栏零作者 chrome）；本入口是**带逃生门的应用内预览**。
+
+### 13.4 测试
+- 单元：`chromeAudience`（作者面→author；read/note→public；匿名→public）；「以访客预览」目标选择（当前页 published / 否则首篇已发布 / 空则禁用）。
+- e2e（真浏览器）：登录 → 账户区「以访客预览」→ 落 `/read/:id`、侧栏=已发布页列表、点另一页**停 `/read`**、无编辑器 chrome；账户区「退出预览」→ 回 `/edit/:id`。
