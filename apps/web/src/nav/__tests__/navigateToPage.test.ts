@@ -1,7 +1,15 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
 import type React from 'react';
-import { authorSurfaceOf, currentId, makeLinkClickHandler, resolveTarget, surfaceOf } from '../useNavigateToPage';
+import {
+  authorSurfaceOf,
+  chromeAudience,
+  currentId,
+  makeLinkClickHandler,
+  resolveTarget,
+  surfaceOf,
+  viewAsVisitorTarget,
+} from '../useNavigateToPage';
 
 describe('surfaceOf', () => {
   test.each([
@@ -24,6 +32,32 @@ describe('currentId', () => {
   test('extracts the id segment', () => expect(currentId('/edit/A')).toBe('A'));
   test('decodes percent-encoding', () => expect(currentId('/view/p%2Fx')).toBe('p/x'));
   test('empty on a non-page route', () => expect(currentId('/')).toBe(''));
+});
+
+describe('chromeAudience (sidebar directory projection)', () => {
+  // A logged-in author sees their authoring rack on author surfaces, but the
+  // visitor's public directory on the public surfaces (read/note) — spec §13.1.
+  test.each([
+    ['/edit/A', true, 'author'],
+    ['/view/A', true, 'author'],
+    ['/', true, 'author'],
+    ['/read/A', true, 'public'],
+    ['/notes/A', true, 'public'],
+    ['/edit/A', false, 'public'],
+    ['/read/A', false, 'public'],
+  ] as const)('%s loggedIn=%s -> %s', (path, isLoggedIn, expected) =>
+    expect(chromeAudience(path, isLoggedIn)).toBe(expected));
+});
+
+describe('viewAsVisitorTarget', () => {
+  test('current page when it is published', () =>
+    expect(viewAsVisitorTarget('B', ['A', 'B', 'C'])).toBe('B'));
+  test('falls back to first published when current is not published', () =>
+    expect(viewAsVisitorTarget('X', ['A', 'B'])).toBe('A'));
+  test('null (disabled) when nothing is published', () =>
+    expect(viewAsVisitorTarget('X', [])).toBeNull());
+  test('null when current is empty and nothing published', () =>
+    expect(viewAsVisitorTarget('', [])).toBeNull());
 });
 
 describe('resolveTarget (all-id, surface-preserving)', () => {

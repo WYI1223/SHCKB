@@ -36,6 +36,26 @@ export function currentId(pathname: string): string {
   return decodeURIComponent(pathname.split('/')[2] ?? '');
 }
 
+/** Which directory the sidebar shows (spec §13.1). A logged-out visitor always
+ * sees the public directory. A logged-in author sees their authoring rack on
+ * author surfaces (edit/view/other) but the visitor's public directory on the
+ * public surfaces (read/note) — so browsing /read while logged in faithfully
+ * shows what visitors see, settling spec §11.1. */
+export function chromeAudience(pathname: string, isLoggedIn: boolean): 'author' | 'public' {
+  if (!isLoggedIn) return 'public';
+  const s = surfaceOf(pathname);
+  return s === 'read' || s === 'note' ? 'public' : 'author';
+}
+
+/** Where "view as visitor" lands (spec §13.3): the current page if it is
+ * published (present in the public projection), else the first published page,
+ * else null = the entry is disabled (nothing is published, so there is no
+ * visitor view to enter). */
+export function viewAsVisitorTarget(currentPageId: string, publishedIds: string[]): string | null {
+  if (currentPageId && publishedIds.includes(currentPageId)) return currentPageId;
+  return publishedIds[0] ?? null;
+}
+
 export type NavAction =
   | { kind: 'navigate'; to: string }
   | { kind: 'scroll'; blockId: string };
