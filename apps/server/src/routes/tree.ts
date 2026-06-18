@@ -151,6 +151,7 @@ export function treeRoutes(db: Db) {
     const publishedPages = ps
       .filter((p) => p.publishedDoc !== null)
       .map((p) => ({
+        id: p.id,
         slug: p.slug,
         // corrupt snapshot: fall back to the working title rather than
         // dropping the page from the public tree (HTML route still serves it)

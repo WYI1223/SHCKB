@@ -142,47 +142,47 @@ describe('notepage crud + working state', () => {
 
 describe('two-state publish + public read', () => {
   test('publish snapshots working state; public route gated on visibility', async () => {
-    const { id, slug } = await createPage('Pub');
+    const { id } = await createPage('Pub');
     await putWorking(id, { title: 'Pub', gravityEnabled: true, blocks: [mdBlock('b1', 0, 'published text')] });
 
     // private + unpublished → 404 (anonymous request)
-    expect((await t.app.request(`/api/public/notes/${slug}`)).status).toBe(404);
+    expect((await t.app.request(`/api/public/notes/${id}`)).status).toBe(404);
 
     // publish but still private → still 404
     expect((await t.authed(`/api/notepages/${id}/publish`, { method: 'POST' })).status).toBe(200);
-    expect((await t.app.request(`/api/public/notes/${slug}`)).status).toBe(404);
+    expect((await t.app.request(`/api/public/notes/${id}`)).status).toBe(404);
 
     // public + published → 200 with snapshot
     await setVisibility(id, 'public');
-    const pub = await json(await t.app.request(`/api/public/notes/${slug}`));
+    const pub = await json(await t.app.request(`/api/public/notes/${id}`));
     expect(pub.doc.blocks[0].content).toEqual({ markdown: 'published text' });
   });
 
   test('working edits invisible to readers until re-publish', async () => {
-    const { id, slug } = await createPage('Two State');
+    const { id } = await createPage('Two State');
     await putWorking(id, { title: 'Two State', gravityEnabled: true, blocks: [mdBlock('b1', 0, 'v1')] });
     await t.authed(`/api/notepages/${id}/publish`, { method: 'POST' });
     await setVisibility(id, 'public');
 
     await putWorking(id, { title: 'Two State', gravityEnabled: true, blocks: [mdBlock('b1', 0, 'v2 working')] });
 
-    let pub = await json(await t.app.request(`/api/public/notes/${slug}`));
+    let pub = await json(await t.app.request(`/api/public/notes/${id}`));
     expect(pub.doc.blocks[0].content).toEqual({ markdown: 'v1' });
 
     await t.authed(`/api/notepages/${id}/publish`, { method: 'POST' });
-    pub = await json(await t.app.request(`/api/public/notes/${slug}`));
+    pub = await json(await t.app.request(`/api/public/notes/${id}`));
     expect(pub.doc.blocks[0].content).toEqual({ markdown: 'v2 working' });
   });
 
-  test('no-leak: missing, private, and unpublished slugs return identical 404 bodies', async () => {
+  test('no-leak: missing, private, and unpublished ids return identical 404 bodies', async () => {
     const a = await createPage('Private Page');
     await t.authed(`/api/notepages/${a.id}/publish`, { method: 'POST' }); // published but private
     const b = await createPage('Unpublished Page');
     await setVisibility(b.id, 'public'); // public but unpublished
 
     const missing = await t.app.request('/api/public/notes/never-existed');
-    const priv = await t.app.request(`/api/public/notes/${a.slug}`);
-    const unpub = await t.app.request(`/api/public/notes/${b.slug}`);
+    const priv = await t.app.request(`/api/public/notes/${a.id}`);
+    const unpub = await t.app.request(`/api/public/notes/${b.id}`);
     expect(missing.status).toBe(404);
     expect(priv.status).toBe(404);
     expect(unpub.status).toBe(404);

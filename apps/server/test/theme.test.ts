@@ -9,12 +9,12 @@ describe('theme settings', () => {
     const p = await json(await ctx.authed('/api/notepages', { method: 'POST', body: JSON.stringify({ title: 'T' }) }));
     await ctx.authed(`/api/notepages/${p.id}/publish`, { method: 'POST' });
     await ctx.authed(`/api/notepages/${p.id}/visibility`, { method: 'POST', body: JSON.stringify({ visibility: 'public' }) });
-    const before = await (await ctx.app.request('http://localhost/notes/t')).text();
+    const before = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(before).toContain('oklch(98% 0.005 80)'); // graph-paper canvasBg
 
     const res = await ctx.authed('/api/settings/theme', { method: 'PUT', body: JSON.stringify({ theme: 'ink' }) });
     expect((await json(res)).rerendered).toBe(1);
-    const after = await (await ctx.app.request('http://localhost/notes/t')).text();
+    const after = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(after).not.toBe(before);
     expect(after).toContain('background: white'); // ink canvasBg in document shell
 
@@ -29,15 +29,15 @@ describe('theme settings', () => {
 
     const pin = await ctx.authed(`/api/notepages/${p.id}/theme`, { method: 'POST', body: JSON.stringify({ themeId: 'ink' }) });
     expect(pin.status).toBe(200);
-    const pinned = await (await ctx.app.request('http://localhost/notes/pinned')).text();
+    const pinned = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(pinned).toContain('background: white');
 
     await ctx.authed('/api/settings/theme', { method: 'PUT', body: JSON.stringify({ theme: 'graph-paper' }) });
-    const still = await (await ctx.app.request('http://localhost/notes/pinned')).text();
+    const still = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(still).toContain('background: white'); // pin holds
 
     await ctx.authed(`/api/notepages/${p.id}/theme`, { method: 'POST', body: JSON.stringify({ themeId: null }) });
-    const unpinned = await (await ctx.app.request('http://localhost/notes/pinned')).text();
+    const unpinned = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(unpinned).toContain('oklch(98% 0.005 80)');
 
     // unknown pin id rejected
@@ -53,7 +53,7 @@ describe('theme settings', () => {
     await ctx.authed(`/api/notepages/${p.id}/publish`, { method: 'POST' });
     await ctx.authed(`/api/notepages/${p.id}/visibility`, { method: 'POST', body: JSON.stringify({ visibility: 'public' }) });
     await ctx.authed(`/api/notepages/${p.id}/theme`, { method: 'POST', body: JSON.stringify({ themeId: 'ink' }) });
-    const note = await json(await ctx.app.request('http://localhost/api/public/notes/pub'));
+    const note = await json(await ctx.app.request(`http://localhost/api/public/notes/${p.id}`));
     expect(note.theme).toBe('ink');
 
     const detail = await json(await ctx.authed(`/api/notepages/${p.id}`));
@@ -76,7 +76,7 @@ describe('theme customization (MVP-5 M5-D3)', () => {
     const body = await json(res);
     expect(res.status).toBe(200);
     expect(body.rerendered).toBe(1);
-    const warm = await (await ctx.app.request('http://localhost/notes/c')).text();
+    const warm = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(warm).toContain('oklch(98.5% 0.006 80)'); // warm canvasBg
 
     // settings echo + clear restores base tokens
@@ -85,7 +85,7 @@ describe('theme customization (MVP-5 M5-D3)', () => {
       method: 'PUT',
       body: JSON.stringify({ themeId: 'workbench', customization: null }),
     });
-    const base = await (await ctx.app.request('http://localhost/notes/c')).text();
+    const base = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(base).toContain('oklch(98.5% 0.002 260)'); // workbench base canvasBg
   });
 
@@ -131,10 +131,10 @@ describe('theme customization (MVP-5 M5-D3)', () => {
     await ctx.authed(`/api/notepages/${p.id}/theme`, { method: 'POST', body: JSON.stringify({ themeId: 'blueprint' }) });
 
     // pinned page renders blueprint WITH sepia customization
-    const html = await (await ctx.app.request('http://localhost/notes/pinned2')).text();
+    const html = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(html).toContain('oklch(30% 0.035 70)'); // sepia canvasBg
 
-    const note = await json(await ctx.app.request('http://localhost/api/public/notes/pinned2'));
+    const note = await json(await ctx.app.request(`http://localhost/api/public/notes/${p.id}`));
     expect(note.theme).toBe('blueprint');
     expect(note.customization).toEqual({ paletteId: 'sepia' });
 

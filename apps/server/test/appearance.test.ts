@@ -26,9 +26,9 @@ describe('author appearance', () => {
 
     await ctx.authed(`/api/notepages/${p.id}/publish`, { method: 'POST' });
     await ctx.authed(`/api/notepages/${p.id}/visibility`, { method: 'POST', body: JSON.stringify({ visibility: 'public' }) });
-    const note = await json(await ctx.app.request('http://localhost/api/public/notes/s'));
+    const note = await json(await ctx.app.request(`http://localhost/api/public/notes/${p.id}`));
     expect(note.doc.blocks.find((b: { id: string }) => b.id === 'b1').shell).toBe('flat');
-    const html = await (await ctx.app.request('http://localhost/notes/s')).text();
+    const html = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     // Published HTML renders via BlockFrameCore + resolveSkin (legacy data-shell
     // attribute is gone; the skin is applied visually — workbench 'flat' adds
     // skb-block class to the content box, which is the stable CSS hook).
@@ -84,12 +84,12 @@ describe('author appearance', () => {
       body: JSON.stringify({ background: { color: 'oklch(90% 0.05 200)' } }),
     });
     expect(ok.status).toBe(200);
-    const before = await (await ctx.app.request('http://localhost/notes/b')).text();
+    const before = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(before).not.toContain('oklch(90% 0.05 200)');
 
     // publish promotes it
     await ctx.authed(`/api/notepages/${p.id}/publish`, { method: 'POST' });
-    const after = await (await ctx.app.request('http://localhost/notes/b')).text();
+    const after = await (await ctx.app.request(`http://localhost/notes/${p.id}`)).text();
     expect(after).toContain('oklch(90% 0.05 200)');
 
     // clear
