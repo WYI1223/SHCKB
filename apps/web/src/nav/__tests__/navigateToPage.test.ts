@@ -23,14 +23,16 @@ describe('resolveTarget (all-id, surface-preserving)', () => {
     expect(resolveTarget('/', { pageId: 'B' })).toEqual({ kind: 'navigate', to: '/view/B' }));
   test('cross-page block adds #blockId', () =>
     expect(resolveTarget('/read/A', { pageId: 'B', blockId: 'b1' })).toEqual({ kind: 'navigate', to: '/read/B#b1' }));
-  test('same-page block -> pure scroll (any surface, by id)', () =>
+  test('same-page block -> pure scroll (read surface, by id)', () =>
     expect(resolveTarget('/read/A', { pageId: 'A', blockId: 'b1' })).toEqual({ kind: 'scroll', blockId: 'b1' }));
+  test('same-page block -> pure scroll (note surface too)', () =>
+    expect(resolveTarget('/notes/A', { pageId: 'A', blockId: 'b1' })).toEqual({ kind: 'scroll', blockId: 'b1' }));
   test('encodes id + blockId', () =>
     expect(resolveTarget('/edit/A', { pageId: 'p/x', blockId: 'b#1' }))
       .toEqual({ kind: 'navigate', to: '/edit/p%2Fx#b%231' }));
 });
 
-describe('makeLinkClickHandler (single arg, no toPath)', () => {
+describe('makeLinkClickHandler', () => {
   function fakeClick(href: string, attrs: Record<string, string> = {}) {
     const a = document.createElement('a');
     a.setAttribute('href', href);
@@ -63,6 +65,14 @@ describe('makeLinkClickHandler (single arg, no toPath)', () => {
     const h = makeLinkClickHandler((r) => seen.push(r));
     const c = fakeClick('https://example.com');
     h(c.ev);
+    expect(seen).toEqual([]);
+    expect(c.prevented).toBe(false);
+  });
+  test('modified click (new-tab) -> passes through, not intercepted', () => {
+    const seen: any[] = [];
+    const h = makeLinkClickHandler((r) => seen.push(r));
+    const c = fakeClick('/p/B', { 'data-skb-page': 'B' });
+    h({ ...c.ev, metaKey: true });
     expect(seen).toEqual([]);
     expect(c.prevented).toBe(false);
   });
