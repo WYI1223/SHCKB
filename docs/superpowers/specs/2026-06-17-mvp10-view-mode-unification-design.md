@@ -3,13 +3,19 @@
 | Field | Value |
 |---|---|
 | Date | 2026-06-17 |
-| Status | Design — brainstorming 已通过设计框架，待 spec review |
+| Status | Design — **2026-06-18 订正**（落地评审后重定）：4 面 2 轴 + 全 id（SSOT）；待 spec review |
 | Author | 主会话（brainstorming skill 产出） |
 | Supersedes | MVP-10 临时定为「产品内搜索」；本轮重定（见 §1） |
 | Downstream | 新 PRD-informed ADR（routing / identity / mode model）待立；`notepage/notepage-view.md` + `notepage/notepage-editing.md` PRD 待更新 |
 | Consumers (later) | `search-discovery.md`（MVP-11）/ `ai-integration.md`（MVP-11+）—— 搜索结果跳转 + backlink + agent 遍历都消费本轮的导航/链接原语 |
 
 > **Provenance / 交叉校验**：本 spec 由主会话从本 session 的设计讨论综合而成。并行有一个独立 agent 从同一 session 的**原始 transcript**（`29c9e07e-…jsonl`）冷读重建 `docs/engineering/design/discussions/mvp10-scope-2026-06-17.md`（讨论/裁定记录）。两文件刻意独立产出，落地后对照，用来照出本 spec 的盲点。本 spec = **设计**（架构/契约/分期）；那篇 = **讨论记录**（裁定时序/动机）。
+
+> **⚠️ 2026-06-18 订正（落地评审后）** — 原 spec 的「三轴 mode×state×frame → 3 surface（Editor / In-app View / Public）」在实现评审中被 owner 重定。两处关键变化已贯穿下文（§4 / §5 / §8 / §9 / §11 改写；§2 根因诊断保留有效）：
+> 1. **4 面 2 轴**：受众（作者·live / 公开·published）× 范围（整库 / 单页）。作者侧 `edit` + `view`（一体两面，working，by id）；公开侧 `read`（整库外链，Shell + public-tree 浏览）+ `note`（单页外链，bare）。Shell 本就 auth-aware，故这是给现有路由**正名**、非新建。
+> 2. **全 id 作 SSOT**：四面 URL 一律 by id；slug 退出 URL（alias 留作以后）。id 不变 → 比 title-派生的 slug 更 rename-safe；解析器塌成「同面 + 同 id」；**发布期 slug-物化（4 写点）随之退役**。
+>
+> 触发 = 运行 e2e 抓到真 bug（块帧 `stopPropagation` 吞掉委托点击，已修 `841a39b`）+ owner 两问（Q1 `/read/`→`/notes/` 逃逸；Q2 同页块链创作）。裁定时序见并行重建的 `discussions/mvp10-scope-2026-06-17.md`（M10-D11..D16）。
 
 ---
 
@@ -62,36 +68,37 @@
 
 ## 3. 决策：MVP-10 = 视图模式统一 + 一等链接
 
-把上面三轴收敛成一个**正交、可继承**的 surface 模型；把链接从 richtext 的一个 mark 升成**一等、跨 kind 的能力**；所有跳转（正文链 / backlink / 搜索结果）走**一个客户端导航原语**。
+把上面三轴收敛成一个**正交、可继承**的 surface 模型（**订正后 = §4 的 2 轴 4 面 + 全 id**）；把链接从 richtext 的一个 mark 升成**一等、跨 kind 的能力**；所有跳转（正文链 / backlink / 搜索结果）走**一个客户端导航原语**。
 
 ---
 
-## 4. Surface 模型
+## 4. Surface 模型（2026-06-18 订正：4 面 2 轴 + 全 id）
 
-### 4.1 三正交轴
-- **mode**：`edit`（改）| `read`（看）
-- **state**：`working`（草稿）| `published`（发布快照）
-- **frame**：`in-app`（带 chrome / Shell）| `bare`（独立无 chrome）
+> 取代旧的「三轴 mode×state×frame → 3 surface」。旧三轴把「哪种 chrome」和「哪种内容」揉在一起；下面两根正交轴把它们拆开，落到 4 个面。
 
-8 格大多无意义（edit+published、edit+bare 不成立）。**真实 3 个 surface**：
+### 4.1 两根正交轴
+- **受众 / 内容**：作者·**live**（working 草稿）｜ 公开·**published**（发布快照）。
+- **范围（仅公开侧分）**：**整库**（要 chrome 浏览目录）｜ **单页**（bare 分享件）。
 
-| Surface | mode | state | frame | 标识 | 路由（提案，最终在 plan 定） |
+### 4.2 四个 surface（全 by id）
+
+| Surface | 受众 | state | 范围 / chrome | 标识 | 路由 |
 |---|---|---|---|---|---|
-| **Editor** | edit | working | in-app | **id** | `/edit/:id`（沿用） |
-| **In-app View** | read | working ⇄ published（可切） | in-app | **id** | `/view/:id`（取代 `/read/:slug`） |
-| **Public**（分享件） | read | published | bare | **slug** | `/notes/:slug`（沿用） |
+| **edit** | 作者 | working | in-Shell | **id** | `/edit/:id` |
+| **view** | 作者 | working | in-Shell | **id** | `/view/:id` |
+| **read** | 公开 / 匿名 | published | 整库 · in-Shell（public-tree 侧栏） | **id** | `/read/:id`（旧为 `:slug`） |
+| **note** | 公开 / 匿名 | published | 单页 · bare | **id** | `/notes/:id`（旧为 `:slug`） |
 
-### 4.2 关键收敛
-- **Editor 与 In-app View = 同一页（by id）的两个 mode**，原地 toggle——兑现历史那条已漂移的「一个 URL 跨 edit/view」notepage 不变量，但对 state 诚实：In-app View 自带 **working⇄published 档**。
-  - 作者在 In-app View 的**默认档 = working**（= 补上「像读者一样看我的草稿」的草稿预览）；可切到 published 看「读者现在看到的发布版」。
-- **「有 chrome 的发布页」= In-app View 的 published 档**；**「没 chrome 的发布页」= Public**。chrome 与否 = 你在工作区内 vs 在看一个独立分享件。
-- **`/p/:id` 保留**，但**仅作对外/公开永链**（服务器 302 → `/notes/:slug`，给站外分享/嵌入/外部引用用）。**内部导航不再走它**（走 §5 的客户端原语）。
+### 4.3 关键收敛
+- **edit ⇄ view = 一体两面**：同一页（by id）、working 草稿、编辑 / 预览两 mode，原地 toggle。兑现历史那条「一个页面跨 edit/view」不变量。view = 作者草稿只读预览（补上「像读者一样看我的草稿」）。
+- **read = 整库外链；note = 单页外链**。[`Shell.tsx`](../../../apps/web/src/shell/Shell.tsx) L8-10 / L65-75 本就 **auth-aware**：匿名访客拿 `getPublicTree()`（只含 public+published 投影，[`tree.ts`](../../../apps/server/src/routes/tree.ts) L147），登录作者拿全目录。故 `/read/` 本来就是「浏览整个已发布库」。read / note 都是 published，**区别只在范围**（库要 chrome 浏览 / 单页 bare）→ chrome 有无随范围。**这是给现有路由正名，不是新建 surface。**
+- **全 id 作 SSOT**：四面 URL 一律 **by id**。slug 退出 URL（以后按需作 cosmetic alias：id 为准、slug 302→id）。
+  - **为什么 id 而非 slug**（订正旧 §4.3「Public by slug」的理由）：slug 由标题派生 → 改名即变 → 链接腐烂；id 不变 → 永不腐烂。**id 比 slug 更 rename-safe**，且不泄露标题（no-leak）。
+- **`/p/:id` = 正文里的规范链接串**（surface-neutral，只标识页 / 块）。点击 → handler 按当前面跳 `/<surface>/:id`；无 JS → 服务器 302（默认落 `/notes/:id`，按 visibility 决定 404）。**内部导航不再依赖 slug 物化。**
 
-### 4.3 标识分法（解决 §2.3 后果 2）
-- **app surface（Editor / In-app View）一律 by id**：稳定、不会撞、**永不对草稿 404**。作者/在应用内可达整张链接图，含草稿。
-- **Public by slug**：可读 / SEO；改名走 `/p/:id`→slug 桥；对外未发布 = **正当 404**（对公众，草稿本就不该可达）。
-
-> 匿名在应用内浏览（anonymous in-app read）走 public-tree 暴露的 id（`/view/:id` 的 published 档）；具体 id 可达性在 plan 核（public projection 是否带 id）。
+### 4.4 可达性（解决 §2.3 后果 2）
+- **作者侧（edit / view）by id**：稳定、不撞、**永不对草稿 404**；作者在应用内可达整张链接图（含草稿）。
+- **公开侧（read / note）by id + published 闸门**：`/read/:id`、`/notes/:id` 只服务 public+published；未发布 / 私有 → **正当 404**（对公众，草稿本不该可达）。read 的 public-tree 侧栏只列已发布页。
 
 ---
 
@@ -105,17 +112,20 @@
 navigateToPage(ref: LinkRef): void;
 ```
 
-web host 实现：读**当前 surface**（从路由/上下文）→ 把目标解析到**同一 surface**，用 React Router `navigate` 客户端跳转，落地后按 `blockId` 滚动/高亮。
+web host 实现：读**当前 surface**（从路由）→ 目标解析到**同一 surface 的同一 id**，用 React Router `navigate` 客户端跳转，落地后按 `blockId` 滚动 / 高亮。
+
+**全 id 之后解析器是 trivial 的** —— `resolveTarget(当前 surface, {pageId})` = `/<同一 surface>/:pageId`：
 
 | 当前 surface | `navigateToPage({pageId:B})` | 带 `blockId` 时 |
 |---|---|---|
-| Editor `/edit/:id` | `/edit/B`（同 = edit/working） | 落地后滚到块 |
-| In-app View `/view/:id` | `/view/B`（继承 working/published 档） | 落地后滚到块 |
-| Public `/notes/:slug` | 解析 B→slug → `/notes/:Bslug`（未发布=404，对公众正当） | 同上，块须在发布快照里 |
+| edit `/edit/:id` | `/edit/B` | 落地滚到块 |
+| view `/view/:id` | `/view/B` | 落地滚到块 |
+| read `/read/:id` | `/read/B`（**留在整库浏览，不逃到 note**） | 落地滚到块（块须在发布快照里） |
+| note `/notes/:id` | `/notes/B`（留在单页 bare） | 同上 |
 
-**模式/状态整组继承**（owner 核心要求）：Editor-A→Editor-B、Public-A→Public-B、In-app-View(published)-A→同档-B。
+**整组守面继承**（owner 核心要求）：edit→edit、view→view、**read→read、note→note**。**Q1 的 `/read/`→`/notes/` 逃逸由此结构性消失。**
 
-> **Public→Public 的 id→slug**：发布是渲染步骤，可在 **publish 时把链接物化成 `/notes/:slug`**（那时 id→slug 已知），使公开页内跳转也走 client-side；`/p/:id` 302 保留为外部/过期链接的 fallback（接受整页跳）。app surface 无此问题（一律 by id）。
+> **发布期 slug-物化退役**：旧 §5.1 注靠 publish 时把 `/p/:id`→`/notes/:slug` 物化（4 写点 + `publicIdToSlug`），只因公开面用 slug 且无客户端 id→slug 映射。**全 id 后不再需要**：正文保持 `/p/:id`，handler 按面跳 `/<surface>/:id`，无 JS 时服务器 302。MVP-10 已落的 `materializeInternalLinks` / `publicIdToSlug` / 4 写点 → **移除**。（导出 / 导入的链接完整性是另一回事 = import 时 id 重映射，见 §7。）
 
 ### 5.2 实现形状：委托点击处理器
 渲染出来的链接（markdown/richtext/任何 kind）只需带统一标记（`data-skb-page` / 可选 `data-skb-block`）。画布层一个**委托点击处理器**认这些标记 → `preventDefault()` → `navigateToPage(ref)`。kind **不必各自接线**；只有**程序化跳转**（如搜索结果、backlink 列表项）才直接调 `navigateToPage`。
@@ -180,12 +190,14 @@ type LinkRef = { pageId: string; blockId?: string };
 ## 8. 范围（In / Out / Deferred 寄存器）
 
 ### 8.1 MVP-10 做（In）
-- Surface 模型落地：Editor / In-app View（working⇄published 档）/ Public；app=id、public=slug 路由收敛；`/read/:slug` 退役并入 `/view/:id`；`/p/:id` 保留为对外永链。
-- `navigateToPage(LinkRef)` 客户端原语 + 委托点击处理器 + 两条不变量 + 三种链接情况（含同页/跨页块跳）。
-- 位置层（scroll + 激活块的 stash/restore，hook 预留）。
-- 链接一等能力的缝 ①（`links()` 抽取，markdown + richtext 实现）+ 缝 ②（导航）；缝 ③ **签名占位**。
+- **4-surface 模型落地（全 id）**：edit / view（作者·live）+ read（整库公开，复用 Shell public-tree）+ note（单页公开，bare）；四面 URL **一律 by id**；`/read/:slug`→`/read/:id`、`/notes/:slug`→`/notes/:id`；slug 退出 URL。
+- **`navigateToPage(LinkRef)` 客户端原语**（守面、trivial 解析）+ 委托点击处理器 + 两条不变量 + 三种链接情况（含同页 / 跨页块跳）。**Q1 修复**：read→read（不逃 note）。
+- **发布期 slug-物化移除**（`materializeInternalLinks` / `publicIdToSlug` / 4 写点）——全 id 后冗余。
+- 位置层（scroll + 激活块的 stash / restore，hook 预留）。
+- 链接一等能力的缝 ①（`links()` 抽取，markdown + richtext）+ 缝 ②（导航）；缝 ③ **签名占位**。
 - `pagelink` mark 加 `blockId?`；`PublishedCanvas` 补块锚。
-- 草稿预览（In-app View 的 working 档）。
+- 草稿预览（view = 作者 working 只读）。
+- **Q2 小修**：「复制块链」改成复制 `/p/:id#blockId` **路径**（现复制全 URL，markdown 解析器只认路径）。
 
 ### 8.2 MVP-10 不做（Out → 后续轮）
 - **缝 ③ 实现**：搜索驱动的通用 `pickLinkTarget()` → **MVP-11**（依赖搜索）。MVP-10 只留最小创作口：「右键块 → 复制块链」（复用画布已有右键菜单）+ 沿用 M9 page-picker。
@@ -201,12 +213,13 @@ type LinkRef = { pageId: string; blockId?: string };
 | agent 按链接遍历（`resolveLink(ref)→content`；`page_links` 边表 = agent 链接图索引） | accommodated（thin layer on 缝①+导航） | MVP-11 AI |
 | canvas block 的链接（缝① 表达） | accommodated（契约不变） | 真 canvas block 落地时 |
 | wikilink（`[[page]]`）markdown 语法糖 | deferred（ergonomic 增强） | 按需 |
+| **公开 URL 的 slug alias**（id 为准、slug 302→id，给外链好看 / SEO） | deferred（全 id 已满足正确性，prettiness 后置） | 外链美观 / SEO 成需求时 |
 
 ---
 
 ## 9. PRD / ADR 账（PRD 先行、ADR 下游）
 
-- **新 PRD-informed ADR**：routing / identity / mode model —— surface 模型（3 轴/3 面）、app=id·public=slug 标识分法、`navigateToPage` 客户端导航不变量、`LinkRef` + 三缝、`/p/:id` 收窄为对外永链、link 完整性的 remap 债 + trigger。取下一个空编号（ADR-0031 候选，落地时确认）。按 deprecation gate，不复用旧 ADR-0001..0018。
+- **新 PRD-informed ADR**：routing / identity / mode model —— **4-surface 2-轴模型（受众×范围）**、**全 id 作 SSOT**（slug 退出 URL、alias 后置）、`navigateToPage` 守面客户端导航不变量、`LinkRef` + 三缝、`/p/:id` 收窄为 surface-neutral 正文链接、**slug-物化移除**、link 完整性的 remap 债 + trigger。取下一个空编号（ADR-0031 候选，落地时确认）。按 deprecation gate，不复用旧 ADR-0001..0018。
 - **更新 PRD**：`notepage/notepage-view.md` + `notepage/notepage-editing.md` —— user-observable 的 mode 模型（edit/read 同页 toggle + working/published 档 + 草稿预览 + 链接跳转保持 mode）。这条「一个 URL 跨 edit/view」不变量已在实现中漂移；本轮要么让代码回归 PRD、要么显式更新 PRD——倾向：**更新 PRD 承认三 surface 模型**（比旧的二态 toggle 更准）。
 - AUDIT 寄存器：surfaced debts（link remap）喂回 `docs/engineering/decisions/AUDIT-2026-05.md`。
 
@@ -216,7 +229,7 @@ type LinkRef = { pageId: string; blockId?: string };
 
 - **单元**：`links(content)` 抽取（markdown href 解析 / richtext pagelink+blockId → LinkRef）；`navigateToPage` 的 surface→目标解析表（§5.1 三行 × blockId 有无）；同页块链 = 纯滚动不导航的判定。
 - **集成（server）**：`/p/:id` 仍 302（对外永链不回归）；`/view/:id` 取数（working/published 档）；草稿在 app surface 可达（by id，不 404）、在 public 正当 404。
-- **e2e（Playwright，真浏览器）**：① 编辑器内点页链 → **停在编辑态**跳到目标页编辑态、**无整页重载**（断言 Shell/sidebar 未重挂——可探针某个 chrome 节点的身份/计时）；② 跨页块链 → 落地滚到目标块 + 高亮；③ 同页块链 → 纯滚动；④ Public 页内链 → Public-to-Public；⑤ 浏览位置回退还原。
+- **e2e（Playwright，真浏览器）**：① 编辑器内点页链 → **停在编辑态**跳到目标页编辑态、**无整页重载**（断言 Shell/sidebar 未重挂——可探针某个 chrome 节点的身份/计时）；② 跨页块链 → 落地滚到目标块 + 高亮；③ 同页块链 → 纯滚动；④ **read 页内链 → 留在 read（整库浏览，不逃 note）**、note 页内链 → 留在 note；⑤ 浏览位置回退还原。
   - 真浏览器坑预案（mvp8 记录）：链接在 contentEditable 内的点击默认行为、focus/可见性时序、测试需手动 `afterEach(cleanup)`。
 - **导出/导入**：round-trip 后内部 `pageId#blockId` 链接仍解析（守住 §7 完整性）。
 
@@ -224,19 +237,20 @@ type LinkRef = { pageId: string; blockId?: string };
 
 ## 11. Open questions（plan 阶段定）
 
-1. **路由串最终形**：`/view/:id` vs 在一个路由里用 mode toggle；working/published 档用 query（`?rev=working|published`）还是路由段。
-2. **In-app View 默认档**：作者默认 working（草稿预览）已定；匿名在应用内读的 id 可达性（public projection 是否带 id）待核。
-3. **block 链 authoring 在 MVP-10 的量**：建议只「右键块→复制块链」最小口，picker 级深选随 MVP-11 搜索；待 owner 在 plan 终确认。
-4. **位置层深度**：scroll+激活块（建议）vs 仅 scroll vs 精确像素恢复。
-5. **`/read/:slug` 退役的迁移**：是否保留 301 兼容旧链接。
+1. **登录作者打开 `/read/:id` / `/notes/:id` 看哪份目录**：现状给作者完整侧栏；按「read / note = 公开外链」的定性，倾向**永远走 public-tree 投影**（作者也见访客真正看到的库）——owner 未终裁，plan 定。
+2. **匿名 read 的 id 可达性**：public projection 须暴露 id（`/read/:id` 取数）；plan 核 public tree 是否带 id（很可能已带，否则小加）。
+3. **block 链 authoring 在 MVP-10 的量**：只「右键块 → 复制块链（路径形）」最小口，picker 级深选随 MVP-11 搜索；plan 终确认。
+4. **位置层深度**：scroll + 激活块（建议）vs 仅 scroll vs 精确像素恢复。
+5. **旧 slug URL 迁移**：`/read/:slug`、`/notes/:slug` 已发出去的链接是否保留 301→`:id`（dev 库无所谓；真部署再定）。
+6. **view 命名**：owner 已定**留 `view`**（不改 preview）。
 
 ---
 
 ## 附：受影响文件清单（plan 用）
 
-- web 路由/壳：`apps/web/src/main.tsx`、`shell/Shell.tsx`、`pages/EditorPage.tsx`、`pages/ReadPage.tsx`（→ 拆为 In-app View / Public）、`grid/GridCanvas.tsx`（委托点击处理器 + 块锚）。
+- web 路由/壳：`apps/web/src/main.tsx`（四面路由全 by id）、`shell/Shell.tsx`、`pages/EditorPage.tsx`、`pages/InAppView.tsx`（view）、`pages/ReadPage.tsx`（read + note，按 `surfaceOf` 守面）、`nav/useNavigateToPage.ts`（`surfaceOf` / `resolveTarget` 重分类）、`grid/GridCanvas.tsx`（委托点击处理器 + 块锚 + 复制块链路径形）。
 - 契约：`packages/block-kinds/src/types.ts`（`HostServices.navigateToPage`/`pickLinkTarget`、`BlockKindModule.links`）。
 - richtext：`schema.ts`（pagelink +blockId）、`richtext.ts`（`linkedPageIds`→`links`）、`RichtextRenderView.tsx`（标记输出）。
 - markdown kind：`links()` 实现（解析 `/p/:id` href）。
-- server：`apps/server/src/routes/notepages.ts`（`/p/:id` 保留对外；新增 `/view` 取数所需端点如缺）、`PublishedCanvas` 块锚。
+- server：`apps/server/src/routes/notepages.ts`（`/p/:id` 收为 surface-neutral；公开取数按 **id**）、**`render/publish-html.ts` / `settings.ts`(rerenderAllPublished) / `export/importer.ts`：移除 `materializeInternalLinks` / `publicIdToSlug` 及 4 写点**、`PublishedCanvas` 块锚。
 - 渲染对齐：`packages/block-kinds` 的 `PublishedCanvas`（块锚 data attr）。
