@@ -92,7 +92,7 @@ export type TreePage = {
   folderId: string | null;
   sortKey: number;
 };
-export type PublicTreePage = { slug: string; title: string; folderId: string | null; sortKey: number };
+export type PublicTreePage = { id: string; slug: string; title: string; folderId: string | null; sortKey: number };
 
 export async function uploadBlob(file: File): Promise<{ hash: string; size: number; mimeType: string }> {
   const res = await fetch('/api/blobs', {
@@ -139,7 +139,7 @@ export const api = {
   signOut: () => request<unknown>('/api/auth/sign-out', { method: 'POST', body: '{}' }),
   me: () => request<{ user: Me | null }>('/api/me'),
   listPublicNotes: () =>
-    request<{ notes: Array<{ slug: string; title: string; publishedAt: number }> }>(
+    request<{ notes: Array<{ id: string; slug: string; title: string; publishedAt: number }> }>(
       '/api/public/notes',
     ),
   listNotepages: () => request<{ notepages: NotepageSummary[] }>('/api/notepages'),
@@ -182,9 +182,9 @@ export const api = {
     }),
   deleteNotepage: (id: string) =>
     request<{ ok: true }>(`/api/notepages/${id}`, { method: 'DELETE' }),
-  getPublicNote: (slug: string) =>
-    request<{ slug: string; theme: string; customization: ThemeCustomization | null; doc: PublishedDoc }>(
-      `/api/public/notes/${slug}`,
+  getPublicNote: (id: string) =>
+    request<{ id: string; slug: string; theme: string; customization: ThemeCustomization | null; doc: PublishedDoc }>(
+      `/api/public/notes/${encodeURIComponent(id)}`,
     ),
   getSettings: () =>
     request<{ theme: string; customizations: Record<string, ThemeCustomization> }>('/api/settings'),

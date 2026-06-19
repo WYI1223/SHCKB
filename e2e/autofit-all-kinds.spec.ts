@@ -54,8 +54,10 @@ test('follow toggle: present for code, absent for image', async ({ page }) => {
   await expect(page.getByRole('menuitemcheckbox', { name: /fixed height/i })).toBeVisible();
   await page.keyboard.press('Escape');
 
-  // image → fix-only (canFollow:false) → menu opens (edit item present) but no toggle
+  // image → fix-only (canFollow:false) → menu opens (edit item present) but no toggle.
+  // Target the menu item by role: a bare getByText('edit') would also match the
+  // sidebar's edit/preview mode toggle (MVP-10 spec §12), which is always mounted.
   await page.locator(sel.block('I')).click({ button: 'right' });
-  await expect(page.getByText('edit', { exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'edit' })).toBeVisible();
   await expect(page.getByRole('menuitemcheckbox', { name: /fixed height/i })).toHaveCount(0);
 });

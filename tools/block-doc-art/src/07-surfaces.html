@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .head { display: flex; flex-direction: column; gap: 10px; }
+    .head .legend { justify-content: flex-start; }
+
+    /* 2-column author | public layout */
+    .axes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+    .axis-col { display: flex; flex-direction: column; gap: 10px; }
+    .axis-hdr { font-size: 12.5px; font-weight: 700; padding: 6px 12px; border-radius: 8px; text-align: center; }
+    .axis-hdr.auth { background: var(--host-soft); color: #0c5650; border: 1.5px solid var(--host); }
+    .axis-hdr.pub  { background: var(--canv-soft); color: #33415c; border: 1.5px solid var(--canv); }
+
+    .surf { border-radius: 13px; border: 2px solid; background: #fff; padding: 14px 15px; display: flex; flex-direction: column; gap: 9px; }
+    .surf .h { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; }
+    .surf .route { font-family: var(--mono); font-size: 12.5px; font-weight: 700; padding: 4px 9px; border-radius: 7px; align-self: flex-start; }
+    .surf .facts { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; font-size: 12.5px; color: var(--ink-soft); }
+    .surf .facts b { color: var(--ink); font-weight: 700; }
+    .surf .role { margin-top: auto; font-size: 12px; color: var(--ink-soft); border-top: 1px dashed var(--hair); padding-top: 8px; }
+
+    .surf.ed  { border-color: var(--host); box-shadow: 0 0 0 5px var(--host-soft), 0 14px 30px -20px rgba(15,118,110,.45); }
+    .surf.ed  .h { color: var(--host); } .surf.ed  .route { background: var(--host-soft); color: #0c5650; }
+    .surf.vw  { border-color: var(--kind); }
+    .surf.vw  .h { color: var(--kind); } .surf.vw  .route { background: var(--kind-soft); color: #7a3a06; }
+    .surf.rd  { border-color: var(--canv); }
+    .surf.rd  .h { color: var(--canv); } .surf.rd  .route { background: var(--canv-soft); color: #33415c; }
+    .surf.nt  { border-color: var(--ink-faint); }
+    .surf.nt  .h { color: var(--ink-soft); } .surf.nt  .route { background: var(--paper-2); color: var(--ink-soft); }
+
+    /* bracket bridging the two author surfaces */
+    .bracket-row { margin-top: 6px; }
+    .bracket { border: 1.5px dashed var(--edge); border-radius: 11px; padding: 8px 13px; font-size: 12px; color: var(--ink-soft); text-align: center; }
+    .bracket b { color: var(--ink); }
+    .bracket.work { border-color: var(--host); color: #0c5650; background: linear-gradient(180deg, rgba(211,233,229,.4), transparent); }
+    .bracket.pubr { border-color: var(--canv); color: #33415c; background: linear-gradient(180deg, var(--canv-soft), transparent); }
+
+    .invariant { margin-top: 18px; background: var(--host); color: #fff; border-radius: 11px; padding: 12px 16px; font-size: 14px; font-weight: 700; text-align: center; }
+    .invariant .k { background: rgba(255,255,255,.16); padding: 2px 8px; border-radius: 6px; font-family: var(--mono); }
+    .axis-note { margin-top: 11px; font-family: var(--mono); font-size: 12px; color: var(--ink-soft); text-align: center; }
+    .axis-note b { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="head">
+      <div>
+        <div class="eyebrow">View surfaces · 2 axes, 4 surfaces, all by id</div>
+        <h1 class="t">四面 · 两轴 · 全 id</h1>
+        <p class="lede">同一个 notepage，两根正交轴切出<b>四个面</b>。<b>受众</b>（作者·live / 公开·published）× <b>范围</b>（整库要 chrome / 单页 bare）。四面 URL <b>全 by id</b>——slug 退出 URL，id 改名不烂。</p>
+      </div>
+      <div class="legend">
+        <span class="lg"><span class="sw host"></span> edit · 编辑</span>
+        <span class="lg"><span class="sw kind"></span> view · 作者预览</span>
+        <span class="lg"><span class="sw canv"></span> read · 整库公开</span>
+        <span class="lg"><span class="sw" style="background:var(--ink-faint)"></span> note · 单页公开</span>
+      </div>
+    </div>
+
+    <div class="axes">
+      <!-- left column: author-side -->
+      <div class="axis-col">
+        <div class="axis-hdr auth">作者侧 · live（working 草稿，in-Shell）</div>
+        <div class="surf ed">
+          <div class="h"><span class="dot" style="background:var(--host)"></span> edit</div>
+          <span class="route">/edit/:id</span>
+          <div class="facts">
+            <span>取址</span><b>id</b>
+            <span>状态</span><b>working 草稿</b>
+            <span>边框</span><b>in-Shell</b>
+          </div>
+          <div class="role">作者改稿——所见即 working 状态，自动存草稿。</div>
+        </div>
+        <div class="surf vw">
+          <div class="h"><span class="dot" style="background:var(--kind)"></span> view</div>
+          <span class="route">/view/:id</span>
+          <div class="facts">
+            <span>取址</span><b>id</b>
+            <span>状态</span><b>working 草稿</b>
+            <span>边框</span><b>in-Shell</b>
+          </div>
+          <div class="role">「以读者视角看我的草稿」——发布前预览，只读、无作者控件。</div>
+        </div>
+        <div class="bracket work">edit ⇄ view = <b>一体两面</b>：同页 by id · working · in-Shell 原地切换</div>
+      </div>
+
+      <!-- right column: public-side -->
+      <div class="axis-col">
+        <div class="axis-hdr pub">公开侧 · published（发布快照）</div>
+        <div class="surf rd">
+          <div class="h"><span class="dot" style="background:var(--canv)"></span> read</div>
+          <span class="route">/read/:id</span>
+          <div class="facts">
+            <span>取址</span><b>id</b>
+            <span>状态</span><b>published 快照</b>
+            <span>边框</span><b>整库 · in-Shell</b>
+          </div>
+          <div class="role">整库外链——public-tree 侧栏浏览，读者逛整个已发布库。</div>
+        </div>
+        <div class="surf nt">
+          <div class="h"><span class="dot" style="background:var(--ink-faint)"></span> note</div>
+          <span class="route">/notes/:id</span>
+          <div class="facts">
+            <span>取址</span><b>id</b>
+            <span>状态</span><b>published 快照</b>
+            <span>边框</span><b>单页 · bare</b>
+          </div>
+          <div class="role">单页外链——bare 分享件，独立可嵌。范围决定 chrome，非内容不同。</div>
+        </div>
+        <div class="bracket pubr">read vs note：<b>范围不同，内容同源</b>——published 快照；read 有库 chrome / note 是 bare</div>
+      </div>
+    </div>
+
+    <div class="invariant">navigateToPage：<span class="k">当前在哪面，就跳到哪面</span> — 全 id 后解析器塌成「同面 + 同 id」</div>
+    <div class="axis-note">轴① <b>受众</b>（作者 live / 公开 published）× 轴② <b>范围</b>（整库 in-Shell / 单页 bare）· <b>slug 退出 URL</b></div>
+  </div>
+</body>
+</html>

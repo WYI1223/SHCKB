@@ -72,10 +72,8 @@ export function rerenderAllPublished(db: Db): number {
     // the instance still re-renders (re-publish heals the bad page)
     const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
     if (doc === null) continue;
-    db.update(notepages)
-      .set({ publishedHtml: renderStaticPage(toRenderDoc(doc), page.slug, effectiveTheme(db, page)) })
-      .where(eq(notepages.id, page.id))
-      .run();
+    const html = renderStaticPage(toRenderDoc(doc), page.id, effectiveTheme(db, page));
+    db.update(notepages).set({ publishedHtml: html }).where(eq(notepages.id, page.id)).run();
     n++;
   }
   return n;

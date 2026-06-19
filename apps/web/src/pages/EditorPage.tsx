@@ -10,7 +10,7 @@
  * they live in a separate contents map joined at save time.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import type { Block } from '@skb/grid-engine';
 import { api, ApiError, uploadBlob, type NotepageDetail, type WorkingBlock } from '../api/client';
 import { blockModule, defaultSizeFor, HostContext, type HostServices } from '@skb/block-kinds';
@@ -22,6 +22,9 @@ import { Palette } from '../grid/Palette';
 import { Properties, type Selection } from '../grid/Properties';
 import { useGridInteraction } from '../grid/useGridInteraction';
 import { useAutosave } from '../hooks/useAutosave';
+import { makeLinkClickHandler, useNavigateToPage } from '../nav/useNavigateToPage';
+import { scrollToHashTarget } from '../nav/scrollToBlock';
+import { useScrollRestore } from '../nav/useScrollRestore';
 import { useShell } from '../shell/Shell';
 
 const AUTOSAVE_MS = 800;
@@ -50,6 +53,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   const pageId = detail.page.id;
   const shell = useShell();
   const overlays = useOverlays();
+  const navigateToPage = useNavigateToPage();
 
   // Host capability surface for block kinds (plugin seam). listPages +
   // promptText are the M9 stress-test additions — kinds reach the page
@@ -65,14 +69,14 @@ function Editor({ detail }: { detail: NotepageDetail }) {
       // the universal menu face on loan (M9-D3): HostMenuItem mirrors
       // the chrome MenuItem shape, so this is a pass-through
       menu: (anchor, items, opts) => overlays.menu(anchor, items, opts),
+      navigateToPage,
     }),
-    [pageId, overlays],
+    [pageId, overlays, navigateToPage],
   );
   const [title, setTitle] = useState(detail.page.title);
   const [themeId, setThemeId] = useState(detail.page.themeId);
   const [visibility, setVisibility] = useState(detail.page.visibility);
   const [hasPublished, setHasPublished] = useState(detail.page.hasPublished);
-  const [slug, setSlug] = useState(detail.page.slug);
   const [linkCopied, setLinkCopied] = useState(false);
   // Selection model (M6-D1): page is the default selection; activating
   // a block selects it. The Properties inspector keys off this.
@@ -204,8 +208,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
   async function publish() {
     if (!(await save())) return; // unsaved working state must not promote stale data
     await runAction('publish', async () => {
-      const res = await api.publish(pageId);
-      setSlug(res.slug);
+      await api.publish(pageId);
       setHasPublished(true);
       shell.refresh();
     });
@@ -213,7 +216,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
 
   async function copyLink() {
     await runAction('copy link', async () => {
-      await navigator.clipboard.writeText(`${window.location.origin}/notes/${slug}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/notes/${pageId}`);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 1500);
     });
@@ -243,6 +246,17 @@ function Editor({ detail }: { detail: NotepageDetail }) {
     THEMES[effectiveId] ?? graphPaper,
     shell.customizations[effectiveId],
   );
+
+  // Delegated click handler for internal page-links rendered inside preview
+  // blocks (a[data-skb-page]). Routes client-side, keeps editor surface.
+  const onLinkClick = useMemo(() => makeLinkClickHandler(navigateToPage), [navigateToPage]);
+
+  // Position layer (MVP-10 §5.5): scroll-restore + hash-jump on entry.
+  const { hash } = useLocation();
+  const scrollRef = useScrollRestore(pageId, 'edit');
+  useEffect(() => {
+    if (hash) scrollToHashTarget(hash);
+  }, [hash]);
 
   return (
     <ThemeProvider theme={effective}>
@@ -379,7 +393,7 @@ function Editor({ detail }: { detail: NotepageDetail }) {
             {visibility === 'public' && hasPublished && (
               <>
                 <Link
-                  to={`/notes/${slug}`}
+                  to={`/notes/${pageId}`}
                   title="Open the published page"
                   style={{ ...labelStyle({ color: BENCH.inkSoft }), textDecoration: 'none' }}
                 >
@@ -418,12 +432,13 @@ function Editor({ detail }: { detail: NotepageDetail }) {
         <HostContext.Provider value={hostServices}>
           <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
             <Palette interaction={interaction} />
-            <div className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }}>
+            <div ref={scrollRef} className="pu-scroll" style={{ flex: 1, minWidth: 0, overflow: 'auto', background: BENCH.paperSunken }} onClick={onLinkClick}>
               <GridCanvas
                 interaction={interaction}
                 contents={contents}
                 shells={shells}
                 background={background}
+                pageId={pageId}
                 activeId={activeId}
                 onActivate={setActiveId}
                 onContentChange={(blockId, content) => setContents((c) => ({ ...c, [blockId]: content }))}

@@ -222,6 +222,7 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
   };
 
   const sortedFolderDirs = [...foldersByDir.keys()].sort((a, b) => a.split('/').length - b.split('/').length);
+
   db.transaction((tx) => {
     tx.insert(settingsTable)
       .values({ key: 'theme', value: manifest.settings.theme })
@@ -262,7 +263,10 @@ export function importBundle(db: Db, blobStore: BlobStore, input: ImportInput): 
           folderId,
           sortKey: page.sortKey,
           publishedDoc: published === null ? null : JSON.stringify(published),
-          publishedHtml: published === null ? null : renderStaticPage(toRenderDoc(published), page.slug, themeFor(page.themeId)),
+          publishedHtml:
+            published === null
+              ? null
+              : renderStaticPage(toRenderDoc(published), page.id, themeFor(page.themeId)),
           createdAt: new Date(page.createdAt),
           updatedAt: new Date(page.updatedAt),
         })

@@ -6,6 +6,7 @@
 import { createContext, useContext } from 'react';
 import type { ComponentType } from 'react';
 import type { BlockSize } from '@skb/grid-engine';
+import type { LinkRef } from './links';
 
 export type BlockViewProps<C = unknown> = {
   content: C;
@@ -38,6 +39,10 @@ export type BlockKindModule<C = unknown> = {
   RenderView: ComponentType<{ content: C }>;
   /** Plain text for search/export, derived from content (not DOM). */
   extractText: (content: C) => string;
+  /** Outbound internal links this content references (MVP-10 spec §6 seam ①).
+   * Host-uniform extraction feeds backlinks/search/agent (MVP-11) and
+   * export/import integrity. Omitted = kind has no internal links. */
+  links?: (content: C) => LinkRef[];
   /** Tools for the active block, rendered in the host's tool panel.
    *  Editing-surface only — never reachable from RenderView. */
   tools?: Array<BlockTool<C>>;
@@ -94,6 +99,12 @@ export type HostServices = {
    * wear the SAME panel face as the chrome context menus — owner
    * ruling). Anchor is a viewport point. */
   menu?: (anchor: { x: number; y: number }, items: HostMenuItem[], opts?: { header?: string }) => void;
+  /** Navigate to a page/block, preserving the current surface (MVP-10 spec
+   * §5). The host resolves Editor→Editor / View→View / Public→Public,
+   * client-side. Same-page block target = pure scroll. Modules use this for
+   * programmatic jumps (e.g. future search results); rendered links are
+   * handled by the host's delegated click handler. */
+  navigateToPage?: (ref: LinkRef) => void;
 };
 
 export const HostContext = createContext<HostServices | null>(null);

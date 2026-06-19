@@ -1,4 +1,5 @@
 export * from './types';
+export * from './links';
 export * from './registry';
 export { PublishedCanvas, pageBackgroundStyle, type PublishedDocShape } from './PublishedCanvas';
 export { DefaultCanvasSurface, DefaultPageTitle } from './frames';

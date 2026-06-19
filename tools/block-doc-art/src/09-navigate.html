@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .head { display: flex; flex-direction: column; gap: 10px; }
+    .head .legend { justify-content: flex-start; }
+
+    .flow { margin-top: 20px; }
+    .input { text-align: center; font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--ink); background: var(--paper-2); border: 1.5px solid var(--edge); border-radius: 10px; padding: 11px 14px; }
+    .input b { color: var(--theme); }
+    .down { text-align: center; color: var(--ink-faint); font-size: 20px; margin: 7px 0; line-height: 1; }
+
+    .rows { display: flex; flex-direction: column; gap: 9px; }
+    .row { display: grid; grid-template-columns: 158px 26px 1fr; align-items: center; gap: 10px; border-radius: 11px; border: 1.5px solid var(--edge); background: #fff; padding: 11px 14px; }
+    .row .cond { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+    .row .ar { text-align: center; color: var(--ink-faint); font-size: 16px; }
+    .row .act { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+    .row .act .tag { font-weight: 800; }
+    .row .act .dim { color: var(--ink-faint); }
+
+    .row.scroll { border-color: var(--theme); background: linear-gradient(90deg, var(--theme-soft), #fff 62%); }
+    .row.scroll .cond, .row.scroll .act .tag { color: #7e1d4e; }
+    .row.ed  { border-color: var(--host); } .row.ed  .cond, .row.ed  .act .tag { color: var(--host); }
+    .row.vw  { border-color: var(--kind); } .row.vw  .cond, .row.vw  .act .tag { color: var(--kind); }
+    .row.rd  { border-color: var(--canv); } .row.rd  .cond, .row.rd  .act .tag { color: var(--canv); }
+    .row.nt  { border-color: var(--ink-faint); } .row.nt  .cond { color: var(--ink-soft); } .row.nt  .act .tag { color: var(--ink-soft); }
+
+    .inv { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .inv .c2 { border-radius: 10px; border: 1.5px solid var(--host); background: var(--host-soft); padding: 10px 11px; font-size: 12px; color: #0c5650; text-align: center; font-weight: 600; }
+    .inv .c2 b { color: var(--host); }
+
+    .tagline { margin-top: 12px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); text-align: center; }
+    .tagline b { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="head">
+      <div>
+        <div class="eyebrow">Navigate · resolveTarget(surface, ref)</div>
+        <h1 class="t">保面导航 — 按当前面解析同一个 LinkRef</h1>
+        <p class="lede">点一个内部链接 = 解析 <b>（当前 surface, LinkRef）</b> → 一个动作。<b>客户端</b>完成，Shell 不卸载；同页 block 目标根本不导航——<b>纯滚动</b>。</p>
+      </div>
+      <div class="legend">
+        <span class="lg"><span class="sw theme"></span> scroll</span>
+        <span class="lg"><span class="sw host"></span> edit</span>
+        <span class="lg"><span class="sw kind"></span> view</span>
+        <span class="lg"><span class="sw canv"></span> read</span>
+        <span class="lg"><span class="sw" style="background:var(--ink-faint)"></span> note</span>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="input">resolveTarget( <b>pathname</b> , LinkRef { pageId, blockId? } )</div>
+      <div class="down">▼</div>
+      <div class="rows">
+        <div class="row scroll">
+          <div class="cond">同页 + 有 blockId</div><div class="ar">→</div>
+          <div class="act"><span class="tag">scroll</span> — scrollToBlock，URL 不变（<span class="dim">不导航</span>）</div>
+        </div>
+        <div class="row ed">
+          <div class="cond">edit 面</div><div class="ar">→</div>
+          <div class="act"><span class="tag">navigate</span> /edit/:pageId<span class="dim">(#blockId)</span></div>
+        </div>
+        <div class="row vw">
+          <div class="cond">view 面</div><div class="ar">→</div>
+          <div class="act"><span class="tag">navigate</span> /view/:pageId<span class="dim">(#blockId)</span></div>
+        </div>
+        <div class="row rd">
+          <div class="cond">read 面</div><div class="ar">→</div>
+          <div class="act"><span class="tag">navigate</span> /read/:pageId<span class="dim"> (留整库浏览，不逃 note)</span></div>
+        </div>
+        <div class="row nt">
+          <div class="cond">note 面</div><div class="ar">→</div>
+          <div class="act"><span class="tag">navigate</span> /notes/:pageId<span class="dim"> (留单页 bare)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="inv">
+      <div class="c2"><b>客户端</b>：router push，不整页重载</div>
+      <div class="c2"><b>外科手术式</b>：Shell 布局常驻</div>
+      <div class="c2"><b>面守恒</b>：edit→edit，read→read</div>
+    </div>
+    <div class="tagline">全 id 后解析器塌成「<b>同面 + 同 id</b>」—— /read/ → /notes/ 逃逸结构性消失</div>
+  </div>
+</body>
+</html>

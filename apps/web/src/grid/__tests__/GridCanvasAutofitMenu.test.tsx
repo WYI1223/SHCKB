@@ -38,6 +38,7 @@ function Harness({ kind, mode = 'follow' }: { kind: string; mode?: 'follow' | 'f
             contents={{}}
             shells={{}}
             background={null}
+            pageId="test-page"
             activeId={null}
             onActivate={() => {}}
             onContentChange={() => {}}

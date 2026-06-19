@@ -95,22 +95,33 @@ export const richtextSchema = new Schema({
       ],
       toDOM: (mark) => ['a', { href: mark.attrs.href as string }, 0],
     },
-    /** First-class inter-page link (M9-D1): stores only the pageId —
-     * renders as the /p/:id permalink, so renames never break it. */
+    /** First-class inter-page link (M9-D1; MVP-10 block-aware): stores pageId
+     * + optional blockId — renders the /p/:id(#blockId) permalink. */
     pagelink: {
-      attrs: { pageId: {} },
+      attrs: { pageId: {}, blockId: { default: null } },
       inclusive: false,
       parseDOM: [
         {
           tag: 'a[data-skb-page]',
-          getAttrs: (dom) => ({ pageId: (dom as HTMLElement).getAttribute('data-skb-page') }),
+          getAttrs: (dom) => ({
+            pageId: (dom as HTMLElement).getAttribute('data-skb-page'),
+            blockId: (dom as HTMLElement).getAttribute('data-skb-block') || null,
+          }),
         },
       ],
-      toDOM: (mark) => [
-        'a',
-        { href: `/p/${mark.attrs.pageId as string}`, 'data-skb-page': mark.attrs.pageId as string },
-        0,
-      ],
+      toDOM: (mark) => {
+        const pageId = mark.attrs.pageId as string;
+        const blockId = mark.attrs.blockId as string | null;
+        return [
+          'a',
+          {
+            href: `/p/${pageId}${blockId ? '#' + blockId : ''}`,
+            'data-skb-page': pageId,
+            ...(blockId ? { 'data-skb-block': blockId } : {}),
+          },
+          0,
+        ];
+      },
     },
   },
 });

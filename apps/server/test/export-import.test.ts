@@ -1,7 +1,16 @@
 import { describe, expect, test } from 'bun:test';
+import { eq } from 'drizzle-orm';
 import { createTestContext, json } from './helpers';
 import { buildExport } from '../src/export/exporter';
+import { notepages } from '../src/db/schema';
 import type { BlobStore } from '../src/blobstore';
+
+/** Look up a page by slug in the given db and return its id. */
+function pageIdBySlug(db: Awaited<ReturnType<typeof createTestContext>>['db'], slug: string): string {
+  const row = db.select({ id: notepages.id }).from(notepages).where(eq(notepages.slug, slug)).get();
+  if (!row) throw new Error(`no page with slug "${slug}"`);
+  return row.id;
+}
 
 const OPTS = { appVersion: 'test', schemaVersion: 5, exportedAt: 1_000 };
 
@@ -102,7 +111,8 @@ describe('importBundle', () => {
     expect([...again.blobs.keys()]).toEqual([...bundle.blobs.keys()]);
 
     // published page is live again, HTML re-rendered
-    const html = await dst.app.request('http://localhost/notes/page-one');
+    const p1Id = pageIdBySlug(dst.db, 'page-one');
+    const html = await dst.app.request(`http://localhost/notes/${p1Id}`);
     expect(html.status).toBe(200);
     expect(await html.text()).toContain('Page One');
   });
@@ -204,7 +214,8 @@ describe('admin routes', () => {
     });
     expect(importRes.status).toBe(200);
     expect((await json(importRes)).counts.pages).toBe(2);
-    const page = await dst.app.request('http://localhost/notes/page-one');
+    const p1IdDst = pageIdBySlug(dst.db, 'page-one');
+    const page = await dst.app.request(`http://localhost/notes/${p1IdDst}`);
     expect(page.status).toBe(200);
 
     // GC on source removes the orphan, keeps the referenced blob
@@ -353,7 +364,8 @@ describe('format v3 (theme customization, MVP-5)', () => {
       workbench: { paletteId: 'warm' },
     });
     // published HTML on the destination wears the warm variant
-    const html = await (await dst.app.request('http://localhost/notes/page-one')).text();
+    const p1IdWarm = pageIdBySlug(dst.db, 'page-one');
+    const html = await (await dst.app.request(`http://localhost/notes/${p1IdWarm}`)).text();
     expect(html).toContain('oklch(98.5% 0.006 80)'); // warm canvasBg
     // determinism: re-export byte-identical
     const again = buildExport(dst.db, dst.blobStore, OPTS);

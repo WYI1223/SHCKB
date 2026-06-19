@@ -66,7 +66,7 @@ function PublicContents({
   useEffect(() => {
     api
       .listPublicNotes()
-      .then(({ notes }) => setDates(Object.fromEntries(notes.map((n) => [n.slug, n.publishedAt]))))
+      .then(({ notes }) => setDates(Object.fromEntries(notes.map((n) => [n.id, n.publishedAt]))))
       .catch(() => undefined);
   }, []);
 
@@ -76,11 +76,11 @@ function PublicContents({
   const childPages = (folderId: string | null) => notepages.filter((p) => p.folderId === folderId);
 
   function renderPage(p: PublicTreePage, depth: number) {
-    const at = dates[p.slug];
+    const at = dates[p.id];
     return (
       <Link
-        key={p.slug}
-        to={`/read/${p.slug}`}
+        key={p.id}
+        to={`/read/${p.id}`}
         style={{
           display: 'flex',
           alignItems: 'baseline',

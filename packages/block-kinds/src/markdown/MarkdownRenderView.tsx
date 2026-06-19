@@ -7,6 +7,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTheme } from '@skb/theme';
 import type { MarkdownContent } from './markdown';
+import { parsePermalink } from '../links';
 
 export function MarkdownRenderView({ content }: { content: MarkdownContent }) {
   const theme = useTheme();
@@ -49,6 +50,26 @@ export function MarkdownRenderView({ content }: { content: MarkdownContent }) {
               <table {...props} />
             </div>
           ),
+          // internal /p/:id links carry data-skb-page (MVP-10); external links
+          // get rel="noreferrer noopener" for safety
+          a: ({ href = '', children }) => {
+            const ref = parsePermalink(href);
+            if (ref)
+              return (
+                <a
+                  href={href}
+                  data-skb-page={ref.pageId}
+                  {...(ref.blockId ? { 'data-skb-block': ref.blockId } : {})}
+                >
+                  {children}
+                </a>
+              );
+            return (
+              <a href={href} rel="noreferrer noopener">
+                {children}
+              </a>
+            );
+          },
         }}
       >
         {content.markdown}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .head { display: flex; flex-direction: column; gap: 10px; }
+    .head .legend { justify-content: flex-start; }
+
+    /* before / after comparison */
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; align-items: stretch; }
+    .side { border-radius: 12px; border: 2px solid; padding: 14px 16px; display: flex; flex-direction: column; gap: 11px; }
+    .side .hd { font-size: 13.5px; font-weight: 800; }
+    .side.before { border-color: var(--no); background: linear-gradient(180deg, rgba(190,58,43,.06), #fff); }
+    .side.before .hd { color: var(--no); }
+    .side.after  { border-color: var(--host); background: linear-gradient(180deg, var(--host-soft), #fff); }
+    .side.after  .hd { color: var(--host); }
+
+    /* write-points list (before side) */
+    .wpts { display: flex; flex-direction: column; gap: 7px; }
+    .wpt { display: flex; align-items: center; gap: 9px; font-size: 12.5px; text-decoration: line-through; color: var(--ink-faint); }
+    .wpt .n { width: 20px; height: 20px; border-radius: 6px; background: rgba(190,58,43,.18); color: var(--no); font-family: var(--mono); font-size: 11px; font-weight: 700; display: grid; place-items: center; flex: none; text-decoration: none; }
+    .wpt b { text-decoration: line-through; color: var(--ink-faint); }
+
+    /* chain row (after side) */
+    .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; }
+    .chain .step { background: var(--host-soft); border: 1px solid var(--host); border-radius: 6px; padding: 3px 8px; color: #0c5650; }
+    .chain .step.bare { background: var(--paper-2); border-color: var(--edge); color: var(--ink); }
+    .chain .sep { color: var(--ink-faint); font-size: 13px; }
+
+    .nojs { font-size: 12px; color: var(--ink-soft); border-top: 1px dashed var(--hair); padding-top: 9px; }
+    .nojs b { color: var(--ink); }
+
+    /* bottom bar */
+    .gatebar { margin-top: 16px; text-align: center; font-family: var(--mono); font-size: 12.5px; color: #0c5650; background: var(--host-soft); border: 1.5px solid var(--host); border-radius: 10px; padding: 10px 14px; }
+    .gatebar b { color: var(--host); }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="head">
+      <div>
+        <div class="eyebrow">Links · all-id — materialize retired</div>
+        <h1 class="t">全 id · 链接不再物化</h1>
+        <p class="lede"><span class="mono">/p/:id</span> = 正文里的规范链接，<b>surface-neutral</b>——只标识页 / 块，不绑定具体面。<b>发布不改写它</b>。点击 → handler → <b>resolveTarget</b> 按当前面客户端跳转；无 JS → 服务器 302 → <span class="mono">/notes/:id</span>。</p>
+      </div>
+      <div class="legend">
+        <span class="lg"><span class="sw" style="background:var(--no)"></span> 前 · 物化（4 写点，已退役）</span>
+        <span class="lg"><span class="sw host"></span> 后 · 全 id，不物化</span>
+      </div>
+    </div>
+
+    <div class="compare">
+      <!-- BEFORE: materialization with 4 write-points, struck through -->
+      <div class="side before">
+        <div class="hd">✗ 前 — 发布时物化（已退役）</div>
+        <div class="wpts">
+          <div class="wpt"><span class="n">1</span><span><b>发布路由</b> notepages · publish</span></div>
+          <div class="wpt"><span class="n">2</span><span><b>主题重钉</b> theme re-pin</span></div>
+          <div class="wpt"><span class="n">3</span><span><b>导入器</b> export / importer</span></div>
+          <div class="wpt"><span class="n">4</span><span><b>批量重渲</b> rerenderAllPublished</span></div>
+        </div>
+        <div style="font-size:12px; color:var(--ink-faint); margin-top:auto;">漏一个写点 → 链接漏网；改名 → slug 腐烂</div>
+      </div>
+
+      <!-- AFTER: /p/:id stays, handler resolves -->
+      <div class="side after">
+        <div class="hd">✓ 后 — 全 id，发布不改写</div>
+        <div>
+          <div style="font-size:12px; color:#0c5650; font-weight:700; margin-bottom:8px;">正文内链永远是 /p/:id（surface-neutral）</div>
+          <div class="chain">
+            <span class="step bare">/p/:id</span>
+            <span class="sep">→</span>
+            <span class="step">handler</span>
+            <span class="sep">→</span>
+            <span class="step">resolveTarget</span>
+            <span class="sep">→</span>
+            <span class="step">/:surface/:id</span>
+          </div>
+        </div>
+        <div class="nojs"><b>无 JS fallback</b>：服务器 302 → <span style="font-family:var(--mono); font-size:11px;">/notes/:id</span>（按 visibility 决定 404）</div>
+        <div style="font-size:12px; color:#0c5650; margin-top:auto;">rename-safe · 0 写点 · slug 退出 URL</div>
+      </div>
+    </div>
+
+    <div class="gatebar">物化的 4 写点 <b>全部移除</b>（<span style="font-family:var(--mono)">materializeInternalLinks / publicIdToSlug</span>）——全 id 后冗余</div>
+  </div>
+</body>
+</html>

@@ -17,6 +17,7 @@
 | `EditView` | 只挂在单个 active block 上（性能边界）；props = `{content, onChange}` |
 | `RenderView` | 非活动预览 + 公开读 + publish 静态渲染共用；props = `{content}` |
 | `extractText(content)` | 搜索/导出用纯文本，从 content 派生（不许读 DOM） |
+| `links?(content)` | 出向内部链接，从 content 派生（不许读 DOM），返回 `LinkRef[]`（MVP-10 §6 seam ①）。host 统一抽取，喂 backlinks/search/agent（MVP-11）与 export/import 完整性。省略 = 该 kind 无内部链接 |
 | `tools?` | 工具面板贡献（MVP-5）：`Array<{id, label, View}>`；View props = `{content, onChange}`（与 EditView 同面） |
 
 ## RenderView 纯度要求
@@ -31,8 +32,11 @@
 EditView 触达宿主能力**只许**经 `useHost()`（HostContext）。当前面：
 
 - `uploadBlob(file) → {hash, size, mimeType}`
+- `navigateToPage?(ref: LinkRef)`：跳转到页/块，**保持当前表面**（Editor→Editor / View→View / Public→Public，client-side）（MVP-10 §5 seam ②）。同页块目标 = 纯滚动。模块用于程序化跳转（如未来搜索结果）；渲染出的链接由 host 的委托 click handler 处理，不走此入口。
 
 增长规则：只许增量添加，不许破坏性变更（插件作者将依赖它）。
+
+`LinkRef = { pageId: string; blockId?: string }` 是两个 link seam（`links?` 与 `navigateToPage?`）共享的通用内部链接目标：blockId 缺省 = 页级，present = 块级。`/p/:id(#blockId)` 为对应的规范永链字符串；`parsePermalink` / `permalinkOf` 是单一互转入口（确保 markdown 抽取与 click handler 一致）。
 
 ## Blob 引用契约（[ADR-0023]）
 

@@ -9,6 +9,7 @@
  * consume registry + HostServices + ThemeContext + ui-kit — never the
  * host app's chrome.
  */
+import type { LinkRef } from '../links';
 
 export type RichtextSpacing = 'compact' | 'normal' | 'relaxed';
 
@@ -86,17 +87,31 @@ function textOf(node: PmNode): string {
   return (node.content ?? []).map(textOf).join('');
 }
 
-/** Page ids referenced by pagelink marks — future backlink feed. */
-export function linkedPageIds(content: RichtextContent): string[] {
-  const ids = new Set<string>();
+/** Outbound internal links (MVP-10) — walks pagelink marks → LinkRef, deduped.
+ * Supersedes linkedPageIds ("future backlink feed"): now block-aware. */
+export function links(content: RichtextContent): LinkRef[] {
+  const out: LinkRef[] = [];
+  const seen = new Set<string>();
   const walk = (node: PmNode) => {
     for (const mark of node.marks ?? []) {
       if (mark.type === 'pagelink' && typeof mark.attrs?.pageId === 'string') {
-        ids.add(mark.attrs.pageId);
+        const pageId = mark.attrs.pageId;
+        const blockId = typeof mark.attrs?.blockId === 'string' && mark.attrs.blockId ? mark.attrs.blockId : undefined;
+        const key = `${pageId}#${blockId ?? ''}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          out.push(blockId ? { pageId, blockId } : { pageId });
+        }
       }
     }
     (node.content ?? []).forEach(walk);
   };
   walk(content.doc);
-  return [...ids];
+  return out;
+}
+
+/** Page ids referenced by pagelink marks — future backlink feed.
+ * @deprecated Use links() which returns LinkRef[] and is block-aware. */
+export function linkedPageIds(content: RichtextContent): string[] {
+  return [...new Set(links(content).map((l) => l.pageId))];
 }

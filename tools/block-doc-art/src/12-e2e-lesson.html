@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../art.css" />
+  <style>
+    #art { width: 712px; }
+    .head { display: flex; flex-direction: column; gap: 10px; }
+    .head .legend { justify-content: flex-start; }
+
+    .cards { display: flex; flex-direction: column; gap: 13px; margin-top: 20px; }
+    .ba { border-radius: 12px; padding: 14px 16px; border: 1.5px solid var(--edge); background: var(--paper-2); }
+    .ba .lbl { font-size: 13.5px; font-weight: 800; margin-bottom: 10px; }
+    .ba .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; color: var(--ink); }
+    .ba .chain .step { background: #fff; border: 1px solid var(--edge); border-radius: 6px; padding: 3px 8px; }
+    .ba .chain .sep { color: var(--ink-faint); }
+    .ba .chain .stop { color: var(--no); font-weight: 800; border-color: rgba(190,58,43,.5); }
+    .ba.no { border-color: var(--no); background: linear-gradient(180deg, rgba(190,58,43,.06), var(--paper-2)); } .ba.no .lbl { color: var(--no); }
+    .ba.ok { border-color: var(--host); background: linear-gradient(180deg, var(--host-soft), var(--paper-2)); } .ba.ok .lbl { color: var(--host); }
+    .ba pre { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.55; background: #fff; border: 1px solid var(--edge); border-radius: 8px; padding: 10px 12px; color: var(--ink); white-space: pre-wrap; }
+    .ba pre .hl { color: var(--host); font-weight: 700; }
+    .ba pre .cm { color: var(--ink-faint); }
+
+    .lesson { margin-top: 18px; border-radius: 12px; border: 2px solid var(--ink); background: #fff; padding: 14px 16px; }
+    .lesson .row1 { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .lesson .pill { font-family: var(--mono); font-size: 12px; font-weight: 700; border-radius: 8px; padding: 6px 11px; }
+    .lesson .pill.green { background: var(--host-soft); color: #0c5650; border: 1px solid var(--host); }
+    .lesson .pill.red { background: rgba(190,58,43,.1); color: var(--no); border: 1px solid var(--no); }
+    .lesson .to { color: var(--ink-faint); font-weight: 700; }
+    .lesson .arrowtxt { font-size: 13.5px; font-weight: 800; color: var(--ink); }
+    .lesson .punch { font-size: 15px; font-weight: 800; color: var(--ink); margin-top: 11px; }
+    .lesson .sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; line-height: 1.55; }
+    .lesson .sub b { color: var(--ink); } .lesson .sub .mono { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div id="art" class="card">
+    <div class="head">
+      <div>
+        <div class="eyebrow">Why · the frame must stay transparent to link clicks</div>
+        <h1 class="t">单测全绿，真浏览器才抓到</h1>
+        <p class="lede">委托处理器挂在外层滚动容器上。但编辑器里 block 帧的激活 <span class="mono">onClick</span> 无条件 <span class="mono">stopPropagation()</span>——把链接点击在冒泡途中吞了，于是裸 <span class="mono">/p/:id</span> 又整页重载（F4 的 bug 复活）。</p>
+      </div>
+      <div class="legend">
+        <span class="lg"><span class="sw" style="background:var(--no)"></span> 前 · 吞掉点击</span>
+        <span class="lg"><span class="sw host"></span> 后 · 让路</span>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="ba no">
+        <div class="lbl">✗ 前 — 帧吞掉了点击</div>
+        <div class="chain">
+          <span class="step">点链接</span><span class="sep">→</span>
+          <span class="step">冒泡到 .pu-block onClick</span><span class="sep">→</span>
+          <span class="step stop">stopPropagation() ✋</span><span class="sep">→</span>
+          <span class="step">委托处理器收不到</span><span class="sep">→</span>
+          <span class="step stop">默认导航 /p/:id → 302</span>
+        </div>
+      </div>
+      <div class="ba ok">
+        <div class="lbl">✓ 后 — 对内部链接透明（设计约束）</div>
+        <pre>onClick={(e) =&gt; {
+  <span class="hl">if (!isActive &amp;&amp; e.target.closest('a[data-skb-page]')) return;</span>  <span class="cm">// 让路</span>
+  e.stopPropagation();                <span class="cm">// 选区/激活照常</span>
+  if (!isActive) onActivate(block.id);
+}}</pre>
+      </div>
+    </div>
+
+    <div class="lesson">
+      <div class="row1">
+        <span class="pill green">单元/集成全绿（156+77+116）✓</span>
+        <span class="pill red">真 bug 仍在</span>
+        <span class="to">——</span>
+        <span class="arrowtxt">只有真浏览器 e2e 抓到</span>
+      </div>
+      <div class="punch">DOM 事件冒泡，只有在真浏览器里才是真的。</div>
+      <div class="sub">委托式链接处理 + 帧的 <span class="mono">stopPropagation</span> 天生冲突；帧负责选区 / 激活，但必须给内部链接<b>让路</b>。修复 <span class="mono">841a39b</span>，e2e <span class="mono">page-links</span> 4/4 绿。单元/集成套件（156 block-kinds + 77 web + 116 server）全绿，但 DOM 事件冒泡只有真浏览器才是真的。</div>
+    </div>
+  </div>
+</body>
+</html>

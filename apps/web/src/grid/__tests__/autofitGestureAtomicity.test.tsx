@@ -45,6 +45,7 @@ function Harness({ activeId }: { activeId: string | null }) {
             contents={{ a: { markdown: '' }, b: { text: '' } }}
             shells={{}}
             background={null}
+            pageId="test-page"
             activeId={activeId}
             onActivate={() => {}}
             onContentChange={() => {}}

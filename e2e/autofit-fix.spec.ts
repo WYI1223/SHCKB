@@ -20,7 +20,7 @@ test('fix block overflow scrolls inside the frame (published + editor)', async (
   // F: a fix markdown block sized to 2 rows but holding far more content
   // than 2 rows can show → its content box must scroll, not grow.
   const tall = '## fixed and overflowing\n\n' + Array.from({ length: 20 }, (_, i) => `paragraph line number ${i + 1}`).join('\n\n');
-  const { id, slug } = await createMarkdownPage(page.request, {
+  const { id } = await createMarkdownPage(page.request, {
     title: 'autofit fix overflow',
     themeId: 'graph-paper',
     // layout-only fixture; gravity stability is not what this checks.
@@ -32,7 +32,7 @@ test('fix block overflow scrolls inside the frame (published + editor)', async (
 
   // Published page: the host frame's `.skb-content-box` owns overflow.
   // fix → overflowY 'auto' and the content genuinely exceeds the box.
-  await page.goto(`/notes/${slug}`);
+  await page.goto(`/notes/${id}`);
   const pubBox = page.locator('.skb-content-box').filter({ hasText: 'fixed and overflowing' });
   await expect(pubBox).toBeVisible();
   expect(await pubBox.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');

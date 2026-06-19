@@ -1,7 +1,7 @@
 /**
  * Publish-time static rendering (server-only entry — NOT exported from
  * the package index; the web bundle must never import react-dom/server).
- * publishedHtml = renderStaticPage(publishedDoc, slug, effectiveTheme):
+ * publishedHtml = renderStaticPage(publishedDoc, id, effectiveTheme):
  * a pure function — the theme invariant [ADR-0024].
  */
 import { createElement } from 'react';
@@ -17,7 +17,7 @@ export function escapeHtml(s: string): string {
     .replaceAll('"', '&quot;');
 }
 
-export function renderStaticPage(doc: PublishedDocShape, slug: string, theme: Theme): string {
+export function renderStaticPage(doc: PublishedDocShape, id: string, theme: Theme): string {
   const body = renderToStaticMarkup(
     createElement(ThemeProvider, { theme, children: createElement(PublishedCanvas, { doc }) }),
   );
@@ -28,7 +28,7 @@ export function renderStaticPage(doc: PublishedDocShape, slug: string, theme: Th
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
-<link rel="canonical" href="/notes/${escapeHtml(slug)}">
+<link rel="canonical" href="/notes/${escapeHtml(id)}">
 <meta property="og:title" content="${title}">
 <style>
 * { box-sizing: border-box; }

@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { totalRows, type Block } from '@skb/grid-engine';
-import { BLOCK_KINDS, blockModule, BlockFrameCore, DefaultCanvasSurface, pageBackgroundStyle } from '@skb/block-kinds';
+import { BLOCK_KINDS, blockModule, BlockFrameCore, DefaultCanvasSurface, pageBackgroundStyle, permalinkOf } from '@skb/block-kinds';
 import { resolveSkin, skinOptionsFor, useTheme, type PageBackground, type Theme } from '@skb/theme';
 import { BENCH } from '../chrome/bench';
 import { useOverlays, type MenuItem } from '../chrome/overlays';
@@ -28,6 +28,8 @@ export type GridCanvasProps = {
   shells: Record<string, string | null>;
   /** Author-picked page background (M6-D4) — live working-state preview. */
   background: PageBackground | null;
+  /** Page id used to build block permalink URLs (MVP-10 copy-link-to-block). */
+  pageId: string;
   activeId: string | null;
   onActivate: (id: string | null) => void;
   onContentChange: (id: string, content: unknown) => void;
@@ -162,6 +164,7 @@ function BlockShell({
   interaction,
   contents,
   shells,
+  pageId,
   activeId,
   onActivate,
   onContentChange,
@@ -206,6 +209,15 @@ function BlockShell({
       className="pu-block"
       {...(isActive || autofitGestureLocked ? {} : interaction.blockDragProps(block))}
       onClick={(e) => {
+        // An internal page-link click inside an INACTIVE preview block is a
+        // navigation intent, not block activation. Don't swallow it: let it
+        // bubble to EditorPage's delegated onLinkClick handler (which
+        // preventDefaults + client-navigates, keeping the editor surface).
+        // Without this, the stopPropagation below kills the bubble and the
+        // bare /p/:id href full-reloads to the published view (the MVP-10
+        // core bug — only the real-browser e2e catches it). Active blocks
+        // keep editing semantics (e.g. richtext caret placement).
+        if (!isActive && (e.target as HTMLElement).closest('a[data-skb-page], a[href^="/p/"]')) return;
         e.stopPropagation();
         if (!isActive) onActivate(block.id);
       }}
@@ -237,6 +249,14 @@ function BlockShell({
           { x: e.clientX, y: e.clientY },
           [
             { label: 'edit', onSelect: () => onActivate(block.id) },
+            {
+              label: 'Copy link to block',
+              onSelect: () => {
+                // Copy the PATH form (`/p/:id#blockId`) — the markdown/richtext
+                // link parsers only recognise the path, not an app-origin full URL.
+                void navigator.clipboard.writeText(permalinkOf({ pageId, blockId: block.id }));
+              },
+            },
             // Height-mode toggle: an opt-in "Fixed height" checkbox (checked =
             // fix; the default follow is unchecked), shown for any kind that can
             // follow (image is fix-only via canFollow:false; markdown/richtext/

@@ -230,17 +230,18 @@ export function notepageRoutes(db: Db) {
       title: page.title,
       gravityEnabled: page.gravityEnabled,
       // appearance enters the snapshot (M6-D3/D4): publishedHtml stays
-      // a pure function of (doc, slug, effective theme)
+      // a pure function of (doc, id, effective theme)
       background: page.background !== null ? safeParse<PageBackground | null>(page.background, null) : null,
       blocks: loadWorkingBlocks(db, page.id),
       publishedAt: Date.now(),
     };
     // Snapshot is frozen → render reader-grade HTML once, store with it.
+    const html = renderStaticPage(toRenderDoc(doc), page.id, effectiveTheme(db, page));
     db.update(notepages)
       .set({
         slug,
         publishedDoc: JSON.stringify(doc),
-        publishedHtml: renderStaticPage(toRenderDoc(doc), slug, effectiveTheme(db, page)),
+        publishedHtml: html,
         updatedAt: new Date(),
       })
       .where(eq(notepages.id, page.id))
@@ -264,7 +265,7 @@ export function notepageRoutes(db: Db) {
 
   // Per-page theme pin (MVP-4 M4-D2): null = follow instance. Changing
   // the pin re-renders the published HTML immediately — publishedHtml
-  // stays a pure function of (doc, slug, effective theme).
+  // stays a pure function of (doc, id, effective theme).
   r.post('/notepages/:id/theme', async (c) => {
     const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
     if (!page) return c.json(NOT_FOUND, 404);
@@ -278,10 +279,8 @@ export function notepageRoutes(db: Db) {
       // corrupt snapshot: pin still lands, stale HTML stays (re-publish heals)
       const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
       if (doc !== null) {
-        db.update(notepages)
-          .set({ publishedHtml: renderStaticPage(toRenderDoc(doc), page.slug, effectiveTheme(db, { themeId })) })
-          .where(eq(notepages.id, page.id))
-          .run();
+        const html = renderStaticPage(toRenderDoc(doc), page.id, effectiveTheme(db, { themeId }));
+        db.update(notepages).set({ publishedHtml: html }).where(eq(notepages.id, page.id)).run();
       }
     }
     return c.json({ ok: true });
@@ -347,7 +346,7 @@ export function notepageRoutes(db: Db) {
       .map((p) => {
         // per-row: one corrupt snapshot must not take down the directory
         const doc = safeParse<PublishedDoc | null>(p.publishedDoc!, null);
-        return doc === null ? null : { slug: p.slug, title: doc.title, publishedAt: doc.publishedAt };
+        return doc === null ? null : { id: p.id, slug: p.slug, title: doc.title, publishedAt: doc.publishedAt };
       })
       .filter((n): n is NonNullable<typeof n> => n !== null)
       .sort((a, b) => b.publishedAt - a.publishedAt);
@@ -363,20 +362,15 @@ export function notepageRoutes(db: Db) {
   });
 
   // Public read route — anonymous principal; no-leak 404 semantics.
-  r.get('/public/notes/:slug', (c) => {
-    const page = db.select().from(notepages).where(eq(notepages.slug, c.req.param('slug'))).get();
+  r.get('/public/notes/:id', (c) => {
+    const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
     if (!page || page.visibility !== 'public' || page.publishedDoc === null) {
       return c.json(NOT_FOUND, 404);
     }
     const doc = safeParse<PublishedDoc | null>(page.publishedDoc, null);
     if (doc === null) return c.json({ error: 'published snapshot is corrupt — re-publish the page' }, 500);
     const themeId = effectiveTheme(db, page).id;
-    return c.json({
-      slug: page.slug,
-      theme: themeId,
-      customization: themeCustomizations(db)[themeId] ?? null,
-      doc,
-    });
+    return c.json({ id: page.id, slug: page.slug, theme: themeId, customization: themeCustomizations(db)[themeId] ?? null, doc });
   });
 
   return r;
@@ -389,24 +383,24 @@ export function notepageRoutes(db: Db) {
  */
 export function publicHtmlRoutes(db: Db) {
   const r = new Hono();
-  r.get('/notes/:slug', (c) => {
-    const page = db.select().from(notepages).where(eq(notepages.slug, c.req.param('slug'))).get();
+  r.get('/notes/:id', (c) => {
+    const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
     if (!page || page.visibility !== 'public' || page.publishedHtml === null) {
       return c.html(NOT_FOUND_HTML, 404);
     }
     return c.html(page.publishedHtml);
   });
 
-  // First-class page permalink (M9-D1): pagelink marks store only the
-  // pageId and render /p/:id — this 302 resolves to the CURRENT slug,
-  // so renames never break inter-page links. Same no-leak 404 as the
-  // slug route (private/unpublished/missing are indistinguishable).
+  // First-class page permalink (M9-D1): /p/:id is the surface-neutral in-content
+  // link string. The web SPA routes it client-side (surface-preserving); for
+  // no-JS fallback this 302 resolves to /notes/:id. Same no-leak 404 semantics
+  // (private/unpublished/missing are indistinguishable).
   r.get('/p/:id', (c) => {
     const page = db.select().from(notepages).where(eq(notepages.id, c.req.param('id'))).get();
     if (!page || page.visibility !== 'public' || page.publishedHtml === null) {
       return c.html(NOT_FOUND_HTML, 404);
     }
-    return c.redirect(`/notes/${encodeURIComponent(page.slug)}`, 302);
+    return c.redirect(`/notes/${encodeURIComponent(page.id)}`, 302);
   });
   return r;
 }

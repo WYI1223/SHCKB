@@ -41,17 +41,17 @@ describe('corrupt stored rows degrade locally (E1)', () => {
     t.db.update(notepages).set({ publishedDoc: '{not json' }).where(eq(notepages.id, bad.id)).run();
 
     const dir = await json(await t.app.request('/api/public/notes'));
-    expect(dir.notes.map((n: { slug: string }) => n.slug)).toEqual([good.slug]);
+    expect(dir.notes.map((n: { id: string }) => n.id)).toEqual([good.id]);
 
     // public tree keeps the page, falls back to the working title
     const tree = await json(await t.app.request('/api/public/tree'));
-    const slugs = tree.notepages.map((p: { slug: string }) => p.slug).sort();
-    expect(slugs).toEqual([bad.slug, good.slug].sort());
-    const badEntry = tree.notepages.find((p: { slug: string }) => p.slug === bad.slug);
+    const ids = tree.notepages.map((p: { id: string }) => p.id).sort();
+    expect(ids).toEqual([bad.id, good.id].sort());
+    const badEntry = tree.notepages.find((p: { id: string }) => p.id === bad.id);
     expect(badEntry.title).toBe('Bad Page'); // working-title fallback
 
     // single-page JSON read reports the corruption explicitly
-    const single = await t.app.request(`/api/public/notes/${bad.slug}`);
+    const single = await t.app.request(`/api/public/notes/${bad.id}`);
     expect(single.status).toBe(500);
     expect((await json(single)).error).toContain('re-publish');
   });

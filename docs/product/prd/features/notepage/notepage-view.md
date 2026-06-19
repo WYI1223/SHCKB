@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | draft (pass 4 — route/visibility + BDD rewrite) |
-| Last updated | 2026-05-22 |
+| Status | draft (pass 7 — preview the public experience as a visitor) |
+| Last updated | 2026-06-18 |
 | Owner | W_YI |
 | Parent PRD | [notepage.md](./notepage.md) |
 
@@ -96,7 +96,13 @@ Authenticated but unauthorized users may receive a clearer forbidden response wh
 
 ### Author Preview
 
-Author preview renders a reader-like view of the author working state. It is useful for checking content before updating the public state, but it is not the public canonical read route.
+Editing and reading are **two modes of the same page** for the author. While working on a draft, the author can switch to a read-only preview of their own working content at any moment — without a save step and without losing their place. Switching back to editing is equally instant.
+
+This draft preview is distinct from the published edition that public readers see. The author's working draft is always accessible in both modes regardless of whether the page has a published edition.
+
+Preview is not only per-page but a **sustained mode**: the author can put their workspace into read-only preview and keep moving between pages while staying in preview — browsing their own library the way a reader would, instead of dropping back into editing on every navigation. Turning preview off returns navigation to editing. The mode is always visible and stays consistent with the page currently shown, so the author is never left guessing which mode a click will land in.
+
+Separately, an author can preview the **public reading experience** itself — the published library exactly as an anonymous visitor browses it (the public directory plus published snapshots) — and return to editing at any time. This is distinct from draft preview: draft preview shows the author's own working content, whereas this shows what the public actually sees. When a logged-in author enters the public read experience, the directory they see is the visitor's public directory, not their full authoring rack.
 
 Preview must be:
 
@@ -119,6 +125,14 @@ Reader interaction should stay simple:
 - block `RenderView` provides block-specific interaction;
 - keyboard navigation supports basic focus movement across blocks;
 - browser-native find, scroll, and zoom should not be hijacked.
+
+### Internal Link Navigation
+
+**Mode-preserving navigation**: following an internal link while reading takes the reader to the reading view of the target page — the reader stays in reading mode, not editing mode.
+
+**Block-targeted links**: an internal link can target a specific block within a page (on the same page or a different page). Following such a link brings that block into view.
+
+**Browse position**: returning to a page a reader has already visited restores roughly where they were — the reader does not land at the top of the page after using back navigation or revisiting a page within the same session.
 
 ---
 
@@ -212,11 +226,16 @@ Scenario: Public read route is server-rendered
 | Invariant | Meaning |
 |---|---|
 | **No authoring controls in public view** | Public readers never see drag/resize/palette/selection UI. |
-| **Public read state is completed state** | Reader route renders last completed public state, not unfinished author working edits. |
+| **Public read state is completed state** | The public edition renders the last explicitly published state, not the author's unfinished working edits. |
+| **Edit and read are modes of the same page** | An author can toggle between editing and a read-only preview of their own draft instantly, without a save step and without losing their place. These are two views of the same page; the public published edition is a separate thing. Architecture: [ADR-0031]. |
+| **Preview is a browsing mode** | The author can sustain read-only preview across page navigation — browse the whole library as a reader, not only one page at a time. The mode is visible and stays consistent with the page shown (no hidden mode). Architecture: [ADR-0031]. |
+| **Author can preview the public experience** | A logged-in author can enter a read-only preview of the published library as a visitor sees it — the public directory plus published snapshots — and exit back to editing at any time. Distinct from draft preview (which shows working content). The public directory shown is the visitor projection, not the full authoring rack. Architecture: [ADR-0031]. |
 | **Preview is non-canonical** | Preview may render working state but must not become public canonical content. |
 | **Private/deleted content does not leak** | Inaccessible routes must not include private/deleted content in body, metadata, or SSR output. |
 | **RenderView per block** | View mode calls each supported block kind's RenderView, not EditView. |
 | **SSR public content** | Public notepages have server-rendered initial content and metadata. |
+| **Mode-preserving navigation** | Following an internal link while reading takes the reader to the reading view of the target page. The reader's relationship to content (reading or editing) is preserved across link navigation. Architecture: [ADR-0031]. |
+| **Block-targeted links** | An internal link may target a specific block on any page; following that link brings the block into view. |
 
 ### Response Behavior Matrix
 
@@ -264,8 +283,8 @@ PRD-layer upstream dependencies:
 
 ### Open Questions
 
-1. **Exact public route path**: M2 may use `/notes/:slug`, but final product URL syntax remains open per parent PRD.
-2. **Exact author preview route shape**: query / app route / route segment are implementation choices as long as preview remains authenticated, non-canonical, and noindex.
+1. **Exact public route path**: the public canonical read route has a stable, shareable address; the specific addressing scheme is an implementation choice per parent PRD.
+2. **Exact author preview surface address**: the addressing mechanism for the author's draft preview is an implementation choice as long as preview remains authenticated, non-canonical, and noindex.
 3. **403 vs generic not-found details**: privacy-preserving default is preferred; exact response differentiation should align with authentication/identity PRDs.
 4. **Future 410 tombstone**: not M2; may be revisited if public SEO transparency is prioritized.
 5. **Large notepage rendering limit**: M2 can cap or degrade; M4 should define production strategy.
@@ -276,6 +295,7 @@ PRD-layer upstream dependencies:
 - **[ADR-0002] visibility/public-read state**: schema must represent private/public, public completed state, and deletion/tombstone metadata.
 - **[ADR-0014] RenderView fallback**: unsupported block behavior in public view needs a safe rendering contract.
 - **[ADR-0010] SSR/performance budget**: public read route performance and SSR size need alignment with notepage view acceptance.
+- **[ADR-0031] view-mode navigation + first-class links** (proposed, 2026-06-17): surface model (edit / read modes, draft preview, published edition); mode-preserving navigation; block-targeted links; browse-position restore. Realizes the mode-model invariants added in this PRD's pass 5.
 
 详 [AUDIT-2026-05.md](../../../../engineering/decisions/AUDIT-2026-05.md) PRD-surfaced debts log。
 
@@ -288,6 +308,7 @@ PRD-layer upstream dependencies:
   - [ADR-0010](../../../../engineering/decisions/ADR-0010-performance-budget.md) — Lighthouse / FCP / LCP
   - [ADR-0013](../../../../engineering/decisions/ADR-0013-markdown-tile-editor.md) — RenderView for markdown
   - [ADR-0014](../../../../engineering/decisions/ADR-0014-plugin-contract.md) — RenderView contract
+  - [ADR-0031](../../../../engineering/decisions/ADR-0031-view-mode-navigation.md) — view-mode surface model, mode-preserving navigation, first-class links (downstream of this PRD)
 - **Parent**: [notepage.md](./notepage.md)
 - **Sibling PRDs**: [notepage-editing.md](./notepage-editing.md) / [notepage-responsive.md](./notepage-responsive.md)
 - **Cross-folder PRDs**: [authentication.md](../authentication/authentication.md) / [identity.md](../authentication/identity.md) / [theme-system.md](../theme-system/theme-system.md) / [plugin-system.md](../plugin-system/plugin-system.md)
@@ -302,3 +323,6 @@ PRD-layer upstream dependencies:
 - 2026-05-16 pass 2 layer relationship fix（owner critical framing）：Dependencies 段只列 upstream PRD deps；ADRs 移到 References "Aligning ADRs" 段。
 - 2026-05-16 hygiene pass 3 (owner review): 相对链接深度修正。
 - 2026-05-22 pass 4 — route/visibility + BDD rewrite：改为 What / Why / Whole picture / User-facing experience / BDD Acceptance / Reference；同步 parent private/public、last completed public state、route-class framing、preview noindex、privacy-preserving delete/default response、BDD acceptance discipline。
+- 2026-06-18 pass 5 — mode model update [ADR-0031]：Author Preview 节更新为"edit/read 是同一页的两个模式、即时切换、无需保存、不丢位置"；新增 Internal Link Navigation 节（mode-preserving navigation、block-targeted links、browse position restore）；View Invariants 新增"Edit and read are modes of the same page"不变量（含 ADR-0031 引用）、"Mode-preserving navigation"、"Block-targeted links"；Open Question 1 去除"slug-based"HOW token（addressing scheme 是 impl 决策，非 WHAT）；Open Question 2 已为 impl-neutral；Surfaced ADR Debts + References 新增 ADR-0031。
+- 2026-06-18 pass 6 — preview 作为浏览模式：Author Preview 节补「sustained mode，可跨页保持、像读者一样逛整库、模式始终可见无隐藏态」；View Invariants 新增「Preview is a browsing mode」不变量（含 ADR-0031 引用）。落地细节（chrome 切换 / sidebar 守面 / 折叠 inline flip）见 MVP-10 spec §12。
+- 2026-06-18 pass 7 — 登录态预览公开阅读体验：Author Preview 节补「可预览公开阅读体验（访客视角的已发布库：公开目录 + 已发布快照）、可随时退回编辑；登录作者进公开面看访客的公开目录而非全鞋柜」；View Invariants 新增「Author can preview the public experience」不变量。落地（底部账户区「以访客预览」入口 / 侧栏按 surface 取 public 投影 / spec §11.1 终裁为 public 投影）见 MVP-10 spec §13。
